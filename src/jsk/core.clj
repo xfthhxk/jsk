@@ -9,8 +9,7 @@
             [clojurewerkz.quartzite.jobs :as j]
             [clojurewerkz.quartzite.jobs :refer [defjob]]
             [clojurewerkz.quartzite.schedule.simple :refer [schedule with-repeat-count with-interval-in-milliseconds]])
-  (:import (org.zeroturnaround.exec ProcessExecutor))
-  (:gen-class))
+  (:import (org.quartz.impl.matchers GroupMatcher EverythingMatcher)))
 
 
 ;; need to be able to run a job based on a schedule
@@ -38,8 +37,8 @@
 
 (defn make-schedule []
   ; NB. schedule is a macro
-  (schedule (with-repeat-count 5)
-            (with-interval-in-milliseconds 5000)))
+  (schedule (with-repeat-count 1000)
+            (with-interval-in-milliseconds 5000000)))
 
 ; NB. a trigger can't be shared by jobs
 (defn make-trigger
@@ -64,4 +63,32 @@
 (defn shutdown
   []
   (qs/shutdown))
+
+(defn ls-jobs []
+  (let [group-names (qs/get-job-group-names)
+        job-keys (map #(-> %1 (GroupMatcher/groupEquals) (qs/get-job-keys) seq) group-names)
+        ;;job-keys (map #(seq (qs/get-job-keys (GroupMatcher/groupEquals %1))) group-names)
+        jk (flatten job-keys)]
+    (info "a# job-keys is: " job-keys " jk is: " jk)
+    (map #(.getName %1) jk)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

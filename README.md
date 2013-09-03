@@ -17,9 +17,9 @@ tail -f log/jsk.log
 
 ```clojure
 
-(load "jsk/repl")
-(jsk.repl/start-server)
-(jsk.repl/stop-server)
+(load "jsk/repl")       ; loads jsk.repl namespace which exposes start-server and stop-server fns
+(jsk.repl/start-server) ; starts the server
+(jsk.repl/stop-server)  ; stops the server
 
 ```
 

@@ -1,14 +1,19 @@
 (ns jsk.handler
-  (:require [compojure.core :refer [defroutes]]
+  (:require [compojure.core :refer [defroutes GET]]
             [compojure.route :as route]
             [noir.util.middleware :as middleware]
             [taoensso.timbre :as timbre]
             [com.postspectacular.rotor :as rotor]
-            [jsk.core :as q]))
+            [jsk.core :as q]
+            [jsk.views.jobs :as vj]))
 
 (defroutes app-routes
   (route/resources "/")
   (route/not-found "Not found."))
+
+(defroutes job-routes
+  (GET "/jobs" []
+       (vj/jobs-fn)))
 
 
 (defn init
@@ -43,7 +48,7 @@
 
 
 (def app (middleware/app-handler
-          [app-routes]            ; add app routes here
+          [job-routes app-routes] ; add app routes here
           :middleware []          ; add custom middleware here
           :access-rules []))      ; add access rules here. each rule is a vector
 
