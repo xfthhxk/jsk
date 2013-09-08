@@ -23,6 +23,23 @@ tail -f log/jsk.log
 
 ```
 
+## TODO
+Quartz doesn't have the concept of a schedule which should exist.
+Should create a job and associate schedules to that job.  Schedule is a
+record of id, name, description, and a cron expression
+
+Three types are most important:
+* Cron/Calendar
+* Simple ie do x every 5 minutes
+   (also specify when active/not between 5 am and 10pm)
+* Event based ie file/directory watch
+
+
+** Cron
+- UI will translate interface to cron expression
+
+
+
 
 ## License
 

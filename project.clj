@@ -4,6 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
+                 [org.clojure/core.typed "0.2.3"]    ; static type checking
                  [clojurewerkz/quartzite "1.1.0"]    ; clojure wrapper around quartz scheduling
                  [org.zeroturnaround/zt-exec "1.4"]  ; process execution
                  [com.taoensso/timbre "2.6.1"]       ; logging
@@ -21,5 +22,7 @@
                    :dependencies [[midje "1.5.1"]
                                   [ring-mock "0.1.5"]
                                   [ring/ring-devel "1.1.8"]]}}
-  :plugins [[lein-ring "0.8.7"]]
+  :plugins [[lein-ring "0.8.7"]
+            [lein-typed "0.3.0"]]
+  ; :core.typed {:check [jsk.core jsk.handler jsk.ps jsk.repl jsk.quartz]}
   :min-lein-version "2.0.0")
