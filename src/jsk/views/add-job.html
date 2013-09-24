@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Add Job</title>
+    </head>
+
+    <body>
+
+        <div>Page Created: <span id="page-created-ts">The time stamp</span></div>
+
+        <form id="job-add-form" name="job-add-form" action="/job/add" method="post">
+
+            <div id="job-name-div">
+                <label for="job-name">Name:</label>
+                <input type="text" name="job-name" id="job-name"/>
+            </div>
+
+            <div id="job-desc-div">
+                <label for="job-desc">Description:</label>
+                <input type="text" name="job-desc" id="job-desc"/>
+            </div>
+
+            <div id="job-args-div">
+                <label for="job-args">Args:</label>
+                <input type="text" name="job-args" id="job-args"/> *
+            </div>
+
+
+            <div id="action-div">
+                <input type="submit" value="Submit" />
+            </div>
+
+            <div id="errors">
+                <ul id="error-list">
+                   <li class="error">First error.</li>
+                </ul>
+            </div>
+
+        </form>
+
+
+        <div id="job-args-desc">
+            <p>* Currently vector of vectors. Eg to run "cal 1 2012", args would be "[[1][2012]]".
+                To run a jar file args would be "[[-jar my-jar-file.jar]]".  Each subvec can be
+                of length 1 or 2. Length one is for flags. Length two is for key value type pairs for
+                example.
+        </div>
+
+    </body>
+</html
