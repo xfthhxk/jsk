@@ -26,3 +26,12 @@
 (e/transform nodes [:#page-created-ts] (fn [n]  (assoc n :content (str (java.util.Date.)))))
 
 (apply str (e/emit* (e/transform nodes [:#page-created-ts] (e/append (str (java.util.Date.))))))
+
+(neg? 4)
+
+(clojure.string/lower-case "hEllO")
+
+(clojure.string/replace "schedule_id_name" "_" "-")
+
+(merge {:hello 2 :bye 3} {:hello 1})
+

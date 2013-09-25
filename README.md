@@ -23,6 +23,14 @@ tail -f log/jsk.log
 
 ```
 
+
+## Enfocus notes
+Can't have anything other than actual selectors and functions in defaction,
+defsnippet and deftemplate etc.
+
+Have to pass strings to ef/content. doesn't like ints even.
+
+
 ## TODO
 Quartz doesn't have the concept of a schedule which should exist.
 Should create a job and associate schedules to that job.  Schedule is a

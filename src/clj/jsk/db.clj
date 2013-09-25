@@ -72,10 +72,10 @@
            :updated-at (now)}]
     (if (neg? id)
       (insert-schedule! m)
-      (update-schedule! m))))
+      (update-schedule! (assoc m :schedule-id id)))))
 
 
-(save-schedule! 9 "My new schedule" "my new schedule desc upd" "anthr cron upd" "amehta-me")
+(save-schedule! 9 "My new schedule upd" "my new schedule desc upd" "anthr cron upd" "amehta-me")
 
 
 

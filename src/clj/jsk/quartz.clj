@@ -10,7 +10,8 @@
             [clojurewerkz.quartzite.jobs :refer [defjob]]
             [clojurewerkz.quartzite.schedule.cron :as cron]
             [clojurewerkz.quartzite.schedule.simple :as simple])
-  (:import (org.quartz.impl.matchers GroupMatcher EverythingMatcher)))
+  (:import (org.quartz.impl.matchers GroupMatcher EverythingMatcher))
+  (:import (org.quartz CronExpression)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; In memory map of ids => Schedule instances
@@ -62,7 +63,7 @@
         s (Schedule. id sname sdesc cron-expr)]
     (dosync
      (commute schedule-map assoc id s)
-     (commute schedule-name-id-map assoc sname id))))
+     (commute schedule-name-map assoc sname id))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -78,7 +79,7 @@
 ;; Answers true if a schedule with name sn exists.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn schedule-name-exists? [sn]
-  (contains? @schedule-name-id-map sn))
+  (contains? @schedule-name-map sn))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Didn't know about NativeJob. Maybe use that instead.
@@ -114,6 +115,10 @@
   "Makes a cron trigger instance based on the schedule specified."
   [trigger-key schedule]
   (cron/schedule (cron/cron-schedule (:cron-expr schedule))))
+
+
+(defn valid-cron-expr? [expr]
+  (CronExpression/isValidExpression expr))
 
 (defn make-schedule []
   ; NB. schedule is a macro
