@@ -27,7 +27,9 @@
 
 (defroutes schedule-routes
   (GET "/schedules" []
-       (response/edn (db/ls-schedules))))
+       (response/edn (db/ls-schedules)))
+  (GET "/schedules/:id" [id]
+       (response/edn (db/get-schedule id))))
 ;  (GET "/schedules/add" req []
 ;       (info "in schedules/add")
 ;       (vs/show-add-schedule (:params req)))

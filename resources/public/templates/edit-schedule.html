@@ -1,42 +1,29 @@
-<!DOCTYPE html>
+<form id="schedule-add-form" name="schedule-add-form" action="/schedules/add" method="post">
+    <input type="hidden" name="schedule-id" value=""/>
 
-<html>
-    <head>
-        <title>Add Schedule</title>
-    </head>
+    <div id="schedule-name-div">
+        <label for="schedule-name">Name:</label>
+        <input type="text" name="schedule-name" id="schedule-name"/>
+    </div>
 
-    <body>
+    <div id="schedule-desc-div">
+        <label for="schedule-desc">Description:</label>
+        <input type="text" name="schedule-desc" id="schedule-desc"/>
+    </div>
 
-        <div>Page Created: <span id="page-created-ts">The time stamp</span></div>
+    <div id="cron-expr-div">
+        <label for="cron-expr">Cron Expression:</label>
+        <input type="text" name="cron-expr" id="cron-expression"/>
+    </div>
 
-        <form id="schedule-add-form" name="schedule-add-form" action="/schedules/add" method="post">
+    <div id="action-div">
+        <input type="submit" value="Submit" />
+    </div>
 
-            <div id="schedule-name-div">
-                <label for="schedule-name">Name:</label>
-                <input type="text" name="schedule-name" id="schedule-name"/>
-            </div>
+    <div id="errors">
+        <ul id="error-list">
+           <li class="error">First error.</li>
+        </ul>
+    </div>
 
-            <div id="schedule-desc-div">
-                <label for="schedule-desc">Description:</label>
-                <input type="text" name="schedule-desc" id="schedule-desc"/>
-            </div>
-
-            <div id="cron-expr-div">
-                <label for="cron-expr">Cron Expression:</label>
-                <input type="text" name="cron-expr" id="cron-expr"/>
-            </div>
-
-            <div id="action-div">
-                <input type="submit" value="Submit" />
-            </div>
-
-            <div id="errors">
-                <ul id="error-list">
-                   <li class="error">First error.</li>
-                </ul>
-            </div>
-
-        </form>
-
-    </body>
-</html>
+</form>

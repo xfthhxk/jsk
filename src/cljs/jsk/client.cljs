@@ -15,14 +15,9 @@
  (when dev-mode
    (repl/connect "http://localhost:9000/repl")))
 
-
-
-(defaction sfn []
-  (.log js/console "SFN called!")
-  (s/show-schedules))
-
 (defaction init []
-  "#btn" (events/listen :click sfn))
+  "#schedule-list-action" (events/listen :click #(s/show-schedules))
+  "#schedule-add-action"  (events/listen :click #(s/show-add-schedule)))
 
 ;;************************************************
 ;; onload

@@ -50,7 +50,6 @@
   [id]
   (select schedule
           (where {:schedule-id id})))
-(get-schedule 4)
 
 
 (defn- insert-schedule! [m]
@@ -73,13 +72,6 @@
     (if (neg? id)
       (insert-schedule! m)
       (update-schedule! (assoc m :schedule-id id)))))
-
-
-(save-schedule! 9 "My new schedule upd" "my new schedule desc upd" "anthr cron upd" "amehta-me")
-
-
-
-
 
 
 
