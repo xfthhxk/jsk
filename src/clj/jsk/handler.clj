@@ -1,6 +1,7 @@
 (ns jsk.handler
   (:require [compojure.core :refer [defroutes GET PUT POST]]
             [compojure.route :as route]
+            [ring.middleware.edn :as redn]
             [noir.util.middleware :as middleware]
             [noir.response :as response]
             [ring.middleware.stacktrace :as rs]
@@ -10,6 +11,10 @@
             [com.postspectacular.rotor :as rotor]
             [jsk.core :as q]
             [jsk.db :as db]))
+
+
+(defn str->int [params k]
+  (assoc params k (Integer/parseInt (k params))))
 
 (defroutes app-routes
   (route/resources "/")
@@ -28,8 +33,15 @@
 (defroutes schedule-routes
   (GET "/schedules" []
        (response/edn (db/ls-schedules)))
+
   (GET "/schedules/:id" [id]
-       (response/edn (db/get-schedule id))))
+       (response/edn (db/get-schedule id)))
+
+  (POST "/schedules/save" [_ :as r]
+        (info r)
+        (db/save-schedule! (str->int (:params r) :schedule-id))))
+        ;(db/save-schedule! (Integer/parseInt schedule-id) schedule-name schedule-desc cron-expression "amar")))
+
 ;  (GET "/schedules/add" req []
 ;       (info "in schedules/add")
 ;       (vs/show-add-schedule (:params req)))
@@ -72,10 +84,12 @@
 (def app (middleware/app-handler
           [schedule-routes app-routes] ; add app routes here
           :middleware [rs/wrap-stacktrace]          ; add custom middleware here
+          :formats [:edn]
           :access-rules []))      ; add access rules here. each rule is a vector
 
 
 ;(def war-handler (middleware/war-handler app))
 (def war-handler
   (-> app (middleware/war-handler)
+          (redn/wrap-edn-params)
           (rr/wrap-resource "public")))

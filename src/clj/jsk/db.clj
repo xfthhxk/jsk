@@ -63,21 +63,16 @@
           (where {:schedule-id schedule-id})))
 
 
-(defn save-schedule! [id nm desc cron-expr user-id]
-  (let [m {:schedule-name nm
-           :schedule-desc desc
-           :cron-expression cron-expr
-           :updated-by user-id
-           :updated-at (now)}]
-    (if (neg? id)
-      (insert-schedule! m)
-      (update-schedule! (assoc m :schedule-id id)))))
+(defn save-schedule!
+  ([{:keys [schedule-id schedule-name schedule-desc cron-expression]}]
+   (save-schedule! schedule-id schedule-name schedule-desc cron-expression "amar"))
 
-
-
-
-
-
-
-
-
+  ([id nm desc cron-expr user-id]
+    (let [m {:schedule-name nm
+             :schedule-desc desc
+             :cron-expression cron-expr
+             :updated-by user-id
+             :updated-at (now)}]
+      (if (neg? id)
+        (insert-schedule! m)
+        (update-schedule! (assoc m :schedule-id id))))))

@@ -4,6 +4,7 @@
             [enfocus.events :as events])
   (:require-macros [enfocus.macros :as em]))
 
+(declare save-schedule schedule-row-clicked list-schedules edit-schedule show-schedule show-schedules)
 
 (defn by-id [id]
   (.getElementById js/document id))
@@ -16,7 +17,15 @@
   (.-currentTarget e))
 
 (defn- error-handler [{:keys [status status-text]}]
-  (log (str "error: " status  " " status-text)))
+  (let [error-info (str "Error code: " status ", msg: " status-text)]
+    (log (str "error: " status  " " status-text))
+    (ef/at "#error-div" (ef/content error-info))))
+
+(defn- save-schedule [e]
+  (log (str "in save-schedule: " e))
+  (let [sched-map (ef/from "#schedule-save-form" (ef/read-form))]
+    (log (pr-str sched-map))
+    (POST "/schedules/save" {:params sched-map :handler (fn[_](show-schedules)) :error-handler error-handler})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Edit Schedule
@@ -25,11 +34,13 @@
   "#schedule-id" (ef/set-attr :value (str (:schedule-id s)))
   "#schedule-name" (ef/set-attr :value (:schedule-name s))
   "#schedule-desc" (ef/set-attr :value (:schedule-desc s))
-  "#cron-expression" (ef/set-attr :value (:cron-expression s)))
+  "#cron-expression" (ef/set-attr :value (:cron-expression s))
+  "#save-schedule-btn" (events/listen :click save-schedule))
 
 (defn- show-schedule [s]
   (log (str s))
-  (ef/at "#schedules" (ef/content (edit-schedule (first s)))))
+  (ef/at "#container" (ef/content (edit-schedule (first s)))))
+
 
 (defn- schedule-row-clicked [e]
   (let [id (ef/from (event-source e) (ef/get-attr :data-schedule-id))]
@@ -59,7 +70,7 @@
 
 (defn- display-schedules [ss]
   (log (str ss))
-  (ef/at "#schedules" (ef/content (list-schedules ss))))
+  (ef/at "#container" (ef/content (list-schedules ss))))
 
 
 (defn show-schedules []
@@ -68,4 +79,4 @@
 
 (defn show-add-schedule []
   (log "Add schedule called")
-  (ef/at "#schedules" (ef/content (edit-schedule {}))))
+  (ef/at "#container" (ef/content (edit-schedule {:schedule-id -1}))))

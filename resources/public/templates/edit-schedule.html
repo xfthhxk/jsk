@@ -1,5 +1,5 @@
-<form id="schedule-add-form" name="schedule-add-form" action="/schedules/add" method="post">
-    <input type="hidden" name="schedule-id" value=""/>
+<form id="schedule-save-form" name="schedule-save-form">
+    <input type="hidden" name="schedule-id" id="schedule-id" value=""/>
 
     <div id="schedule-name-div">
         <label for="schedule-name">Name:</label>
@@ -12,12 +12,13 @@
     </div>
 
     <div id="cron-expr-div">
-        <label for="cron-expr">Cron Expression:</label>
-        <input type="text" name="cron-expr" id="cron-expression"/>
+      <label for="cron-expression">Cron Expression:</label>
+      <input type="text" name="cron-expression" id="cron-expression"/>
     </div>
 
-    <div id="action-div">
-        <input type="submit" value="Submit" />
+
+  <div id="action-div">
+    <input id="save-schedule-btn" type="submit" name="blah" value="Submit" />
     </div>
 
     <div id="errors">
