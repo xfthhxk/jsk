@@ -10,7 +10,7 @@
              :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor]
             [jsk.core :as q]
-            [jsk.db :as db]))
+            [jsk.schedule :as s]))
 
 
 (defn str->int [params k]
@@ -20,40 +20,16 @@
   (route/resources "/")
   (route/not-found "Not found."))
 
-;(defroutes job-routes
-;  (GET "/jobs" []
-;       (vj/jobs-fn)))
-;  (POST "/jobs/add" [:as {params :params}]
-;        (vj/add-job! params)))
-
-;(defroutes trigger-routes
-;  (GET "/triggers" []
-;       (vt/triggers-fn)))
-
 (defroutes schedule-routes
   (GET "/schedules" []
-       (response/edn (db/ls-schedules)))
+       ;(s/ls-schedules))
+       (-> (s/ls-schedules) response/edn))
 
   (GET "/schedules/:id" [id]
-       (response/edn (db/get-schedule id)))
+       (-> id s/get-schedule response/edn))
 
-  (POST "/schedules/save" [_ :as r]
-        (let [params (read-string (slurp (:body r)))]
-          (info "params: " params)
-
-        ;(db/save-schedule! (str->int (:params r) :schedule-id))
-        (db/save-schedule! (str->int params :schedule-id))
-        (info "done saving")
-        (response/edn {:status "OK thanks i think uh for real?"}))))
-        ;(db/save-schedule! (Integer/parseInt schedule-id) schedule-name schedule-desc cron-expression "amar")))
-
-;  (GET "/schedules/add" req []
-;       (info "in schedules/add")
-;       (vs/show-add-schedule (:params req)))
-;  (POST "/schedules/add" [:as {params :params}]
-;       (info "in POST schedules/add")
-;       (vs/add-schedule! params)))
-
+  (POST "/schedules/save" [_ :as request]
+        (-> (:params request)  (str->int :schedule-id)  s/save-schedule! response/edn)))
 
 (defn init
   "init will be called once when the app is deployed as a servlet
@@ -89,12 +65,11 @@
 (def app (middleware/app-handler
           [schedule-routes app-routes] ; add app routes here
           :middleware [rs/wrap-stacktrace]          ; add custom middleware here
-;          :formats [:edn]
           :access-rules []))      ; add access rules here. each rule is a vector
 
 
 ;(def war-handler (middleware/war-handler app))
 (def war-handler
   (-> app (middleware/war-handler)
-          ; (redn/wrap-edn-params)
+          (redn/wrap-edn-params)
           (rr/wrap-resource "public")))

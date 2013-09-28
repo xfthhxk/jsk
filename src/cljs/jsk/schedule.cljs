@@ -27,8 +27,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 (em/deftemplate edit-schedule :compiled "public/templates/edit-schedule.html" [s]
   "#schedule-id" (ef/set-attr :value (str (:schedule-id s)))
+  "#schedule-id-lbl" (ef/content (str (:schedule-id s)))
   "#schedule-name" (ef/set-attr :value (:schedule-name s))
-  "#schedule-desc" (ef/set-attr :value (:schedule-desc s))
+  "#schedule-desc" (ef/content (:schedule-desc s))
   "#cron-expression" (ef/set-attr :value (:cron-expression s))
   "#save-btn" (events/listen :click save-schedule))
 

@@ -25,6 +25,7 @@
   (let [xhr (.-target e)
         status (.getStatus xhr)
         response (.getResponseText xhr)]
+    (log (str "XHR status: " status ", response: " response))
     {:xhr xhr :status status :response (response->edn response)}))
 
 (def edn-headers (-> {"Content-Type" "application/edn"} clj->js structs/Map.))

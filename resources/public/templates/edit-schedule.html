@@ -1,30 +1,45 @@
-<form id="schedule-save-form" name="schedule-save-form" action="#">
+<form id="schedule-save-form" class="form-horizontal">
+  <fieldset>
+    <legend>Schedule Definition</legend>
+
     <input type="hidden" name="schedule-id" id="schedule-id" value=""/>
 
-    <div id="schedule-name-div">
-        <label for="schedule-name">Name:</label>
-        <input type="text" name="schedule-name" id="schedule-name"/>
+    <div class="control-group">
+      <label class="control-label" for="schedule-id-lbl">ID</label>
+      <div class="controls">
+        <label class="control-label text-left" id="schedule-id-lbl">34</label>
+      </div>
     </div>
 
-    <div id="schedule-desc-div">
-        <label for="schedule-desc">Description:</label>
-        <input type="text" name="schedule-desc" id="schedule-desc"/>
-    </div>
-
-    <div id="cron-expr-div">
-      <label for="cron-expression">Cron Expression:</label>
-      <input type="text" name="cron-expression" id="cron-expression"/>
+    <div class="control-group">
+      <label class="control-label" for="schedule-name">Name</label>
+      <div class="controls">
+        <input type="text" class="input-xlarge" name="schedule-name" id="schedule-name"/>
+      </div>
     </div>
 
 
-  <div id="action-div">
-    <button type="button" name="save-btn" id="save-btn">Save</button>
-  </div>
+    <div class="control-group">
+      <label class="control-label" for="schedule-desc">Description</label>
+      <div class="controls">
+        <textarea class="span4" rows="2" name="schedule-desc" id="schedule-desc"/>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label class="control-label" for="cron-expression">Cron Expression</label>
+      <div class="controls">
+        <input type="text" class="input-xlarge" name="cron-expression" id="cron-expression"/>
+      </div>
+    </div>
+
+  </fieldset>
+</form>
+
+<button type="button" class="btn" name="save-btn" id="save-btn">Save</button>
 
     <div id="errors">
         <ul id="error-list">
            <li class="error">First error.</li>
         </ul>
     </div>
-
-</form>
