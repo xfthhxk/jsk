@@ -16,7 +16,6 @@
                  [ring-server "0.2.8"]
                  [com.h2database/h2 "1.3.173"]       ; embedded db
                  [korma "0.3.0-RC5"]                 ; sql dsl
-                 [cljs-ajax "0.2.0"]
                  [fogus/ring-edn "0.2.0"]
                  [enfocus "2.0.0-SNAPSHOT"]]         ; cljs enlive like lib
   :source-paths ["src/clj"]

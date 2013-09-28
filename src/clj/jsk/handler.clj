@@ -38,8 +38,13 @@
        (response/edn (db/get-schedule id)))
 
   (POST "/schedules/save" [_ :as r]
-        (info r)
-        (db/save-schedule! (str->int (:params r) :schedule-id))))
+        (let [params (read-string (slurp (:body r)))]
+          (info "params: " params)
+
+        ;(db/save-schedule! (str->int (:params r) :schedule-id))
+        (db/save-schedule! (str->int params :schedule-id))
+        (info "done saving")
+        (response/edn {:status "OK thanks i think uh for real?"}))))
         ;(db/save-schedule! (Integer/parseInt schedule-id) schedule-name schedule-desc cron-expression "amar")))
 
 ;  (GET "/schedules/add" req []
@@ -84,12 +89,12 @@
 (def app (middleware/app-handler
           [schedule-routes app-routes] ; add app routes here
           :middleware [rs/wrap-stacktrace]          ; add custom middleware here
-          :formats [:edn]
+;          :formats [:edn]
           :access-rules []))      ; add access rules here. each rule is a vector
 
 
 ;(def war-handler (middleware/war-handler app))
 (def war-handler
   (-> app (middleware/war-handler)
-          (redn/wrap-edn-params)
+          ; (redn/wrap-edn-params)
           (rr/wrap-resource "public")))

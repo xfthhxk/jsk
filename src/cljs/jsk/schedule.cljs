@@ -1,5 +1,5 @@
 (ns jsk.schedule
-  (:require [ajax.core :refer [GET POST]]
+  (:require [jsk.rpc :as rpc]
             [enfocus.core :as ef]
             [enfocus.events :as events])
   (:require-macros [enfocus.macros :as em]))
@@ -16,16 +16,11 @@
 (defn event-source [e]
   (.-currentTarget e))
 
-(defn- error-handler [{:keys [status status-text]}]
-  (let [error-info (str "Error code: " status ", msg: " status-text)]
-    (log (str "error: " status  " " status-text))
-    (ef/at "#error-div" (ef/content error-info))))
-
 (defn- save-schedule [e]
   (log (str "in save-schedule: " e))
   (let [sched-map (ef/from "#schedule-save-form" (ef/read-form))]
     (log (pr-str sched-map))
-    (POST "/schedules/save" {:params sched-map :handler (fn[_](show-schedules)) :error-handler error-handler})))
+    (rpc/POST "/schedules/save" sched-map #(show-schedules))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Edit Schedule
@@ -35,7 +30,7 @@
   "#schedule-name" (ef/set-attr :value (:schedule-name s))
   "#schedule-desc" (ef/set-attr :value (:schedule-desc s))
   "#cron-expression" (ef/set-attr :value (:cron-expression s))
-  "#save-schedule-btn" (events/listen :click save-schedule))
+  "#save-btn" (events/listen :click save-schedule))
 
 (defn- show-schedule [s]
   (log (str s))
@@ -44,7 +39,7 @@
 
 (defn- schedule-row-clicked [e]
   (let [id (ef/from (event-source e) (ef/get-attr :data-schedule-id))]
-    (GET (str "/schedules/" id) {:handler show-schedule :error-handler error-handler})))
+    (rpc/GET (str "/schedules/" id) show-schedule)))
 
 
 ; template has 2 sample rows, so delete all but the first
@@ -75,7 +70,7 @@
 
 (defn show-schedules []
   (log "Show schedules called")
-  (GET "/schedules" {:handler display-schedules :error-handler error-handler}))
+  (rpc/GET "/schedules" display-schedules))
 
 (defn show-add-schedule []
   (log "Add schedule called")
