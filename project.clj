@@ -17,6 +17,7 @@
                  [com.h2database/h2 "1.3.173"]       ; embedded db
                  [korma "0.3.0-RC5"]                 ; sql dsl
                  [fogus/ring-edn "0.2.0"]
+                 [ring-middleware-format "0.3.1"]
                  [enfocus "2.0.0-SNAPSHOT"]]         ; cljs enlive like lib
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}

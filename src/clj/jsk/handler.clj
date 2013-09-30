@@ -4,17 +4,12 @@
             [ring.middleware.edn :as redn]
             [noir.util.middleware :as middleware]
             [noir.response :as response]
-            [ring.middleware.stacktrace :as rs]
-            [ring.middleware.resource :as rr]
-            [taoensso.timbre :as timbre
-             :refer (trace debug info warn error fatal)]
+            [ring.util.response :as rr]
+            [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor]
             [jsk.core :as q]
             [jsk.schedule :as s]))
 
-
-(defn str->int [params k]
-  (assoc params k (Integer/parseInt (k params))))
 
 (defroutes app-routes
   (route/resources "/")
@@ -22,14 +17,13 @@
 
 (defroutes schedule-routes
   (GET "/schedules" []
-       ;(s/ls-schedules))
-       (-> (s/ls-schedules) response/edn))
+       (response/edn (s/ls-schedules)))
 
   (GET "/schedules/:id" [id]
        (-> id s/get-schedule response/edn))
 
   (POST "/schedules/save" [_ :as request]
-        (-> (:params request)  (str->int :schedule-id)  s/save-schedule! response/edn)))
+       (-> (:params request) s/save-schedule! response/edn)))
 
 (defn init
   "init will be called once when the app is deployed as a servlet
@@ -61,15 +55,18 @@
   (q/shutdown)
   (timbre/info "JSK has stopped."))
 
+(defn- wrap-exception [handler]
+  (fn[request]
+    (try
+      (handler request)
+      (catch Exception ex
+        (timbre/error ex)
+        (-> (.getMessage ex) response/edn (rr/status 500))))))
 
-(def app (middleware/app-handler
-          [schedule-routes app-routes] ; add app routes here
-          :middleware [rs/wrap-stacktrace]          ; add custom middleware here
-          :access-rules []))      ; add access rules here. each rule is a vector
+(def app (middleware/app-handler [schedule-routes app-routes]))
 
 
-;(def war-handler (middleware/war-handler app))
 (def war-handler
   (-> app (middleware/war-handler)
-          (redn/wrap-edn-params)
-          (rr/wrap-resource "public")))
+          wrap-exception
+          (redn/wrap-edn-params)))
