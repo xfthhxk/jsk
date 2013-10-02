@@ -23,3 +23,10 @@
             (assoc coll k (-> k m str->int)))
           m
           kk))
+
+
+(defn element-value [id]
+  (.-value (element-by-id id)))
+
+(defn element-checked? [id]
+  (.-checked (element-by-id id)))

@@ -31,8 +31,8 @@
   (let [merged-map (merge m {:created-at (:updated-at m)
                              :created-by (:updated-by m)})]
     (info "Creating new schedule: " merged-map)
-        (-> (insert schedule (values merged-map))
-            db/extract-identity)))
+    (-> (insert schedule (values merged-map))
+         db/extract-identity)))
 
 ;-----------------------------------------------------------------------
 ; Update an existing schedule

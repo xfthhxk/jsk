@@ -1,3 +1,7 @@
 tr.schedule-row {
   cursor: pointer;
 }
+
+tr.job-row {
+  cursor: pointer;
+}

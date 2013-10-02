@@ -8,12 +8,21 @@
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor]
             [jsk.core :as q]
+            [jsk.job :as j]
             [jsk.schedule :as s]))
 
 
 (defroutes app-routes
   (route/resources "/")
   (route/not-found "Not found."))
+
+(defroutes job-routes
+  (GET "/jobs" []
+       (response/edn (j/ls-jobs)))
+  (GET "/jobs/:id" [id]
+       (-> id j/get-job response/edn))
+  (POST "/jobs/save" [_ :as request]
+        (-> (:params request) j/save-job! response/edn)))
 
 (defroutes schedule-routes
   (GET "/schedules" []
@@ -63,7 +72,7 @@
         (timbre/error ex)
         (-> (.getMessage ex) response/edn (rr/status 500))))))
 
-(def app (middleware/app-handler [schedule-routes app-routes]))
+(def app (middleware/app-handler [schedule-routes job-routes app-routes]))
 
 
 (def war-handler

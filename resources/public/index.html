@@ -2,11 +2,13 @@
 <head>
   <script language="javascript" src="js/main.js"></script>
   <!-- jQuery via Google + local fallback, see h5bp.com -->
-  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
   <!-- <script>window.jQuery || document.write('<script src="js/jquery-1.7.1.min.js"><\/script>')</script> -->
   <!-- Bootstrap jQuery Plugins, compiled and minified -->
-  <script src="js/bootstrap.min.js"></script>
   <link href="css/bootstrap.css" rel="stylesheet">
+  <script src="js/bootstrap.min.js"></script>
+  <!-- <link href="css/bootstrap-switch.css" rel="stylesheet">
+  <script src="js/bootstrap-switch.js"></script> -->
   <link href="css/jsk.css" rel="stylesheet">
 <style>
  body {
@@ -28,13 +30,18 @@
           <div class="nav-collapse">
             <ul class="nav">
               <li class="active"><a href="#"><i class="icon-home icon-white"></i>Home</a></li>
-              <li><a id="ajax-get" href="#">Ajax GET</a></li>
-              <li><a id="ajax-post" href="#">Ajax POST</a></li>
               <li class="dropdown">
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown">Schedules<b class="caret"></b></a>
                 <ul class="dropdown-menu">
                   <li><a id="schedule-list-action" href="#">List</a></li>
                   <li><a id="schedule-add-action"  href="#">Add</a></li>
+                </ul>
+              </li>
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Jobs<b class="caret"></b></a>
+                <ul class="dropdown-menu">
+                  <li><a id="job-list-action" href="#">List</a></li>
+                  <li><a id="job-add-action"  href="#">Add</a></li>
                 </ul>
               </li>
             </ul>

@@ -1,19 +1,21 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Jobs</title>
-    </head>
-
-    <body>
-        <div>Page Created: <span id="page-created-ts">The time stamp</span></div>
-        <table>
-            <tr>
-                <th>Job Name</th>
-            </tr>
-            <tr class="job-name-row">
-                <td class="job-name">Description for job 1</td>
-            </tr>
-        </table>
-    </body>
-
-</html>
+<table class="table-hover">
+  <thead>
+    <tr>
+      <th>Job ID</th>
+      <th>Job Name</th>
+      <th>Job Enabled</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr data-job-id="1" class="job-row">
+      <td class="job-id">ID for job 1</td>
+      <td class="job-name">Job Name 1</td>
+      <td class="job-is-enabled">true</td>
+    </tr>
+    <tr data-job-id="2" class="job-row">
+      <td class="job-id">ID for job 2</td>
+      <td class="job-name">Job Name 2</td>
+      <td class="job-is-enabled">false</td>
+    </tr>
+  </tbody>
+</table>

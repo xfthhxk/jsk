@@ -1,12 +1,15 @@
 drop table if exists job;
 
-create table job ( job_id     int           auto_increment primary key
-                 , job_name   varchar(50)   not null
-                 , job_desc   varchar(255)  not null
-                 , created_at timestamp     not null
-                 , created_by varchar(50)   not null
-                 , updated_at timestamp     not null
-                 , updated_by varchar(50)   not null);
+create table job ( job_id                  int           auto_increment primary key
+                 , job_name                varchar(50)   not null
+                 , job_desc                varchar(255)  not null
+                 , job_execution_directory varchar(255)  not null
+                 , job_command_line        varchar(255)  not null
+                 , is_enabled              boolean       not null
+                 , created_at              timestamp     not null
+                 , created_by              varchar(50)   not null
+                 , updated_at              timestamp     not null
+                 , updated_by              varchar(50)   not null);
 
 
 drop table if exists job_arg;
