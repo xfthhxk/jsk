@@ -28,9 +28,9 @@
   :plugins [[lein-ring "0.8.7"]
             [lein-typed "0.3.0"]
             [lein-cljsbuild "0.3.3"]]
-  :ring {:handler jsk.handler/war-handler
-         :init jsk.handler/init
-         :destroy jsk.handler/destroy}
+  :ring {:handler jsk.core/war-handler
+         :init jsk.core/init
+         :destroy jsk.core/destroy}
   :cljsbuild {:builds [{:source-paths ["src/cljs"]
                         :compiler {:output-to "resources/public/js/main.js"
                                    :optimizations :whitespace

@@ -7,6 +7,10 @@
   (pk :job-id)
   (entity-fields :job-id :job-name :job-desc :job-execution-directory :job-command-line :is-enabled))
 
+(defentity job-schedule
+  (pk :job-schedule-id)
+  (entity-fields :job-schedule-id :job-id :schedule-id))
+
 
 ;-----------------------------------------------------------------------
 ; Enumerates all jobs
@@ -70,3 +74,72 @@
      (if (neg? id)
        (insert-job! m)
        (update-job! (assoc m :job-id id))))))
+
+
+;-----------------------------------------------------------------------
+; Builds a seq of maps which can be used to insert values
+; in to the job-schedule table.
+;-----------------------------------------------------------------------
+(defn- build-insert-maps [job-id schedule-ids user-id]
+  (let [ts (db/now)]
+    (map (fn [x] {:job-id job-id
+                  :schedule-id x
+                  :created-at ts
+                  :updated-at ts
+                  :created-by user-id
+                  :updated-by user-id}) schedule-ids)))
+
+;-----------------------------------------------------------------------
+; Associates a job to a set of schedule-ids.
+; schedule-ids is a set of integer ids
+;-----------------------------------------------------------------------
+(defn assoc-schedules!
+  ([{:keys [job-id schedule-ids]}]
+    (assoc-schedules! job-id schedule-ids))
+
+  ([job-id schedule-ids user-id]
+    (info "job-id " job-id " is to be associated with schedules " schedule-ids)
+    (insert job-schedule  (values (build-insert-maps)))))
+
+;-----------------------------------------------------------------------
+; Disassociates schedule-ids from a job.
+; schedule-ids is a set of integer ids
+;-----------------------------------------------------------------------
+(defn dissoc-schedules!
+  ([{:keys [job-id schedule-ids]}]
+   (dissoc-schedules! job-id schedule-ids))
+
+  ([job-id schedule-ids]
+    (info "job-id " job-id " is to be disassociated from schedules " schedule-ids)
+    (delete job-schedule
+            (where {:job-id job-id
+                    :schedule-id [in schedule-ids]}))))
+
+
+;-----------------------------------------------------------------------
+; Deletes from job-schedule all rows matching job-schedule-ids
+;-----------------------------------------------------------------------
+(defn rm-job-schedules! [job-schedule-ids]
+  (info "Removing job-schedule associations for the following PK: " job-schedule-ids)
+  (delete job-schedule
+          (where {:job-schedule-id [in job-schedule-ids]})))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

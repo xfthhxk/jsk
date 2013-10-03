@@ -12,12 +12,12 @@ create table job ( job_id                  int           auto_increment primary 
                  , updated_by              varchar(50)   not null);
 
 
-drop table if exists job_arg;
+drop table if exists job_var;
 
-create table job_arg ( job_arg_id   int         auto_increment primary key
+create table job_var ( job_var      int         auto_increment primary key
                      , job_id       int         not null
-                     , arg_name     varchar(50) not null
-                     , arg_expr     varchar(50) not null
+                     , var_name     varchar(50) not null
+                     , var_expr     varchar(50) not null
                      , created_at   timestamp   not null
                      , created_by   varchar(50) not null
                      , updated_at   timestamp   not null
