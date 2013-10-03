@@ -38117,10 +38117,10 @@ jsk.rpc.rpc_event__GT_response_map = function rpc_event__GT_response_map(e) {
   return cljs.core.PersistentArrayMap.fromArray([new cljs.core.Keyword(null, "xhr", "xhr", 1014022900), xhr, new cljs.core.Keyword(null, "status", "status", 4416389988), status, new cljs.core.Keyword(null, "response", "response", 673580979), jsk.rpc.response__GT_edn.call(null, response)], true)
 };
 jsk.rpc.cb_handler = function cb_handler(e, cb) {
-  var map__4192 = jsk.rpc.rpc_event__GT_response_map.call(null, e);
-  var map__4192__$1 = cljs.core.seq_QMARK_.call(null, map__4192) ? cljs.core.apply.call(null, cljs.core.hash_map, map__4192) : map__4192;
-  var response = cljs.core.get.call(null, map__4192__$1, new cljs.core.Keyword(null, "response", "response", 673580979));
-  var status = cljs.core.get.call(null, map__4192__$1, new cljs.core.Keyword(null, "status", "status", 4416389988));
+  var map__6259 = jsk.rpc.rpc_event__GT_response_map.call(null, e);
+  var map__6259__$1 = cljs.core.seq_QMARK_.call(null, map__6259) ? cljs.core.apply.call(null, cljs.core.hash_map, map__6259) : map__6259;
+  var response = cljs.core.get.call(null, map__6259__$1, new cljs.core.Keyword(null, "response", "response", 673580979));
+  var status = cljs.core.get.call(null, map__6259__$1, new cljs.core.Keyword(null, "status", "status", 4416389988));
   if(cljs.core.truth_(jsk.rpc.success_QMARK_.call(null, status))) {
     return cb.call(null, response)
   }else {
@@ -38142,6 +38142,9 @@ jsk.rpc.GET = function GET(url, cb) {
 jsk.rpc.POST = function POST(url, data, cb) {
   return jsk.rpc.rpc_call.call(null, "POST", url, data, cb)
 };
+jsk.rpc.DELETE = function DELETE(url, data, cb) {
+  return jsk.rpc.rpc_call.call(null, "DELETE", url, data, cb)
+};
 goog.provide("jsk.schedule");
 goog.require("cljs.core");
 goog.require("enfocus.events");
@@ -38149,76 +38152,76 @@ goog.require("enfocus.core");
 goog.require("jsk.util");
 goog.require("jsk.rpc");
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/schedules.html") == null) {
-  var vec__4194_4207 = enfocus.core.replace_ids.call(null, "en4072_", '\x3ctable class\x3d"table-hover"\x3e\n  \x3cthead\x3e\n    \x3ctr\x3e\n      \x3cth\x3eSchedule ID\x3c/th\x3e\n      \x3cth\x3eSchedule Name\x3c/th\x3e\n      \x3cth\x3eSchedule Desc\x3c/th\x3e\n      \x3cth\x3eCron Expr\x3c/th\x3e\n      \x3cth\x3eCreated\x3c/th\x3e\n    \x3c/tr\x3e\n  \x3c/thead\x3e\n  \x3ctbody\x3e\n    \x3ctr data-schedule-id\x3d"1" class\x3d"schedule-row"\x3e\n      \x3ctd class\x3d"schedule-id"\x3eID for schedule 1\x3c/td\x3e\n      \x3ctd class\x3d"schedule-name"\x3eName for schedule 1\x3c/td\x3e\n      \x3ctd class\x3d"schedule-desc"\x3eDescription for schedule 1\x3c/td\x3e\n      \x3ctd class\x3d"cron-expr"\x3eCron expression\x3c/td\x3e\n      \x3ctd class\x3d"created-at"\x3e2013-09-23\x3c/td\x3e\n    \x3c/tr\x3e\n    \x3ctr data-schedule-id\x3d"2" class\x3d"schedule-row"\x3e\n      \x3ctd class\x3d"schedule-id"\x3eID for schedule 2\x3c/td\x3e\n      \x3ctd class\x3d"schedule-name"\x3eName for schedule 2\x3c/td\x3e\n      \x3ctd class\x3d"schedule-desc"\x3eDescription for schedule 2\x3c/td\x3e\n      \x3ctd class\x3d"cron-expr"\x3eCron expression 2\x3c/td\x3e\n      \x3ctd class\x3d"created-at"\x3e2013-09-29\x3c/td\x3e\n    \x3c/tr\x3e\n  \x3c/tbody\x3e\n\x3c/table\x3e\n');
-  var sym__3752__auto___4208 = cljs.core.nth.call(null, vec__4194_4207, 0, null);
-  var txt__3753__auto___4209 = cljs.core.nth.call(null, vec__4194_4207, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/schedules.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___4208, txt__3753__auto___4209], true))
+  var vec__6583_6596 = enfocus.core.replace_ids.call(null, "en4072_", '\x3ctable class\x3d"table-hover"\x3e\n  \x3cthead\x3e\n    \x3ctr\x3e\n      \x3cth\x3eSchedule ID\x3c/th\x3e\n      \x3cth\x3eSchedule Name\x3c/th\x3e\n      \x3cth\x3eSchedule Desc\x3c/th\x3e\n      \x3cth\x3eCron Expr\x3c/th\x3e\n      \x3cth\x3eCreated\x3c/th\x3e\n    \x3c/tr\x3e\n  \x3c/thead\x3e\n  \x3ctbody\x3e\n    \x3ctr data-schedule-id\x3d"1" class\x3d"schedule-row"\x3e\n      \x3ctd class\x3d"schedule-id"\x3eID for schedule 1\x3c/td\x3e\n      \x3ctd class\x3d"schedule-name"\x3eName for schedule 1\x3c/td\x3e\n      \x3ctd class\x3d"schedule-desc"\x3eDescription for schedule 1\x3c/td\x3e\n      \x3ctd class\x3d"cron-expr"\x3eCron expression\x3c/td\x3e\n      \x3ctd class\x3d"created-at"\x3e2013-09-23\x3c/td\x3e\n    \x3c/tr\x3e\n    \x3ctr data-schedule-id\x3d"2" class\x3d"schedule-row"\x3e\n      \x3ctd class\x3d"schedule-id"\x3eID for schedule 2\x3c/td\x3e\n      \x3ctd class\x3d"schedule-name"\x3eName for schedule 2\x3c/td\x3e\n      \x3ctd class\x3d"schedule-desc"\x3eDescription for schedule 2\x3c/td\x3e\n      \x3ctd class\x3d"cron-expr"\x3eCron expression 2\x3c/td\x3e\n      \x3ctd class\x3d"created-at"\x3e2013-09-29\x3c/td\x3e\n    \x3c/tr\x3e\n  \x3c/tbody\x3e\n\x3c/table\x3e\n');
+  var sym__3752__auto___6597 = cljs.core.nth.call(null, vec__6583_6596, 0, null);
+  var txt__3753__auto___6598 = cljs.core.nth.call(null, vec__6583_6596, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/schedules.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___6597, txt__3753__auto___6598], true))
 }else {
 }
 jsk.schedule.list_schedules = function list_schedules(ss) {
-  var vec__4202 = function() {
+  var vec__6591 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/schedules.html")
   }.call(null);
-  var id_sym4195 = cljs.core.nth.call(null, vec__4202, 0, null);
-  var pnod4196 = cljs.core.nth.call(null, vec__4202, 1, null);
-  var pnod4196__$1 = enfocus.core.create_hidden_dom.call(null, pnod4196);
-  enfocus.core.i_at.call(null, id_sym4195, pnod4196__$1, "tbody \x3e :not(tr:first-child)", enfocus.core.remove_node.call(null), "tbody \x3e tr", function(pnod__3788__auto__) {
+  var id_sym6584 = cljs.core.nth.call(null, vec__6591, 0, null);
+  var pnod6585 = cljs.core.nth.call(null, vec__6591, 1, null);
+  var pnod6585__$1 = enfocus.core.create_hidden_dom.call(null, pnod6585);
+  enfocus.core.i_at.call(null, id_sym6584, pnod6585__$1, "tbody \x3e :not(tr:first-child)", enfocus.core.remove_node.call(null), "tbody \x3e tr", function(pnod__3788__auto__) {
     var div__3789__auto__ = enfocus.core.create_hidden_dom.call(null, document.createDocumentFragment());
-    var seq__4203_4210 = cljs.core.seq.call(null, ss);
-    var chunk__4204_4211 = null;
-    var count__4205_4212 = 0;
-    var i__4206_4213 = 0;
+    var seq__6592_6599 = cljs.core.seq.call(null, ss);
+    var chunk__6593_6600 = null;
+    var count__6594_6601 = 0;
+    var i__6595_6602 = 0;
     while(true) {
-      if(i__4206_4213 < count__4205_4212) {
-        var s_4214 = cljs.core._nth.call(null, chunk__4204_4211, i__4206_4213);
+      if(i__6595_6602 < count__6594_6601) {
+        var s_6603 = cljs.core._nth.call(null, chunk__6593_6600, i__6595_6602);
         enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.schedule-id", function(seq__4203_4210, chunk__4204_4211, count__4205_4212, i__4206_4213, s_4214) {
-          return function(p1__4193_SHARP_) {
-            return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__4193_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-schedule-id", "data-schedule-id", 2187939296), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_4214))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.schedule.schedule_row_clicked)))
+        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.schedule-id", function(seq__6592_6599, chunk__6593_6600, count__6594_6601, i__6595_6602, s_6603) {
+          return function(p1__6582_SHARP_) {
+            return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__6582_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-schedule-id", "data-schedule-id", 2187939296), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_6603))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.schedule.schedule_row_clicked)))
           }
-        }(seq__4203_4210, chunk__4204_4211, count__4205_4212, i__4206_4213, s_4214), "td.schedule-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_4214))].join("")), "td.schedule-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_4214)), "td.schedule-desc", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-desc", 
-        "schedule-desc", 2645067641)).call(null, s_4214)), "td.cron-expr", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "cron-expression", "cron-expression", 4485853865)).call(null, s_4214)), "td.created-at", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "created-at", "created-at", 2383536298)).call(null, s_4214))].join("")));
-        var G__4215 = seq__4203_4210;
-        var G__4216 = chunk__4204_4211;
-        var G__4217 = count__4205_4212;
-        var G__4218 = i__4206_4213 + 1;
-        seq__4203_4210 = G__4215;
-        chunk__4204_4211 = G__4216;
-        count__4205_4212 = G__4217;
-        i__4206_4213 = G__4218;
+        }(seq__6592_6599, chunk__6593_6600, count__6594_6601, i__6595_6602, s_6603), "td.schedule-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_6603))].join("")), "td.schedule-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_6603)), "td.schedule-desc", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-desc", 
+        "schedule-desc", 2645067641)).call(null, s_6603)), "td.cron-expr", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "cron-expression", "cron-expression", 4485853865)).call(null, s_6603)), "td.created-at", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "created-at", "created-at", 2383536298)).call(null, s_6603))].join("")));
+        var G__6604 = seq__6592_6599;
+        var G__6605 = chunk__6593_6600;
+        var G__6606 = count__6594_6601;
+        var G__6607 = i__6595_6602 + 1;
+        seq__6592_6599 = G__6604;
+        chunk__6593_6600 = G__6605;
+        count__6594_6601 = G__6606;
+        i__6595_6602 = G__6607;
         continue
       }else {
-        var temp__4092__auto___4219 = cljs.core.seq.call(null, seq__4203_4210);
-        if(temp__4092__auto___4219) {
-          var seq__4203_4220__$1 = temp__4092__auto___4219;
-          if(cljs.core.chunked_seq_QMARK_.call(null, seq__4203_4220__$1)) {
-            var c__3072__auto___4221 = cljs.core.chunk_first.call(null, seq__4203_4220__$1);
-            var G__4222 = cljs.core.chunk_rest.call(null, seq__4203_4220__$1);
-            var G__4223 = c__3072__auto___4221;
-            var G__4224 = cljs.core.count.call(null, c__3072__auto___4221);
-            var G__4225 = 0;
-            seq__4203_4210 = G__4222;
-            chunk__4204_4211 = G__4223;
-            count__4205_4212 = G__4224;
-            i__4206_4213 = G__4225;
+        var temp__4092__auto___6608 = cljs.core.seq.call(null, seq__6592_6599);
+        if(temp__4092__auto___6608) {
+          var seq__6592_6609__$1 = temp__4092__auto___6608;
+          if(cljs.core.chunked_seq_QMARK_.call(null, seq__6592_6609__$1)) {
+            var c__3072__auto___6610 = cljs.core.chunk_first.call(null, seq__6592_6609__$1);
+            var G__6611 = cljs.core.chunk_rest.call(null, seq__6592_6609__$1);
+            var G__6612 = c__3072__auto___6610;
+            var G__6613 = cljs.core.count.call(null, c__3072__auto___6610);
+            var G__6614 = 0;
+            seq__6592_6599 = G__6611;
+            chunk__6593_6600 = G__6612;
+            count__6594_6601 = G__6613;
+            i__6595_6602 = G__6614;
             continue
           }else {
-            var s_4226 = cljs.core.first.call(null, seq__4203_4220__$1);
+            var s_6615 = cljs.core.first.call(null, seq__6592_6609__$1);
             enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.schedule-id", function(seq__4203_4210, chunk__4204_4211, count__4205_4212, i__4206_4213, s_4226, seq__4203_4220__$1, temp__4092__auto___4219) {
-              return function(p1__4193_SHARP_) {
-                return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__4193_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-schedule-id", "data-schedule-id", 2187939296), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_4226))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.schedule.schedule_row_clicked)))
+            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.schedule-id", function(seq__6592_6599, chunk__6593_6600, count__6594_6601, i__6595_6602, s_6615, seq__6592_6609__$1, temp__4092__auto___6608) {
+              return function(p1__6582_SHARP_) {
+                return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__6582_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-schedule-id", "data-schedule-id", 2187939296), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_6615))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.schedule.schedule_row_clicked)))
               }
-            }(seq__4203_4210, chunk__4204_4211, count__4205_4212, i__4206_4213, s_4226, seq__4203_4220__$1, temp__4092__auto___4219), "td.schedule-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_4226))].join("")), "td.schedule-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_4226)), "td.schedule-desc", enfocus.core.content.call(null, 
-            (new cljs.core.Keyword(null, "schedule-desc", "schedule-desc", 2645067641)).call(null, s_4226)), "td.cron-expr", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "cron-expression", "cron-expression", 4485853865)).call(null, s_4226)), "td.created-at", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "created-at", "created-at", 2383536298)).call(null, s_4226))].join("")));
-            var G__4227 = cljs.core.next.call(null, seq__4203_4220__$1);
-            var G__4228 = null;
-            var G__4229 = 0;
-            var G__4230 = 0;
-            seq__4203_4210 = G__4227;
-            chunk__4204_4211 = G__4228;
-            count__4205_4212 = G__4229;
-            i__4206_4213 = G__4230;
+            }(seq__6592_6599, chunk__6593_6600, count__6594_6601, i__6595_6602, s_6615, seq__6592_6609__$1, temp__4092__auto___6608), "td.schedule-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_6615))].join("")), "td.schedule-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_6615)), "td.schedule-desc", enfocus.core.content.call(null, 
+            (new cljs.core.Keyword(null, "schedule-desc", "schedule-desc", 2645067641)).call(null, s_6615)), "td.cron-expr", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "cron-expression", "cron-expression", 4485853865)).call(null, s_6615)), "td.created-at", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "created-at", "created-at", 2383536298)).call(null, s_6615))].join("")));
+            var G__6616 = cljs.core.next.call(null, seq__6592_6609__$1);
+            var G__6617 = null;
+            var G__6618 = 0;
+            var G__6619 = 0;
+            seq__6592_6599 = G__6616;
+            chunk__6593_6600 = G__6617;
+            count__6594_6601 = G__6618;
+            i__6595_6602 = G__6619;
             continue
           }
         }else {
@@ -38229,28 +38232,28 @@ jsk.schedule.list_schedules = function list_schedules(ss) {
     enfocus.core.log_debug.call(null, div__3789__auto__);
     return enfocus.core.at.call(null, pnod__3788__auto__, enfocus.core.do__GT_.call(null, enfocus.core.after.call(null, enfocus.core.remove_node_return_child.call(null, div__3789__auto__)), enfocus.core.remove_node.call(null)))
   });
-  enfocus.core.reset_ids.call(null, id_sym4195, pnod4196__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod4196__$1)
+  enfocus.core.reset_ids.call(null, id_sym6584, pnod6585__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod6585__$1)
 };
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/edit-schedule.html") == null) {
-  var vec__4231_4236 = enfocus.core.replace_ids.call(null, "en4086_", '\x3cform id\x3d"schedule-save-form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n    \x3clegend\x3eSchedule Definition\x3c/legend\x3e\n\n    \x3cinput type\x3d"hidden" name\x3d"schedule-id" id\x3d"schedule-id" value\x3d""/\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"schedule-id-lbl"\x3eID\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3clabel class\x3d"control-label text-left" id\x3d"schedule-id-lbl"\x3e34\x3c/label\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"schedule-name"\x3eName\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3cinput type\x3d"text" class\x3d"input-xlarge" name\x3d"schedule-name" id\x3d"schedule-name"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"schedule-desc"\x3eDescription\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3ctextarea class\x3d"span4" rows\x3d"2" name\x3d"schedule-desc" id\x3d"schedule-desc"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"cron-expression"\x3eCron Expression\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3cinput type\x3d"text" class\x3d"input-xlarge" name\x3d"cron-expression" id\x3d"cron-expression"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n\n\x3cbutton type\x3d"button" class\x3d"btn" name\x3d"save-btn" id\x3d"save-btn"\x3eSave\x3c/button\x3e\n\n    \x3cdiv id\x3d"errors"\x3e\n        \x3cul id\x3d"error-list"\x3e\n           \x3cli class\x3d"error"\x3eFirst error.\x3c/li\x3e\n        \x3c/ul\x3e\n    \x3c/div\x3e\n');
-  var sym__3752__auto___4237 = cljs.core.nth.call(null, vec__4231_4236, 0, null);
-  var txt__3753__auto___4238 = cljs.core.nth.call(null, vec__4231_4236, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/edit-schedule.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___4237, txt__3753__auto___4238], true))
+  var vec__6620_6625 = enfocus.core.replace_ids.call(null, "en4086_", '\x3cform id\x3d"schedule-save-form" role\x3d"form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n    \x3clegend\x3eSchedule Definition\x3c/legend\x3e\n\n    \x3cinput type\x3d"hidden" name\x3d"schedule-id" id\x3d"schedule-id" value\x3d""/\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"schedule-id-lbl" class\x3d"col-lg-2 control-label"\x3eID\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3clabel id\x3d"schedule-id-lbl" class\x3d"col-lg-2 control-label"\x3e34\x3c/label\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"schedule-name" class\x3d"col-lg-2 control-label"\x3eName\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"schedule-name" id\x3d"schedule-name"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"schedule-desc" class\x3d"col-lg-2 control-label"\x3eDescription\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"schedule-desc" id\x3d"schedule-desc"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"cron-expression" class\x3d"col-lg-2 control-label"\x3eCron Expression\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"cron-expression" id\x3d"cron-expression"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n        \x3cbutton type\x3d"button" class\x3d"btn btn-default" name\x3d"save-btn" id\x3d"save-btn"\x3eSave\x3c/button\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n\n    \x3cdiv id\x3d"errors"\x3e\n        \x3cul id\x3d"error-list"\x3e\n           \x3cli class\x3d"error"\x3eFirst error.\x3c/li\x3e\n        \x3c/ul\x3e\n    \x3c/div\x3e\n');
+  var sym__3752__auto___6626 = cljs.core.nth.call(null, vec__6620_6625, 0, null);
+  var txt__3753__auto___6627 = cljs.core.nth.call(null, vec__6620_6625, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/edit-schedule.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___6626, txt__3753__auto___6627], true))
 }else {
 }
 jsk.schedule.edit_schedule = function edit_schedule(s) {
-  var vec__4235 = function() {
+  var vec__6624 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/edit-schedule.html")
   }.call(null);
-  var id_sym4232 = cljs.core.nth.call(null, vec__4235, 0, null);
-  var pnod4233 = cljs.core.nth.call(null, vec__4235, 1, null);
-  var pnod4233__$1 = enfocus.core.create_hidden_dom.call(null, pnod4233);
-  enfocus.core.i_at.call(null, id_sym4232, pnod4233__$1, "#schedule-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s))].join("")), "#schedule-id-lbl", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s))].join("")), "#schedule-name", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, 
+  var id_sym6621 = cljs.core.nth.call(null, vec__6624, 0, null);
+  var pnod6622 = cljs.core.nth.call(null, vec__6624, 1, null);
+  var pnod6622__$1 = enfocus.core.create_hidden_dom.call(null, pnod6622);
+  enfocus.core.i_at.call(null, id_sym6621, pnod6622__$1, "#schedule-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s))].join("")), "#schedule-id-lbl", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s))].join("")), "#schedule-name", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, 
   "value", "value", 1125876963), (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s)), "#schedule-desc", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-desc", "schedule-desc", 2645067641)).call(null, s)), "#cron-expression", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), (new cljs.core.Keyword(null, "cron-expression", "cron-expression", 4485853865)).call(null, s)), "#save-btn", enfocus.events.listen.call(null, 
   new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.schedule.save_schedule));
-  enfocus.core.reset_ids.call(null, id_sym4232, pnod4233__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod4233__$1)
+  enfocus.core.reset_ids.call(null, id_sym6621, pnod6622__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod6622__$1)
 };
 jsk.schedule.display_schedules = function display_schedules(ss) {
   return enfocus.core.at.call(null, "#container", enfocus.core.content.call(null, jsk.schedule.list_schedules.call(null, ss)))
@@ -40911,76 +40914,76 @@ goog.require("enfocus.core");
 goog.require("jsk.util");
 goog.require("jsk.rpc");
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/jobs.html") == null) {
-  var vec__4146_4159 = enfocus.core.replace_ids.call(null, "en4093_", '\x3ctable class\x3d"table-hover"\x3e\n  \x3cthead\x3e\n    \x3ctr\x3e\n      \x3cth\x3eJob ID\x3c/th\x3e\n      \x3cth\x3eJob Name\x3c/th\x3e\n      \x3cth\x3eJob Enabled\x3c/th\x3e\n    \x3c/tr\x3e\n  \x3c/thead\x3e\n  \x3ctbody\x3e\n    \x3ctr data-job-id\x3d"1" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 1\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 1\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3etrue\x3c/td\x3e\n    \x3c/tr\x3e\n    \x3ctr data-job-id\x3d"2" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 2\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 2\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3efalse\x3c/td\x3e\n    \x3c/tr\x3e\n  \x3c/tbody\x3e\n\x3c/table\x3e\n');
-  var sym__3752__auto___4160 = cljs.core.nth.call(null, vec__4146_4159, 0, null);
-  var txt__3753__auto___4161 = cljs.core.nth.call(null, vec__4146_4159, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/jobs.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___4160, txt__3753__auto___4161], true))
+  var vec__6537_6550 = enfocus.core.replace_ids.call(null, "en4093_", '\x3ctable class\x3d"table-hover"\x3e\n  \x3cthead\x3e\n    \x3ctr\x3e\n      \x3cth\x3eJob ID\x3c/th\x3e\n      \x3cth\x3eJob Name\x3c/th\x3e\n      \x3cth\x3eJob Enabled\x3c/th\x3e\n    \x3c/tr\x3e\n  \x3c/thead\x3e\n  \x3ctbody\x3e\n    \x3ctr data-job-id\x3d"1" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 1\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 1\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3etrue\x3c/td\x3e\n    \x3c/tr\x3e\n    \x3ctr data-job-id\x3d"2" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 2\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 2\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3efalse\x3c/td\x3e\n    \x3c/tr\x3e\n  \x3c/tbody\x3e\n\x3c/table\x3e\n');
+  var sym__3752__auto___6551 = cljs.core.nth.call(null, vec__6537_6550, 0, null);
+  var txt__3753__auto___6552 = cljs.core.nth.call(null, vec__6537_6550, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/jobs.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___6551, txt__3753__auto___6552], true))
 }else {
 }
 jsk.job.list_jobs = function list_jobs(jj) {
-  var vec__4154 = function() {
+  var vec__6545 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/jobs.html")
   }.call(null);
-  var id_sym4147 = cljs.core.nth.call(null, vec__4154, 0, null);
-  var pnod4148 = cljs.core.nth.call(null, vec__4154, 1, null);
-  var pnod4148__$1 = enfocus.core.create_hidden_dom.call(null, pnod4148);
-  enfocus.core.i_at.call(null, id_sym4147, pnod4148__$1, "tbody \x3e :not(tr:first-child)", enfocus.core.remove_node.call(null), "tbody \x3e tr", function(pnod__3788__auto__) {
+  var id_sym6538 = cljs.core.nth.call(null, vec__6545, 0, null);
+  var pnod6539 = cljs.core.nth.call(null, vec__6545, 1, null);
+  var pnod6539__$1 = enfocus.core.create_hidden_dom.call(null, pnod6539);
+  enfocus.core.i_at.call(null, id_sym6538, pnod6539__$1, "tbody \x3e :not(tr:first-child)", enfocus.core.remove_node.call(null), "tbody \x3e tr", function(pnod__3788__auto__) {
     var div__3789__auto__ = enfocus.core.create_hidden_dom.call(null, document.createDocumentFragment());
-    var seq__4155_4162 = cljs.core.seq.call(null, jj);
-    var chunk__4156_4163 = null;
-    var count__4157_4164 = 0;
-    var i__4158_4165 = 0;
+    var seq__6546_6553 = cljs.core.seq.call(null, jj);
+    var chunk__6547_6554 = null;
+    var count__6548_6555 = 0;
+    var i__6549_6556 = 0;
     while(true) {
-      if(i__4158_4165 < count__4157_4164) {
-        var j_4166 = cljs.core._nth.call(null, chunk__4156_4163, i__4158_4165);
+      if(i__6549_6556 < count__6548_6555) {
+        var j_6557 = cljs.core._nth.call(null, chunk__6547_6554, i__6549_6556);
         enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__4155_4162, chunk__4156_4163, count__4157_4164, i__4158_4165, j_4166) {
-          return function(p1__4145_SHARP_) {
-            return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__4145_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_4166))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
+        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__6546_6553, chunk__6547_6554, count__6548_6555, i__6549_6556, j_6557) {
+          return function(p1__6536_SHARP_) {
+            return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__6536_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_6557))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
           }
-        }(seq__4155_4162, chunk__4156_4163, count__4157_4164, i__4158_4165, j_4166), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_4166))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_4166)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, 
-        j_4166))].join("")));
-        var G__4167 = seq__4155_4162;
-        var G__4168 = chunk__4156_4163;
-        var G__4169 = count__4157_4164;
-        var G__4170 = i__4158_4165 + 1;
-        seq__4155_4162 = G__4167;
-        chunk__4156_4163 = G__4168;
-        count__4157_4164 = G__4169;
-        i__4158_4165 = G__4170;
+        }(seq__6546_6553, chunk__6547_6554, count__6548_6555, i__6549_6556, j_6557), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_6557))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_6557)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, 
+        j_6557))].join("")));
+        var G__6558 = seq__6546_6553;
+        var G__6559 = chunk__6547_6554;
+        var G__6560 = count__6548_6555;
+        var G__6561 = i__6549_6556 + 1;
+        seq__6546_6553 = G__6558;
+        chunk__6547_6554 = G__6559;
+        count__6548_6555 = G__6560;
+        i__6549_6556 = G__6561;
         continue
       }else {
-        var temp__4092__auto___4171 = cljs.core.seq.call(null, seq__4155_4162);
-        if(temp__4092__auto___4171) {
-          var seq__4155_4172__$1 = temp__4092__auto___4171;
-          if(cljs.core.chunked_seq_QMARK_.call(null, seq__4155_4172__$1)) {
-            var c__3072__auto___4173 = cljs.core.chunk_first.call(null, seq__4155_4172__$1);
-            var G__4174 = cljs.core.chunk_rest.call(null, seq__4155_4172__$1);
-            var G__4175 = c__3072__auto___4173;
-            var G__4176 = cljs.core.count.call(null, c__3072__auto___4173);
-            var G__4177 = 0;
-            seq__4155_4162 = G__4174;
-            chunk__4156_4163 = G__4175;
-            count__4157_4164 = G__4176;
-            i__4158_4165 = G__4177;
+        var temp__4092__auto___6562 = cljs.core.seq.call(null, seq__6546_6553);
+        if(temp__4092__auto___6562) {
+          var seq__6546_6563__$1 = temp__4092__auto___6562;
+          if(cljs.core.chunked_seq_QMARK_.call(null, seq__6546_6563__$1)) {
+            var c__3072__auto___6564 = cljs.core.chunk_first.call(null, seq__6546_6563__$1);
+            var G__6565 = cljs.core.chunk_rest.call(null, seq__6546_6563__$1);
+            var G__6566 = c__3072__auto___6564;
+            var G__6567 = cljs.core.count.call(null, c__3072__auto___6564);
+            var G__6568 = 0;
+            seq__6546_6553 = G__6565;
+            chunk__6547_6554 = G__6566;
+            count__6548_6555 = G__6567;
+            i__6549_6556 = G__6568;
             continue
           }else {
-            var j_4178 = cljs.core.first.call(null, seq__4155_4172__$1);
+            var j_6569 = cljs.core.first.call(null, seq__6546_6563__$1);
             enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__4155_4162, chunk__4156_4163, count__4157_4164, i__4158_4165, j_4178, seq__4155_4172__$1, temp__4092__auto___4171) {
-              return function(p1__4145_SHARP_) {
-                return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__4145_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_4178))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
+            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__6546_6553, chunk__6547_6554, count__6548_6555, i__6549_6556, j_6569, seq__6546_6563__$1, temp__4092__auto___6562) {
+              return function(p1__6536_SHARP_) {
+                return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__6536_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_6569))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
               }
-            }(seq__4155_4162, chunk__4156_4163, count__4157_4164, i__4158_4165, j_4178, seq__4155_4172__$1, temp__4092__auto___4171), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_4178))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_4178)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, 
-            "is-enabled", "is-enabled", 3958416656)).call(null, j_4178))].join("")));
-            var G__4179 = cljs.core.next.call(null, seq__4155_4172__$1);
-            var G__4180 = null;
-            var G__4181 = 0;
-            var G__4182 = 0;
-            seq__4155_4162 = G__4179;
-            chunk__4156_4163 = G__4180;
-            count__4157_4164 = G__4181;
-            i__4158_4165 = G__4182;
+            }(seq__6546_6553, chunk__6547_6554, count__6548_6555, i__6549_6556, j_6569, seq__6546_6563__$1, temp__4092__auto___6562), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_6569))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_6569)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, 
+            "is-enabled", "is-enabled", 3958416656)).call(null, j_6569))].join("")));
+            var G__6570 = cljs.core.next.call(null, seq__6546_6563__$1);
+            var G__6571 = null;
+            var G__6572 = 0;
+            var G__6573 = 0;
+            seq__6546_6553 = G__6570;
+            chunk__6547_6554 = G__6571;
+            count__6548_6555 = G__6572;
+            i__6549_6556 = G__6573;
             continue
           }
         }else {
@@ -40991,29 +40994,29 @@ jsk.job.list_jobs = function list_jobs(jj) {
     enfocus.core.log_debug.call(null, div__3789__auto__);
     return enfocus.core.at.call(null, pnod__3788__auto__, enfocus.core.do__GT_.call(null, enfocus.core.after.call(null, enfocus.core.remove_node_return_child.call(null, div__3789__auto__)), enfocus.core.remove_node.call(null)))
   });
-  enfocus.core.reset_ids.call(null, id_sym4147, pnod4148__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod4148__$1)
+  enfocus.core.reset_ids.call(null, id_sym6538, pnod6539__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod6539__$1)
 };
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/edit-job.html") == null) {
-  var vec__4183_4188 = enfocus.core.replace_ids.call(null, "en4107_", '\x3cform id\x3d"job-save-form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n    \x3clegend\x3eJob Definition\x3c/legend\x3e\n\n    \x3cinput type\x3d"hidden" name\x3d"job-id" id\x3d"job-id" value\x3d""/\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"job-id-lbl"\x3eID\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3clabel class\x3d"control-label text-left" id\x3d"job-id-lbl"\x3e34\x3c/label\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"job-name"\x3eName\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3cinput type\x3d"text" class\x3d"input-xlarge" name\x3d"job-name" id\x3d"job-name"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"job-desc"\x3eDescription\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3ctextarea class\x3d"span4" rows\x3d"2" name\x3d"job-desc" id\x3d"job-desc"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"job-execution-directory"\x3eExecution Directory\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3cinput type\x3d"text" class\x3d"input-xlarge" name\x3d"job-execution-directory" id\x3d"job-execution-directory"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"control-label" for\x3d"job-command-line"\x3eCommand Line\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3ctextarea class\x3d"span4" rows\x3d"2" name\x3d"job-command-line" id\x3d"job-command-line"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"control-group"\x3e\n      \x3clabel class\x3d"checkbox" for\x3d"is-enabled"\x3eEnabled\x3c/label\x3e\n      \x3cdiv class\x3d"controls"\x3e\n        \x3cinput type\x3d"checkbox" id\x3d"is-enabled" name\x3d"is-enabled"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n\n\x3cbutton type\x3d"button" class\x3d"btn" name\x3d"save-btn" id\x3d"save-btn"\x3eSave\x3c/button\x3e\n\n    \x3cdiv id\x3d"errors"\x3e\n        \x3cul id\x3d"error-list"\x3e\n           \x3cli class\x3d"error"\x3eFirst error.\x3c/li\x3e\n        \x3c/ul\x3e\n    \x3c/div\x3e\n');
-  var sym__3752__auto___4189 = cljs.core.nth.call(null, vec__4183_4188, 0, null);
-  var txt__3753__auto___4190 = cljs.core.nth.call(null, vec__4183_4188, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/edit-job.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___4189, txt__3753__auto___4190], true))
+  var vec__6574_6579 = enfocus.core.replace_ids.call(null, "en4107_", '\x3cform id\x3d"job-save-form" role\x3d"form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n    \x3clegend\x3eJob Definition\x3c/legend\x3e\n\n    \x3cinput type\x3d"hidden" name\x3d"job-id" id\x3d"job-id" value\x3d""/\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-id-lbl" class\x3d"col-lg-2 control-label"\x3eID\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3clabel class\x3d"control-label text-left" id\x3d"job-id-lbl"\x3e34\x3c/label\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-name" class\x3d"col-lg-2 control-label"\x3eName\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"job-name" id\x3d"job-name"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-desc" class\x3d"col-lg-2 control-label"\x3eDescription\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"job-desc" id\x3d"job-desc"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-execution-directory" class\x3d"col-lg-2 control-label"\x3eExecution Directory\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"job-execution-directory" id\x3d"job-execution-directory"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-command-line" class\x3d"col-lg-2 control-label"\x3eCommand Line\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"job-command-line" id\x3d"job-command-line"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n        \x3cdiv class\x3d"checkbox"\x3e\n          \x3clabel\x3e\n            \x3cinput type\x3d"checkbox" id\x3d"is-enabled" name\x3d"is-enabled"\x3e Enabled\n          \x3c/label\x3e\n        \x3c/div\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n        \x3cbutton type\x3d"button" class\x3d"btn btn-default" name\x3d"save-btn" id\x3d"save-btn"\x3eSave\x3c/button\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n\n\n    \x3cdiv id\x3d"errors"\x3e\n        \x3cul id\x3d"error-list"\x3e\n           \x3cli class\x3d"error"\x3eFirst error.\x3c/li\x3e\n        \x3c/ul\x3e\n    \x3c/div\x3e\n');
+  var sym__3752__auto___6580 = cljs.core.nth.call(null, vec__6574_6579, 0, null);
+  var txt__3753__auto___6581 = cljs.core.nth.call(null, vec__6574_6579, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/edit-job.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___6580, txt__3753__auto___6581], true))
 }else {
 }
 jsk.job.edit_job = function edit_job(j) {
-  var vec__4187 = function() {
+  var vec__6578 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/edit-job.html")
   }.call(null);
-  var id_sym4184 = cljs.core.nth.call(null, vec__4187, 0, null);
-  var pnod4185 = cljs.core.nth.call(null, vec__4187, 1, null);
-  var pnod4185__$1 = enfocus.core.create_hidden_dom.call(null, pnod4185);
-  enfocus.core.i_at.call(null, id_sym4184, pnod4185__$1, "#job-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-id-lbl", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-name", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 
+  var id_sym6575 = cljs.core.nth.call(null, vec__6578, 0, null);
+  var pnod6576 = cljs.core.nth.call(null, vec__6578, 1, null);
+  var pnod6576__$1 = enfocus.core.create_hidden_dom.call(null, pnod6576);
+  enfocus.core.i_at.call(null, id_sym6575, pnod6576__$1, "#job-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-id-lbl", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-name", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 
   1125876963), (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j)), "#job-desc", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-desc", "job-desc", 3647161875)).call(null, j)), "#job-execution-directory", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), (new cljs.core.Keyword(null, "job-execution-directory", "job-execution-directory", 1867909978)).call(null, j)), "#job-command-line", enfocus.core.content.call(null, 
   (new cljs.core.Keyword(null, "job-command-line", "job-command-line", 1857880248)).call(null, j)), "#is-enabled", enfocus.core.do__GT_.call(null, enfocus.core.set_prop.call(null, "checked", (new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, j), enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, j))].join("")))), "#save-btn", enfocus.events.listen.call(null, 
   new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.save_job));
-  enfocus.core.reset_ids.call(null, id_sym4184, pnod4185__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod4185__$1)
+  enfocus.core.reset_ids.call(null, id_sym6575, pnod6576__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod6576__$1)
 };
 jsk.job.display_jobs = function display_jobs(jj) {
   return enfocus.core.at.call(null, "#container", enfocus.core.content.call(null, jsk.job.list_jobs.call(null, jj)))

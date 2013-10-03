@@ -48,3 +48,6 @@
 
 (defn POST [url data cb]
   (rpc-call "POST" url data cb))
+
+(defn DELETE [url data cb]
+  (rpc-call "DELETE" url data cb))

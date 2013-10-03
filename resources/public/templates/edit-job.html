@@ -1,56 +1,63 @@
-<form id="job-save-form" class="form-horizontal">
+<form id="job-save-form" role="form" class="form-horizontal">
   <fieldset>
     <legend>Job Definition</legend>
 
     <input type="hidden" name="job-id" id="job-id" value=""/>
 
-    <div class="control-group">
-      <label class="control-label" for="job-id-lbl">ID</label>
-      <div class="controls">
+    <div class="form-group">
+      <label for="job-id-lbl" class="col-lg-2 control-label">ID</label>
+      <div class="col-lg-10">
         <label class="control-label text-left" id="job-id-lbl">34</label>
       </div>
     </div>
 
-    <div class="control-group">
-      <label class="control-label" for="job-name">Name</label>
-      <div class="controls">
-        <input type="text" class="input-xlarge" name="job-name" id="job-name"/>
+    <div class="form-group">
+      <label for="job-name" class="col-lg-2 control-label">Name</label>
+      <div class="col-lg-10">
+        <input type="text" class="form-control" name="job-name" id="job-name"/>
       </div>
     </div>
 
 
-    <div class="control-group">
-      <label class="control-label" for="job-desc">Description</label>
-      <div class="controls">
-        <textarea class="span4" rows="2" name="job-desc" id="job-desc"/>
+    <div class="form-group">
+      <label for="job-desc" class="col-lg-2 control-label">Description</label>
+      <div class="col-lg-10">
+        <textarea class="form-control" rows="2" name="job-desc" id="job-desc"/>
       </div>
     </div>
 
-    <div class="control-group">
-      <label class="control-label" for="job-execution-directory">Execution Directory</label>
-      <div class="controls">
-        <input type="text" class="input-xlarge" name="job-execution-directory" id="job-execution-directory"/>
+    <div class="form-group">
+      <label for="job-execution-directory" class="col-lg-2 control-label">Execution Directory</label>
+      <div class="col-lg-10">
+        <input type="text" class="form-control" name="job-execution-directory" id="job-execution-directory"/>
       </div>
     </div>
 
-    <div class="control-group">
-      <label class="control-label" for="job-command-line">Command Line</label>
-      <div class="controls">
-        <textarea class="span4" rows="2" name="job-command-line" id="job-command-line"/>
+    <div class="form-group">
+      <label for="job-command-line" class="col-lg-2 control-label">Command Line</label>
+      <div class="col-lg-10">
+        <textarea class="form-control" rows="2" name="job-command-line" id="job-command-line"/>
       </div>
     </div>
 
-    <div class="control-group">
-      <label class="checkbox" for="is-enabled">Enabled</label>
-      <div class="controls">
-        <input type="checkbox" id="is-enabled" name="is-enabled"/>
+    <div class="form-group">
+      <div class="col-lg-offset-2 col-lg-10">
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" id="is-enabled" name="is-enabled"> Enabled
+          </label>
+        </div>
       </div>
     </div>
 
+    <div class="form-group">
+      <div class="col-lg-offset-2 col-lg-10">
+        <button type="button" class="btn btn-default" name="save-btn" id="save-btn">Save</button>
+      </div>
+    </div>
   </fieldset>
 </form>
 
-<button type="button" class="btn" name="save-btn" id="save-btn">Save</button>
 
     <div id="errors">
         <ul id="error-list">
