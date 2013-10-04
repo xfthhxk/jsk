@@ -24,7 +24,8 @@
 ;-----------------------------------------------------------------------
 (defn rpc-error-handler [status msg]
   (ju/log (str "ERROR status: " status ", msg: " msg))
-  (ef/at "#error-div" (ef/content msg)))
+  (set! (.-innerHTML (ju/element-by-id "error-div")) msg))
+  ;(ef/at  (ef/content msg)))
 
 ;-----------------------------------------------------------------------
 ; Main screen event handling.
@@ -41,7 +42,7 @@
 (defn- init []
   (ju/log "Begin initializing JSK UI.")
   (init-events)
-  (ju/log "Add default XHR error handler.")
+  (ju/log "Adding default XHR error handler.")
   (reset! rpc/error-handler rpc-error-handler)
   (ju/log "Initialization complete.")
   (repl-connect))

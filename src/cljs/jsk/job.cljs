@@ -1,10 +1,11 @@
 (ns jsk.job
   (:require [jsk.rpc :as rpc]
             [jsk.util :as ju]
+            [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
             [enfocus.events :as events])
-  (:require-macros [enfocus.macros :as em]))
-
+  (:require-macros [enfocus.macros :as em]
+                   [cljs.core.async.macros :refer [go]]))
 
 (declare save-job job-row-clicked)
 
@@ -40,24 +41,29 @@
                                (ef/set-attr :value (str (:is-enabled j)))))
   "#save-btn"                (events/listen :click save-job))
 
-(defn- display-jobs [jj]
-  (ef/at "#container" (ef/content (list-jobs jj))))
-
 (defn show-jobs []
-  (rpc/GET "/jobs" display-jobs))
+  (go
+   (let [jj (<! (rpc/GET "/jobs"))]
+   (ef/at "#container" (ef/content (list-jobs jj))))))
 
 (defn- save-job [e]
-  (let [form (ef/from "#job-save-form" (ef/read-form))
-        data (ju/update-str->int form :job-id)
-        data1 (assoc data :is-enabled (ju/element-checked? "is-enabled"))]
-    (rpc/POST "/jobs/save" data1 #(show-jobs))))
+  (go
+    (let [form (ef/from "#job-save-form" (ef/read-form))
+          data (ju/update-str->int form :job-id)
+          data1 (assoc data :is-enabled (ju/element-checked? "is-enabled"))
+          job-id (<! (rpc/POST "/jobs/save" data1))]
+      (ju/log (str "Job saved with id " job-id))
+      (show-jobs))))
 
-(defn- show-job-edit [s]
-  (ef/at "#container" (ef/content (edit-job (first s)))))
+(defn- show-job-edit [j]
+  (ef/at "#container" (ef/content (edit-job j))))
 
 (defn- job-row-clicked [e]
-  (let [id (ef/from (ju/event-source e) (ef/get-attr :data-job-id))]
-    (rpc/GET (str "/jobs/" id) show-job-edit)))
+  (go
+    (let [id (ef/from (ju/event-source e) (ef/get-attr :data-job-id))
+          url (str "/jobs/" id)
+          j (first (<! (rpc/GET url)))]
+      (show-job-edit j))))
 
 (defn show-add-job []
-  (ef/at "#container" (ef/content (edit-job {:job-id -1 :is-enabled false}))))
+  (show-job-edit {:job-id -1 :is-enabled false}))

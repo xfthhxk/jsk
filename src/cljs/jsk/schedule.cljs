@@ -1,9 +1,11 @@
 (ns jsk.schedule
   (:require [jsk.rpc :as rpc]
             [jsk.util :as ju]
+            [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
             [enfocus.events :as events])
-  (:require-macros [enfocus.macros :as em]))
+  (:require-macros [enfocus.macros :as em]
+                   [cljs.core.async.macros :refer [go]]))
 
 
 (declare save-schedule schedule-row-clicked)
@@ -38,23 +40,28 @@
   "#save-btn"        (events/listen :click save-schedule))
 
 
-(defn- display-schedules [ss]
-  (ef/at "#container" (ef/content (list-schedules ss))))
-
 (defn show-schedules []
-  (rpc/GET "/schedules" display-schedules))
+  (go
+   (let [ss (<! (rpc/GET "/schedules"))]
+     (ef/at "#container" (ef/content (list-schedules ss))))))
 
 (defn- save-schedule [e]
-  (let [form (ef/from "#schedule-save-form" (ef/read-form))
-        data (ju/update-str->int form :schedule-id)]
-    (rpc/POST "/schedules/save" data #(show-schedules))))
+  (go
+    (let [form (ef/from "#schedule-save-form" (ef/read-form))
+          data (ju/update-str->int form :schedule-id)
+          schedule-id (<! (rpc/POST "/schedules/save" data))]
+      (ju/log (str "Schedule saved with id " schedule-id))
+      (show-schedules))))
 
 (defn- show-schedule-edit [s]
-  (ef/at "#container" (ef/content (edit-schedule (first s)))))
+  (ef/at "#container" (ef/content (edit-schedule s))))
 
 (defn- schedule-row-clicked [e]
-  (let [id (ef/from (ju/event-source e) (ef/get-attr :data-schedule-id))]
-    (rpc/GET (str "/schedules/" id) show-schedule-edit)))
+  (go
+    (let [id (ef/from (ju/event-source e) (ef/get-attr :data-schedule-id))
+          url (str "/schedules/" id)
+          sched (first (<! (rpc/GET url)))]
+      (show-schedule-edit sched))))
 
 (defn show-add-schedule []
-  (ef/at "#container" (ef/content (edit-schedule {:schedule-id -1}))))
+  (show-schedule-edit {:schedule-id -1}))

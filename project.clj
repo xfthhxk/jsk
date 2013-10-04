@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [org.clojure/clojurescript "0.0-1878"]
+                 [org.clojure/core.async "0.1.242.0-44b1e3-alpha"]
                  [org.clojure/core.typed "0.2.3"]    ; static type checking
                  [clojurewerkz/quartzite "1.1.0"]    ; clojure wrapper around quartz scheduling
                  [org.zeroturnaround/zt-exec "1.4"]  ; process execution

@@ -77,19 +77,6 @@
 
 
 ;-----------------------------------------------------------------------
-; Builds a seq of maps which can be used to insert values
-; in to the job-schedule table.
-;-----------------------------------------------------------------------
-(defn- build-insert-maps [job-id schedule-ids user-id]
-  (let [ts (db/now)]
-    (map (fn [x] {:job-id job-id
-                  :schedule-id x
-                  :created-at ts
-                  :updated-at ts
-                  :created-by user-id
-                  :updated-by user-id}) schedule-ids)))
-
-;-----------------------------------------------------------------------
 ; Associates a job to a set of schedule-ids.
 ; schedule-ids is a set of integer ids
 ;-----------------------------------------------------------------------
@@ -99,7 +86,15 @@
 
   ([job-id schedule-ids user-id]
     (info "job-id " job-id " is to be associated with schedules " schedule-ids)
-    (insert job-schedule  (values (build-insert-maps)))))
+    (let [ts (db/now)
+          ins-map-fn #({:job-id job-id
+                        :schedule-id %1
+                        :created-at ts
+                        :updated-at ts
+                        :created-by user-id
+                        :updated-by user-id})
+          insert-maps (map ins-map-fn schedule-ids)]
+       (insert job-schedule (values insert-maps)))))
 
 ;-----------------------------------------------------------------------
 ; Disassociates schedule-ids from a job.

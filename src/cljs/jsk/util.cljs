@@ -30,3 +30,9 @@
 
 (defn element-checked? [id]
   (.-checked (element-by-id id)))
+
+
+(defn str-contains?
+  "Answers true if string s contains a substring x."
+  [s x]
+  (not= -1 (.indexOf s x)))

@@ -25,3 +25,5 @@
 (-> "" count zero?)
 
 (read-string "{42 :hello}")
+
+(dissoc {42 :hello} 42)
