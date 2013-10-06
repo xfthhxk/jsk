@@ -4,14 +4,20 @@
             [jsk.ps :as ps]
             [jsk.quartz :as q]
             [jsk.util :as ju]
+            [cemerick.friend :as friend]
+            [cemerick.friend.openid :as openid]
+            [compojure.handler :as ch]
             [ring.middleware.edn :as redn]
-            [noir.util.middleware :as middleware]
+            ; [noir.util.middleware :as middleware]
             [noir.response :as response]
             [ring.util.response :as rr]
             [clojurewerkz.quartzite.scheduler :as qs]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor])
-  (:use [swiss-arrows core]))
+  (:use [swiss-arrows core]
+        [ring.middleware.session.memory :only [memory-store]]
+        [ring.middleware.resource :only [wrap-resource]]
+        [ring.middleware.file-info :only [wrap-file-info]]))
 
 
 ;  (let [date-job (q/make-shell-job "date")
@@ -83,12 +89,42 @@
   (fn[request]
     (handler (update-in request [:uri] #(if (= "/" %1) "/index.html" %1)))))
 
+(defn- login-failure-handler [request]
+  (error "login failed: " request))
+
+(defn- make-friend-auth [routes]
+  (friend/authenticate routes {:allow-anon? false
+                               :default-landing-uri "/index.html"
+                               :login-uri "/login.html"
+                               :login-failure-handler login-failure-handler
+                               :workflows [(openid/workflow
+                                              :openid-uri "/openid/login"
+                                              :max-nonce-age (* 1000 60 60) ; in milliseconds
+                                              :credential-fn identity)]}))
+
+(defn- wrap-api-unauthenticated [handler]
+  (fn[request]
+    (if (and (ju/edn-request? request)
+             (-> request friend/identity nil?))
+      (-> ["Unauthenticated."] ju/make-error-response response/edn (rr/status 401))
+      (handler request))))
+
+;(def app (middleware/app-handler routes/all-routes))
+
+; -- last item happens first
+(def app (-> routes/all-routes
+             redn/wrap-edn-params
+             make-friend-auth
+             wrap-dir-index
+             wrap-api-unauthenticated
+             ch/site
+             (wrap-resource "public")
+             wrap-file-info
+             wrap-exception))
 
 
-(def app (middleware/app-handler routes/all-routes))
-
-(def war-handler
-  (-> app (middleware/war-handler)
-          wrap-dir-index
-          wrap-exception
-          (redn/wrap-edn-params)))
+(def war-handler app)
+;  (-> app (middleware/war-handler)
+;          wrap-dir-index
+;          wrap-exception
+;          (redn/wrap-edn-params)))

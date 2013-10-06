@@ -1,8 +1,10 @@
 (ns jsk.routes
   (:require [compojure.core :refer [defroutes DELETE GET PUT POST]]
+            [compojure.core :as cc]
             [compojure.route :as route]
             [noir.response :as response]
             [ring.util.response :as rr]
+            [cemerick.friend :as friend]
             [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
             [jsk.schedule :as s]))
@@ -11,6 +13,8 @@
 ; Default app routes.
 ;-----------------------------------------------------------------------
 (defroutes app-routes
+  (GET "/logout" req
+    (friend/logout* (rr/redirect (str (:context req) "/"))))
   (route/resources "/")
   (route/not-found "Not found."))
 
@@ -18,7 +22,9 @@
 ; Routes realted to jobs and job schedule associations.
 ;-----------------------------------------------------------------------
 (defroutes job-routes
-  (GET "/jobs" []
+  (GET "/jobs" [_ :as request]
+       (info (:session request))
+
        (response/edn (j/ls-jobs)))
 
   (GET "/jobs/:id" [id]
@@ -55,4 +61,4 @@
 ;-----------------------------------------------------------------------
 ; Collection of all routes.
 ;-----------------------------------------------------------------------
-(def all-routes [schedule-routes job-routes app-routes])
+(def all-routes (cc/routes schedule-routes job-routes app-routes))

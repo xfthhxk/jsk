@@ -13,14 +13,15 @@
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
                  [swiss-arrows "0.6.0"]              ; syntactic sugar
                  [bouncer "0.3.0-alpha1"]            ; validation lib
-                 [lib-noir "0.6.8"]
                  [enlive "1.1.4"]                    ; templating library
-                 [compojure "1.1.5"]                 ; routing library for ring
-                 [ring-server "0.2.8"]
                  [com.h2database/h2 "1.3.173"]       ; embedded db
                  [korma "0.3.0-RC5"]                 ; sql dsl
+                 [com.cemerick/friend "0.2.0"]       ; openid auth
+                 [compojure "1.1.5"]                 ; routing library for ring
+                 [ring-server "0.2.8"]
                  [fogus/ring-edn "0.2.0"]
                  [ring-middleware-format "0.3.1"]
+                 [lib-noir "0.6.8"]
                  [enfocus "2.0.0-SNAPSHOT"]]         ; cljs enlive like lib
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}
