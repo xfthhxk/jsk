@@ -1,6 +1,4 @@
-(ns jsk.util
-  (:require [enfocus.core :as ef])
-  (:require-macros [enfocus.macros :as em]))
+(ns web.util)
 
 (defn log [x]
   (.log js/console (str x)))
@@ -33,43 +31,8 @@
 (defn element-checked? [id]
   (.-checked (element-by-id id)))
 
-(defn set-element-checked! [id]
-  (set! (.-checked (element-by-id id)) true))
-
 
 (defn str-contains?
   "Answers true if string s contains a substring x."
   [s x]
   (not= -1 (.indexOf s x)))
-
-
-(defn ensure-coll
-  "Ensures x is a coll otherwise wraps it in a vector"
-  [x]
-  (if (coll? x) x [x] ))
-
-
-
-
-(em/deftemplate error-display-template :compiled "public/templates/error-list.html" [errors]
-  "ul > :not(li:first-child)" (ef/remove-node)
-  "ul > li" (em/clone-for [e errors]
-              (ef/content e)))
-
-; errors is a seq of msgs
-(defn display-errors [errors]
-  (log (str "errors received: " errors))
-  (ef/at "#error-div" (ef/content (error-display-template errors))))
-
-(defn clear-error []
-  (ef/at "#error-div" (ef/content "")))
-
-
-
-
-
-
-
-
-
-

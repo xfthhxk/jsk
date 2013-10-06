@@ -53,7 +53,6 @@
   (cron/schedule (cron/cron-schedule (:cron-expr schedule))))
 
 
-(defn valid-cron-expr? [expr]
-  (CronExpression/isValidExpression expr))
-
-
+(defn cron-expr? [expr]
+  (let [ce (if (nil? expr) "" expr)]
+    (CronExpression/isValidExpression ce)))

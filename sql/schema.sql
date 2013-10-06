@@ -62,3 +62,4 @@ create table job_schedule ( job_schedule_id int         auto_increment primary k
 
 alter table job_schedule add constraint fk_job_schedule_job_id foreign key (job_id) references job(job_id);
 alter table job_schedule add constraint fk_job_schedule_schedule_id foreign key (schedule_id) references schedule(schedule_id);
+alter table job_schedule add constraint unq_job_schedule_job_id_schedule_id unique(job_id,schedule_id);

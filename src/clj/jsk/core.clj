@@ -3,13 +3,15 @@
   (:require [jsk.routes :as routes]
             [jsk.ps :as ps]
             [jsk.quartz :as q]
+            [jsk.util :as ju]
             [ring.middleware.edn :as redn]
             [noir.util.middleware :as middleware]
             [noir.response :as response]
             [ring.util.response :as rr]
             [clojurewerkz.quartzite.scheduler :as qs]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
-            [com.postspectacular.rotor :as rotor]))
+            [com.postspectacular.rotor :as rotor])
+  (:use [swiss-arrows core]))
 
 
 ;  (let [date-job (q/make-shell-job "date")
@@ -72,11 +74,21 @@
       (handler request)
       (catch Exception ex
         (error ex)
-        (-> (.getMessage ex) response/edn (rr/status 500))))))
+        (-> [(.getMessage ex)] ju/make-error-response response/edn (rr/status 500))))))
+
+;-----------------------------------------------------------------------
+; Serve up index.html when nothing specified.
+;-----------------------------------------------------------------------
+(defn- wrap-dir-index [handler]
+  (fn[request]
+    (handler (update-in request [:uri] #(if (= "/" %1) "/index.html" %1)))))
+
+
 
 (def app (middleware/app-handler routes/all-routes))
 
 (def war-handler
   (-> app (middleware/war-handler)
+          wrap-dir-index
           wrap-exception
           (redn/wrap-edn-params)))

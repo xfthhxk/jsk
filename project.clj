@@ -11,6 +11,8 @@
                  [org.zeroturnaround/zt-exec "1.4"]  ; process execution
                  [com.taoensso/timbre "2.6.1"]       ; logging
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
+                 [swiss-arrows "0.6.0"]              ; syntactic sugar
+                 [bouncer "0.3.0-alpha1"]            ; validation lib
                  [lib-noir "0.6.8"]
                  [enlive "1.1.4"]                    ; templating library
                  [compojure "1.1.5"]                 ; routing library for ring

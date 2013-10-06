@@ -7,7 +7,7 @@
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
-(declare save-job job-row-clicked)
+(declare save-job job-row-clicked save-job-schedule-assoc)
 
 ;-----------------------------------------------------------------------
 ; List all jobs
@@ -39,7 +39,21 @@
   "#is-enabled"              (ef/do->
                                (ef/set-prop "checked" (:is-enabled j)
                                (ef/set-attr :value (str (:is-enabled j)))))
-  "#save-btn"                (events/listen :click save-job))
+  "#save-job-btn"            (events/listen :click save-job))
+
+
+;-----------------------------------------------------------------------
+; Job + Schedule associations
+;-----------------------------------------------------------------------
+(em/deftemplate schedule-assoc :compiled "public/templates/job-schedule-assoc.html" [job ss selected-ids]
+  "#job-id" (ef/set-attr :value (str (:job-id job)))
+  "#schedule-assoc-div" (em/clone-for [s ss]
+                          "label" (ef/content (:schedule-name s))
+                          "input" (ef/do->
+                                    (ef/set-attr :value (str (:schedule-id s)))
+                                    (ef/set-prop :checked (contains? selected-ids (:schedule-id s)))))
+  "#save-assoc-btn"     (events/listen :click save-job-schedule-assoc))
+
 
 (defn show-jobs []
   (go
@@ -55,15 +69,61 @@
       (ju/log (str "Job saved with id " job-id))
       (show-jobs))))
 
-(defn- show-job-edit [j]
-  (ef/at "#container" (ef/content (edit-job j))))
+(defn show-job-edit [j ss associated-schedule-ids]
+  (ef/at "#container" (ef/content (edit-job j)))
+  (if ss
+    (ef/at "#job-schedule-associations" (ef/content (schedule-assoc j ss associated-schedule-ids)))))
 
-(defn- job-row-clicked [e]
+(defn job-row-clicked [e]
   (go
     (let [id (ef/from (ju/event-source e) (ef/get-attr :data-job-id))
           url (str "/jobs/" id)
-          j (first (<! (rpc/GET url)))]
-      (show-job-edit j))))
+          j (<! (rpc/GET url))
+          ss (<! (rpc/GET "/schedules"))
+          assoc-schedule-ids (<! (rpc/GET (str url "/sched-assoc")))]
+      (show-job-edit j ss assoc-schedule-ids))))
+
 
 (defn show-add-job []
-  (show-job-edit {:job-id -1 :is-enabled false}))
+  (show-job-edit {:job-id -1 :is-enabled false} nil nil))
+
+
+(defn- parse-job-schedule-assoc-form []
+  (let [form (ef/from "#schedule-assoc-form" (ef/read-form))
+        schedule-id-strs (ju/ensure-coll (:schedule-id form))
+        schedule-ids (map ju/str->int schedule-id-strs)]
+    (ju/log (str "form is: " form))
+    (ju/log (str "schedule-id-strs is: " schedule-id-strs))
+    (ju/log (str "schedule-ids is: " schedule-ids))
+    {:job-id (-> :job-id form ju/str->int)
+     :schedule-ids schedule-ids}))
+
+
+(defn- save-job-schedule-assoc [e]
+  (go
+   (let [data (parse-job-schedule-assoc-form)]
+     (<! (rpc/POST "/jobs/assoc" data))
+     (ef/at "#save-assoc-msg-label" (ef/content "Associations saved.")))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

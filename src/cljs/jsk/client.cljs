@@ -24,8 +24,7 @@
 ;-----------------------------------------------------------------------
 (defn rpc-error-handler [status msg]
   (ju/log (str "ERROR status: " status ", msg: " msg))
-  (set! (.-innerHTML (ju/element-by-id "error-div")) msg))
-  ;(ef/at  (ef/content msg)))
+  (ju/display-errors (:errors msg)))
 
 ;-----------------------------------------------------------------------
 ; Main screen event handling.

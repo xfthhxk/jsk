@@ -3,6 +3,7 @@
             [compojure.route :as route]
             [noir.response :as response]
             [ring.util.response :as rr]
+            [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
             [jsk.schedule :as s]))
 
@@ -23,11 +24,15 @@
   (GET "/jobs/:id" [id]
        (-> id j/get-job response/edn))
 
+  (GET "/jobs/:id/sched-assoc" [id]
+       (-> id j/schedules-for-job response/edn))
+
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) j/save-job! response/edn))
 
   (POST "/jobs/assoc" [_ :as request]
-        (-> (:params request) j/assoc-schedules! response/edn))
+        (info "request is: " request)
+        (-> (:edn-params request) j/assoc-schedules! response/edn))
 
   (DELETE "/jobs/dissoc" [_ :as request]
         (-> (:params request) j/dissoc-schedules! response/edn)))

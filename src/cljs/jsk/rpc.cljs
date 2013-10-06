@@ -14,7 +14,10 @@
 
 (def edn-headers (-> {"Content-Type" app-edn} clj->js structs/Map.))
 
-(def error-handler (atom nil))
+(defn- default-rpc-error-handler [status msg]
+  (ju/log (str "ERROR status: " status ", msg: " msg)))
+
+(def error-handler (atom default-rpc-error-handler))
 
 (defn- success? [status]
   (some #{status} [200 201 202 204 205 206]))

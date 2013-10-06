@@ -49,9 +49,13 @@
   (go
     (let [form (ef/from "#schedule-save-form" (ef/read-form))
           data (ju/update-str->int form :schedule-id)
-          schedule-id (<! (rpc/POST "/schedules/save" data))]
-      (ju/log (str "Schedule saved with id " schedule-id))
-      (show-schedules))))
+          {:keys [success? schedule-id errors] :as save-result} (<! (rpc/POST "/schedules/save" data))]
+      (ju/log (str "Result: " save-result))
+      (if success?
+        (show-schedules)
+        (when errors
+          (ju/display-errors (-> errors vals flatten))
+          (edit-schedule form))))))
 
 (defn- show-schedule-edit [s]
   (ef/at "#container" (ef/content (edit-schedule s))))
@@ -60,7 +64,7 @@
   (go
     (let [id (ef/from (ju/event-source e) (ef/get-attr :data-schedule-id))
           url (str "/schedules/" id)
-          sched (first (<! (rpc/GET url)))]
+          sched (<! (rpc/GET url))]
       (show-schedule-edit sched))))
 
 (defn show-add-schedule []

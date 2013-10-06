@@ -27,3 +27,21 @@
 (read-string "{42 :hello}")
 
 (dissoc {42 :hello} 42)
+
+(def request {:uri "/" :name "blah"})
+
+(update-in request [:uri]
+           #(if (= "/" %1) "/index.html" %1))
+
+(defrecord Schedule [id nm desc cron-expr])
+
+(merge (Schedule. nil nil nil nil) {:id 42 :cron-expr "* * 5 *" })
+
+
+(use 'swiss-arrows.core)
+
+(-<> 42 {:key <> :val "something"})
+
+
+(flatten {:42 "a" :23 "b"})
+(flatten [42 [32 [3]]])
