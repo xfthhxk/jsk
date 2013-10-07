@@ -28,7 +28,7 @@
 
 (dissoc {42 :hello} 42)
 
-(def request {:uri "/" :name "blah"})
+(def request {:uri "/" :name "blah" :session nil} )
 
 (update-in request [:uri]
            #(if (= "/" %1) "/index.html" %1))
@@ -45,3 +45,10 @@
 
 (flatten {:42 "a" :23 "b"})
 (flatten [42 [32 [3]]])
+
+(update-in request [:session] assoc :user-id 42 )
+
+request
+
+(dissoc {:a 42} :b)
+

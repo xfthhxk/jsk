@@ -9,13 +9,15 @@
             [jsk.job :as j]
             [jsk.schedule :as s]))
 
+
 ;-----------------------------------------------------------------------
 ; Default app routes.
 ;-----------------------------------------------------------------------
 (defroutes app-routes
   (GET "/logout" req
     (friend/logout* (rr/redirect (str (:context req) "/"))))
-  (route/resources "/")
+  ; (route/resources "resources/public/")
+  (route/resources "resources/public/")
   (route/not-found "Not found."))
 
 ;-----------------------------------------------------------------------

@@ -34,7 +34,7 @@
 (defn schedule-name-exists?
   "Answers true if schedule name exists"
   [nm]
-  (-> nm get-schedule-by-name count zero? not))
+  (-> nm get-schedule-by-name nil? not))
 
 (def new-schedule-name? (complement schedule-name-exists?))
 
@@ -43,11 +43,12 @@
 ; Validates if the s-name can be used
 ;-----------------------------------------------------------------------
 (defn unique-name?  [id sname]
-  (let [s (get-schedule-by-name sname)]
-    (or (nil? s)
-        (-> :schedule-id s (= id)))))
+  (if-let [s (get-schedule-by-name sname)]
+    (= id (:schedule-id s))
+    true))
 
-
+; NB the first is used to see if bouncer generated any errors
+; bouncer returns a vector where the first item is a map of errors
 (defn validate-save [{:keys [schedule-id] :as s}]
   (-> s
     (b/validate
@@ -58,12 +59,8 @@
 ;-----------------------------------------------------------------------
 ; Insert a schedule
 ;-----------------------------------------------------------------------
-(defn- insert-schedule! [m]
-  (let [now (jdb/now)
-        merged-map (merge m {:created-at now
-                             :updated-at  now
-                             :created-by "amar"
-                             :updated-by "amar"})]
+(defn- insert-schedule! [m user-id]
+  (let [merged-map (merge m {:create-user-id user-id :update-user-id user-id})]
     (info "Creating new schedule: " merged-map)
     (-> (insert schedule (values merged-map))
          jdb/extract-identity)))
@@ -72,29 +69,26 @@
 ; Update an existing schedule
 ; Answers with the schedule-id if update is successful.
 ;-----------------------------------------------------------------------
-(defn- update-schedule! [{:keys [schedule-id] :as m}]
-  (info "Updating schedule: " m)
-  (update schedule
-          (set-fields (dissoc m :schedule-id))
-          (where {:schedule-id schedule-id}))
+(defn- update-schedule! [{:keys [schedule-id] :as m} user-id]
+  (let [merged-map (merge m {:update-user-id user-id :updated-at (jdb/now)})]
+    (info "Updating schedule: " m)
+    (update schedule (set-fields (dissoc m :schedule-id))
+      (where {:schedule-id schedule-id})))
   schedule-id)
 
-(defn- save-schedule* [{:keys [schedule-id] :as s}]
-  (-<>  (if (neg? schedule-id)
-          (insert-schedule! (dissoc s :schedule-id))
-          (update-schedule! s))
+
+(defn- save-schedule* [{:keys [schedule-id] :as s} user-id]
+  (-<>  (if schedule-id
+          (update-schedule! s user-id)
+          (insert-schedule! s user-id))
         {:success? true :schedule-id <>}))
 
-
-(defn- save-with-validation [handler]
-  (fn [s]
-    (let [errors (validate-save s)]
-      (if errors
-        (ju/make-error-response errors)
-        (handler s)))))
 
 ;-----------------------------------------------------------------------
 ; Saves the schedule either inserting or updating depending on the
 ; schedule-id. If it is negative insert otherwise update.
 ;-----------------------------------------------------------------------
-(def save-schedule! (save-with-validation save-schedule*))
+(defn save-schedule! [s user-id]
+  (if-let [errors (validate-save s)]
+    (ju/make-error-response errors)
+    (save-schedule* s user-id)))

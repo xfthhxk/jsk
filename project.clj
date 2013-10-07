@@ -13,7 +13,6 @@
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
                  [swiss-arrows "0.6.0"]              ; syntactic sugar
                  [bouncer "0.3.0-alpha1"]            ; validation lib
-                 [enlive "1.1.4"]                    ; templating library
                  [com.h2database/h2 "1.3.173"]       ; embedded db
                  [korma "0.3.0-RC5"]                 ; sql dsl
                  [com.cemerick/friend "0.2.0"]       ; openid auth

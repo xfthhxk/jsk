@@ -1,7 +1,10 @@
 (ns jsk.job
   (:require [taoensso.timbre :as timbre :refer (info warn error)]
+            [bouncer [core :as b] [validators :as v]]
+            [jsk.util :as ju]
             [jsk.db :as jdb])
-  (:use [korma core db]))
+  (:use [korma core db]
+        [swiss-arrows core]))
 
 (defentity job
   (pk :job-id)
@@ -13,67 +16,83 @@
 
 
 ;-----------------------------------------------------------------------
-; Enumerates all jobs
+; Job lookups
 ;-----------------------------------------------------------------------
 (defn ls-jobs
-  []
   "Lists all jobs"
-  (info "Listing all jobs.")
+  []
   (select job))
 
-
-;-----------------------------------------------------------------------
-; Look up a job by id
-;-----------------------------------------------------------------------
 (defn get-job
   "Gets a job for the id specified"
   [id]
   (first (select job
            (where {:job-id id}))))
 
+(defn get-job-by-name
+  "Gets a job by name if one exists otherwise returns nil"
+  [nm]
+  (first (select job (where {:job-name nm}))))
+
+(defn job-name-exists?
+  "Answers true if job name exists"
+  [nm]
+  (-> nm get-job-by-name nil? not))
+
+
 ;-----------------------------------------------------------------------
-; Insert a job
+; Validates if the job name can be used
 ;-----------------------------------------------------------------------
-(defn- insert-job! [m]
-  (let [merged-map (merge m {:created-at (:updated-at m)
-                             :created-by (:updated-by m)})]
+(defn unique-name? [id jname]
+  (if-let [j (get-job-by-name jname)]
+    (= id (:job-id j))
+    true))
+
+
+; NB the first is used to see if bouncer generated any errors
+; bouncer returns a vector where the first item is a map of errors
+(defn validate-save [{:keys [job-id] :as j}]
+  (-> j
+      (b/validate
+         :job-name [v/required [(partial unique-name? job-id) :message "Job name must be unique."]])
+      first))
+
+;-----------------------------------------------------------------------
+; Insert a job. Answers with the inserted job's row id.
+;-----------------------------------------------------------------------
+(defn- insert-job! [m user-id]
+  (let [merged-map (merge m {:create-user-id user-id :update-user-id user-id})]
     (info "Creating new job with values: " merged-map)
     (-> (insert job (values merged-map))
         jdb/extract-identity)))
 
 
 ;-----------------------------------------------------------------------
-; Update an existing schedule.
+; Update an existing job.
 ; Answers with the job-id if update is successful.
 ;-----------------------------------------------------------------------
-(defn- update-job! [{:keys [job-id] :as m}]
-  (info "Updating job: " m)
-  (update job
-          (set-fields (dissoc m :job-id))
-          (where {:job-id job-id}))
+(defn- update-job! [{:keys [job-id] :as m} user-id]
+  (let [merged-map (merge m {:update-user-id user-id :update-at (jdb/now)})]
+    (info "Updating job: " m)
+    (update job (set-fields (dissoc m :job-id))
+      (where {:job-id job-id})))
   job-id)
 
+
+(defn save-job* [{:keys [job-id] :as j} user-id]
+  (-<> (if job-id
+         (update-job! j user-id)
+         (insert-job! j user-id))
+       {:success? true :schedule-id <>}))
 
 ;-----------------------------------------------------------------------
 ; Saves the job either inserting or updating depending on the
 ; job-id.  If it is negative insert otherwise update.
 ;-----------------------------------------------------------------------
-(defn save-job!
-  ([{:keys [job-id job-name job-desc job-execution-directory job-command-line is-enabled]}]
-   (save-job! job-id job-name job-desc job-execution-directory job-command-line is-enabled "amar"))
-
-  ([id nm desc exec-dir cmd-line enabled? user-id]
-   (info "Hi we're saving a job")
-   (let [m {:job-name nm
-            :job-desc desc
-            :job-execution-directory exec-dir
-            :job-command-line cmd-line
-            :is-enabled enabled?
-            :updated-by user-id
-            :updated-at (jdb/now)}]
-     (if (neg? id)
-       (insert-job! m)
-       (update-job! (assoc m :job-id id))))))
+(defn save-job! [j user-id]
+  (if-let [errors (validate-save j)]
+    (ju/make-error-response errors)
+    (save-job* j user-id)))
 
 
 ;-----------------------------------------------------------------------
