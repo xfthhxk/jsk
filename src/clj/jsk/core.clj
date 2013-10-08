@@ -100,15 +100,21 @@
     (assoc m :jsk/user app-user)
     m))
 
+
+(defn- friend-unauth-handler [request]
+  (info "In unauth handler handler: " request))
+
 (defn- make-friend-auth [routes]
   (friend/authenticate routes {:allow-anon? false
+                               ; :unauthenticated-handler  friend-unauth-handler
                                :default-landing-uri "/index.html"
                                :login-uri "/login.html"
                                :login-failure-handler login-failure-handler
                                :workflows [(openid/workflow
                                               :openid-uri "/openid/login"
-                                              :max-nonce-age (* 1000 60 60) ; in milliseconds
+                                              :max-nonce-age (* 1000 60 5) ; 5 minutes in milliseconds
                                               :credential-fn friend-credential-fn)]}))
+
 (defn- update-session-with-jsk-user [m app-user]
   (if app-user
     (update-in m [:session] assoc :jsk/user app-user)
@@ -124,37 +130,54 @@
     (info "app-user is " app-user)
     (update-session-with-jsk-user request app-user)))
 
+(def unauth-ring-response (-> ["Unauthenticated."] ju/make-error-response response/edn (rr/status 401)))
 
 ; friend will redirect, and the xhr will follow the redirect which eventually
 ; results in a 200 and shows the login page in the xhr response
 ; this gets to it before friend does and issues a 401 unauth
 ; which the client can handle
 (defn- wrap-api-unauthenticated [handler]
-  (fn[{:keys[session] :as request}]
+  (fn[request]
+    (let [app-user (-> request friend/current-authentication :jsk/user)
+          edn? (ju/edn-request? request)]
+      (if (and edn? (nil? app-user))
+        unauth-ring-response
+        (let [resp (handler request)
+              status (:status resp)]
+          (if (and edn? (= 302 status)) ; 302 is redirect ie for login
+            unauth-ring-response
+            resp))))))
 
-    (if (or (not (ju/edn-request? request)) (:jsk/user session))
-      (handler request)
 
-      (if-not (:jsk/user session)
-        (let [req* (assoc-jsk-user-in-session request)
-              session* (:session req*)
-              app-user (:jsk/user session*)]
-          (if app-user
-            (update-session-with-jsk-user (handler req*) app-user)
-            (-> ["Unauthenticated."] ju/make-error-response response/edn (rr/status 401))))
+
+(defn- wrap-spy [handler ctx]
+  (fn[{:keys [session]:as request}]
+    (info "---------------------------------")
+    (info ctx)
+    (info "---------------------------------")
+    (info "request is " request)
+    (let [resp*(handler request)]
+      (info "#####################")
+      (info ctx)
+      (info "#####################")
+      (info "response is: " resp*)
+      resp*)))
 
 ;(def app (middleware/app-handler routes/all-routes))
 
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
+             ;(wrap-spy "Post friend")
              make-friend-auth
+             (wrap-spy "Before friend")
              wrap-api-unauthenticated
              wrap-dir-index
              ch/site
              (wrap-resource "public")
              wrap-file-info
-             wrap-exception))
+             wrap-exception
+             #_(wrap-spy "First")))
 
 
 (def war-handler app)

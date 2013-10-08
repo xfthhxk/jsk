@@ -24,7 +24,9 @@
 ;-----------------------------------------------------------------------
 (defn rpc-error-handler [status msg]
   (ju/log (str "ERROR status: " status ", msg: " msg))
-  (ju/display-errors (:errors msg)))
+  (ju/display-errors (:errors msg))
+  (if (rpc/unauthorized? status)
+    (ju/nav-to-login-page)))
 
 ;-----------------------------------------------------------------------
 ; Main screen event handling.

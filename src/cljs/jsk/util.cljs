@@ -65,7 +65,8 @@
   (ef/at "#error-div" (ef/content "")))
 
 
-
+(defn nav-to-login-page []
+  (set! (-> js/window .-location .-href) "login.html"))
 
 
 

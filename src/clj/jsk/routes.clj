@@ -16,8 +16,7 @@
 (defroutes app-routes
   (GET "/logout" req
     (friend/logout* (rr/redirect (str (:context req) "/"))))
-  ; (route/resources "resources/public/")
-  (route/resources "resources/public/")
+  (route/resources "public")
   (route/not-found "Not found."))
 
 ;-----------------------------------------------------------------------

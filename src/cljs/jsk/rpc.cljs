@@ -22,6 +22,9 @@
 (defn- success? [status]
   (some #{status} [200 201 202 204 205 206]))
 
+(defn unauthorized? [status]
+  (some #{status} [401 403]))
+
 (defn edn-response? [xhr]
   (let [ct (.getResponseHeader xhr "Content-Type")]
     (ju/str-contains? ct app-edn)))
