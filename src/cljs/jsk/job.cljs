@@ -34,12 +34,12 @@
   "#job-id-lbl"              (ef/content (str (:job-id j)))
   "#job-name"                (ef/set-attr :value (:job-name j))
   "#job-desc"                (ef/content (:job-desc j))
-  "#job-execution-directory" (ef/set-attr :value (:job-execution-directory j))
-  "#job-command-line"        (ef/content (:job-command-line j))
+  "#execution-directory"     (ef/set-attr :value (:execution-directory j))
+  "#command-line"            (ef/content (:command-line j))
   "#is-enabled"              (ef/do->
                                (ef/set-prop "checked" (:is-enabled j)
                                (ef/set-attr :value (str (:is-enabled j)))))
-  "#save-job-btn"            (events/listen :click save-job))
+  "#save-btn"            (events/listen :click save-job))
 
 
 ;-----------------------------------------------------------------------

@@ -25,6 +25,9 @@
 (defn unauthorized? [status]
   (some #{status} [401 403]))
 
+(defn server-error? [status]
+  (= 500 status))
+
 (defn edn-response? [xhr]
   (let [ct (.getResponseHeader xhr "Content-Type")]
     (ju/str-contains? ct app-edn)))

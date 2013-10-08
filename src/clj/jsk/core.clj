@@ -90,6 +90,9 @@
   (fn[request]
     (handler (update-in request [:uri] #(if (= "/" %1) "/index.html" %1)))))
 
+;-----------------------------------------------------------------------
+; Friend authentication
+;-----------------------------------------------------------------------
 (defn- login-failure-handler [request]
   (error "login failed: " request))
 
@@ -97,7 +100,7 @@
 (defn- friend-credential-fn [m]
   (info "friend-credential-fn input map is: " m)
   (if-let [app-user (juser/get-by-email (:email m))]
-    (assoc m :jsk/user app-user)
+    (assoc m :jsk-user app-user)
     m))
 
 
@@ -115,22 +118,13 @@
                                               :max-nonce-age (* 1000 60 5) ; 5 minutes in milliseconds
                                               :credential-fn friend-credential-fn)]}))
 
-(defn- update-session-with-jsk-user [m app-user]
-  (if app-user
-    (update-in m [:session] assoc :jsk/user app-user)
-    (update-in m [:session] dissoc :jsk/user)))
-
-(defn- extract-jsk-user-from-friend-id [request]
-  (if-let [friend-id (friend/identity request)]
-    (let [{:keys [current authentications]} friend-id]
-      (:jsk/user (authentications current)))))
-
-(defn- assoc-jsk-user-in-session [request]
-  (let [app-user (extract-jsk-user-from-friend-id request)]
-    (info "app-user is " app-user)
-    (update-session-with-jsk-user request app-user)))
-
 (def unauth-ring-response (-> ["Unauthenticated."] ju/make-error-response response/edn (rr/status 401)))
+
+(defn- send-unauth-ring-response [msg app-user edn?]
+  (warn "send-unauth-ring: " msg)
+  (warn "app-user: " app-user)
+  (warn "edn? " edn?)
+  unauth-ring-response)
 
 ; friend will redirect, and the xhr will follow the redirect which eventually
 ; results in a 200 and shows the login page in the xhr response
@@ -138,50 +132,36 @@
 ; which the client can handle
 (defn- wrap-api-unauthenticated [handler]
   (fn[request]
-    (let [app-user (-> request friend/current-authentication :jsk/user)
+    (let [app-user (-> request friend/current-authentication :jsk-user)
           edn? (ju/edn-request? request)]
       (if (and edn? (nil? app-user))
-        unauth-ring-response
+        (send-unauth-ring-response "Before calling handler" app-user edn?)
         (let [resp (handler request)
               status (:status resp)]
           (if (and edn? (= 302 status)) ; 302 is redirect ie for login
-            unauth-ring-response
+            (send-unauth-ring-response "After calling handler" app-user edn?)
             resp))))))
 
 
+(defn- wrap-jsk-user-in-session [handler]
+  (fn[request]
+    (if-let [app-user (-> request friend/current-authentication :jsk-user)]
+      (handler (assoc-in request [:session :jsk-user] app-user))
+      (throw (Exception. "Unauthenticated request found! Bad middleware layering likely.")))))
 
-(defn- wrap-spy [handler ctx]
-  (fn[{:keys [session]:as request}]
-    (info "---------------------------------")
-    (info ctx)
-    (info "---------------------------------")
-    (info "request is " request)
-    (let [resp*(handler request)]
-      (info "#####################")
-      (info ctx)
-      (info "#####################")
-      (info "response is: " resp*)
-      resp*)))
 
-;(def app (middleware/app-handler routes/all-routes))
 
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
-             ;(wrap-spy "Post friend")
+             wrap-jsk-user-in-session
              make-friend-auth
-             (wrap-spy "Before friend")
              wrap-api-unauthenticated
-             wrap-dir-index
              ch/site
+             wrap-dir-index
              (wrap-resource "public")
              wrap-file-info
-             wrap-exception
-             #_(wrap-spy "First")))
+             wrap-exception))
 
 
 (def war-handler app)
-;  (-> app (middleware/war-handler)
-;          wrap-dir-index
-;          wrap-exception
-;          (redn/wrap-edn-params)))

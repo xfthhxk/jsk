@@ -39,3 +39,5 @@
 (defn extract-identity [m]
   (first (vals m))) ; doing in a db agnostic way
 
+(defn id? [id]
+  (and id (> id 0)))

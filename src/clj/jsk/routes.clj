@@ -9,6 +9,12 @@
             [jsk.job :as j]
             [jsk.schedule :as s]))
 
+(defn- current-user [request]
+  (get-in request [:session :jsk-user]))
+
+(defn- uid [request]
+  (-> request current-user :app-user-id))
+
 
 ;-----------------------------------------------------------------------
 ; Default app routes.
@@ -24,8 +30,6 @@
 ;-----------------------------------------------------------------------
 (defroutes job-routes
   (GET "/jobs" [_ :as request]
-       (info (:session request))
-
        (response/edn (j/ls-jobs)))
 
   (GET "/jobs/:id" [id]
@@ -35,7 +39,7 @@
        (-> id j/schedules-for-job response/edn))
 
   (POST "/jobs/save" [_ :as request]
-        (-> (:params request) j/save-job! response/edn))
+        (-> (:params request) (j/save-job! (uid request)) response/edn))
 
   (POST "/jobs/assoc" [_ :as request]
         (info "request is: " request)
@@ -55,7 +59,7 @@
        (-> id s/get-schedule response/edn))
 
   (POST "/schedules/save" [_ :as request]
-       (-> (:params request) s/save-schedule! response/edn)))
+       (-> (:params request) (s/save-schedule! (uid request)) response/edn)))
 
 
 

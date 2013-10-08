@@ -20,9 +20,3 @@
     (if ct
       (not= -1 (.indexOf ct app-edn))
       false)))
-
-
-(def jsk-user-key :jsk/user)
-
-(defn jsk-user-id [request]
-  (-> request :session jsk-user-key))

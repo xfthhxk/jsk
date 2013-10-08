@@ -499,19 +499,6 @@ goog.base = function(me, opt_methodName, var_args) {
 goog.scope = function(fn) {
   fn.call(goog.global)
 };
-goog.provide("goog.debug.Error");
-goog.debug.Error = function(opt_msg) {
-  if(Error.captureStackTrace) {
-    Error.captureStackTrace(this, goog.debug.Error)
-  }else {
-    this.stack = (new Error).stack || ""
-  }
-  if(opt_msg) {
-    this.message = String(opt_msg)
-  }
-};
-goog.inherits(goog.debug.Error, Error);
-goog.debug.Error.prototype.name = "CustomError";
 goog.provide("goog.string");
 goog.provide("goog.string.Unicode");
 goog.string.Unicode = {NBSP:"\u00a0"};
@@ -952,6 +939,19 @@ goog.string.parseInt = function(value) {
   }
   return NaN
 };
+goog.provide("goog.debug.Error");
+goog.debug.Error = function(opt_msg) {
+  if(Error.captureStackTrace) {
+    Error.captureStackTrace(this, goog.debug.Error)
+  }else {
+    this.stack = (new Error).stack || ""
+  }
+  if(opt_msg) {
+    this.message = String(opt_msg)
+  }
+};
+goog.inherits(goog.debug.Error, Error);
+goog.debug.Error.prototype.name = "CustomError";
 goog.provide("goog.asserts");
 goog.provide("goog.asserts.AssertionError");
 goog.require("goog.debug.Error");
@@ -30732,870 +30732,6 @@ goog.Uri.QueryData.prototype.extend = function(var_args) {
     }, this)
   }
 };
-/*
- Portions of this code are from the Dojo Toolkit, received by
- The Closure Library Authors under the BSD license. All other code is
- Copyright 2005-2009 The Closure Library Authors. All Rights Reserved.
-
-The "New" BSD License:
-
-Copyright (c) 2005-2009, The Dojo Foundation
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
- Redistributions of source code must retain the above copyright notice, this
-    list of conditions and the following disclaimer.
- Redistributions in binary form must reproduce the above copyright notice,
-    this list of conditions and the following disclaimer in the documentation
-    and/or other materials provided with the distribution.
- Neither the name of the Dojo Foundation nor the names of its contributors
-    may be used to endorse or promote products derived from this software
-    without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-goog.provide("goog.dom.query");
-goog.require("goog.array");
-goog.require("goog.dom");
-goog.require("goog.functions");
-goog.require("goog.string");
-goog.require("goog.userAgent");
-goog.dom.query = function() {
-  var cssCaseBug = goog.userAgent.WEBKIT && goog.dom.getDocument().compatMode == "BackCompat";
-  var childNodesName = !!goog.dom.getDocument().firstChild["children"] ? "children" : "childNodes";
-  var specials = "\x3e~+";
-  var caseSensitive = false;
-  var getQueryParts = function(query) {
-    if(specials.indexOf(query.slice(-1)) >= 0) {
-      query += " * "
-    }else {
-      query += " "
-    }
-    var ts = function(s, e) {
-      return goog.string.trim(query.slice(s, e))
-    };
-    var queryParts = [];
-    var inBrackets = -1, inParens = -1, inMatchFor = -1, inPseudo = -1, inClass = -1, inId = -1, inTag = -1, lc = "", cc = "", pStart;
-    var x = 0, ql = query.length, currentPart = null, cp = null;
-    var endTag = function() {
-      if(inTag >= 0) {
-        var tv = inTag == x ? null : ts(inTag, x);
-        if(specials.indexOf(tv) < 0) {
-          currentPart.tag = tv
-        }else {
-          currentPart.oper = tv
-        }
-        inTag = -1
-      }
-    };
-    var endId = function() {
-      if(inId >= 0) {
-        currentPart.id = ts(inId, x).replace(/\\/g, "");
-        inId = -1
-      }
-    };
-    var endClass = function() {
-      if(inClass >= 0) {
-        currentPart.classes.push(ts(inClass + 1, x).replace(/\\/g, ""));
-        inClass = -1
-      }
-    };
-    var endAll = function() {
-      endId();
-      endTag();
-      endClass()
-    };
-    var endPart = function() {
-      endAll();
-      if(inPseudo >= 0) {
-        currentPart.pseudos.push({name:ts(inPseudo + 1, x)})
-      }
-      currentPart.loops = currentPart.pseudos.length || currentPart.attrs.length || currentPart.classes.length;
-      currentPart.oquery = currentPart.query = ts(pStart, x);
-      currentPart.otag = currentPart.tag = currentPart.oper ? null : currentPart.tag || "*";
-      if(currentPart.tag) {
-        currentPart.tag = currentPart.tag.toUpperCase()
-      }
-      if(queryParts.length && queryParts[queryParts.length - 1].oper) {
-        currentPart.infixOper = queryParts.pop();
-        currentPart.query = currentPart.infixOper.query + " " + currentPart.query
-      }
-      queryParts.push(currentPart);
-      currentPart = null
-    };
-    for(;lc = cc, cc = query.charAt(x), x < ql;x++) {
-      if(lc == "\\") {
-        continue
-      }
-      if(!currentPart) {
-        pStart = x;
-        currentPart = {query:null, pseudos:[], attrs:[], classes:[], tag:null, oper:null, id:null, getTag:function() {
-          return caseSensitive ? this.otag : this.tag
-        }};
-        inTag = x
-      }
-      if(inBrackets >= 0) {
-        if(cc == "]") {
-          if(!cp.attr) {
-            cp.attr = ts(inBrackets + 1, x)
-          }else {
-            cp.matchFor = ts(inMatchFor || inBrackets + 1, x)
-          }
-          var cmf = cp.matchFor;
-          if(cmf) {
-            if(cmf.charAt(0) == '"' || cmf.charAt(0) == "'") {
-              cp.matchFor = cmf.slice(1, -1)
-            }
-          }
-          currentPart.attrs.push(cp);
-          cp = null;
-          inBrackets = inMatchFor = -1
-        }else {
-          if(cc == "\x3d") {
-            var addToCc = "|~^$*".indexOf(lc) >= 0 ? lc : "";
-            cp.type = addToCc + cc;
-            cp.attr = ts(inBrackets + 1, x - addToCc.length);
-            inMatchFor = x + 1
-          }
-        }
-      }else {
-        if(inParens >= 0) {
-          if(cc == ")") {
-            if(inPseudo >= 0) {
-              cp.value = ts(inParens + 1, x)
-            }
-            inPseudo = inParens = -1
-          }
-        }else {
-          if(cc == "#") {
-            endAll();
-            inId = x + 1
-          }else {
-            if(cc == ".") {
-              endAll();
-              inClass = x
-            }else {
-              if(cc == ":") {
-                endAll();
-                inPseudo = x
-              }else {
-                if(cc == "[") {
-                  endAll();
-                  inBrackets = x;
-                  cp = {}
-                }else {
-                  if(cc == "(") {
-                    if(inPseudo >= 0) {
-                      cp = {name:ts(inPseudo + 1, x), value:null};
-                      currentPart.pseudos.push(cp)
-                    }
-                    inParens = x
-                  }else {
-                    if(cc == " " && lc != cc) {
-                      endPart()
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    return queryParts
-  };
-  var agree = function(first, second) {
-    if(!first) {
-      return second
-    }
-    if(!second) {
-      return first
-    }
-    return function() {
-      return first.apply(window, arguments) && second.apply(window, arguments)
-    }
-  };
-  function getArr(i, opt_arr) {
-    var r = opt_arr || [];
-    if(i) {
-      r.push(i)
-    }
-    return r
-  }
-  var isElement = function(n) {
-    return 1 == n.nodeType
-  };
-  var blank = "";
-  var getAttr = function(elem, attr) {
-    if(!elem) {
-      return blank
-    }
-    if(attr == "class") {
-      return elem.className || blank
-    }
-    if(attr == "for") {
-      return elem.htmlFor || blank
-    }
-    if(attr == "style") {
-      return elem.style.cssText || blank
-    }
-    return(caseSensitive ? elem.getAttribute(attr) : elem.getAttribute(attr, 2)) || blank
-  };
-  var attrs = {"*\x3d":function(attr, value) {
-    return function(elem) {
-      return getAttr(elem, attr).indexOf(value) >= 0
-    }
-  }, "^\x3d":function(attr, value) {
-    return function(elem) {
-      return getAttr(elem, attr).indexOf(value) == 0
-    }
-  }, "$\x3d":function(attr, value) {
-    var tval = " " + value;
-    return function(elem) {
-      var ea = " " + getAttr(elem, attr);
-      return ea.lastIndexOf(value) == ea.length - value.length
-    }
-  }, "~\x3d":function(attr, value) {
-    var tval = " " + value + " ";
-    return function(elem) {
-      var ea = " " + getAttr(elem, attr) + " ";
-      return ea.indexOf(tval) >= 0
-    }
-  }, "|\x3d":function(attr, value) {
-    value = " " + value;
-    return function(elem) {
-      var ea = " " + getAttr(elem, attr);
-      return ea == value || ea.indexOf(value + "-") == 0
-    }
-  }, "\x3d":function(attr, value) {
-    return function(elem) {
-      return getAttr(elem, attr) == value
-    }
-  }};
-  var noNextElementSibling = typeof goog.dom.getDocument().firstChild.nextElementSibling == "undefined";
-  var nSibling = !noNextElementSibling ? "nextElementSibling" : "nextSibling";
-  var pSibling = !noNextElementSibling ? "previousElementSibling" : "previousSibling";
-  var simpleNodeTest = noNextElementSibling ? isElement : goog.functions.TRUE;
-  var _lookLeft = function(node) {
-    while(node = node[pSibling]) {
-      if(simpleNodeTest(node)) {
-        return false
-      }
-    }
-    return true
-  };
-  var _lookRight = function(node) {
-    while(node = node[nSibling]) {
-      if(simpleNodeTest(node)) {
-        return false
-      }
-    }
-    return true
-  };
-  var getNodeIndex = function(node) {
-    var root = node.parentNode;
-    var i = 0, tret = root[childNodesName], ci = node["_i"] || -1, cl = root["_l"] || -1;
-    if(!tret) {
-      return-1
-    }
-    var l = tret.length;
-    if(cl == l && ci >= 0 && cl >= 0) {
-      return ci
-    }
-    root["_l"] = l;
-    ci = -1;
-    var te = root["firstElementChild"] || root["firstChild"];
-    for(;te;te = te[nSibling]) {
-      if(simpleNodeTest(te)) {
-        te["_i"] = ++i;
-        if(node === te) {
-          ci = i
-        }
-      }
-    }
-    return ci
-  };
-  var isEven = function(elem) {
-    return!(getNodeIndex(elem) % 2)
-  };
-  var isOdd = function(elem) {
-    return getNodeIndex(elem) % 2
-  };
-  var pseudos = {"checked":function(name, condition) {
-    return function(elem) {
-      return elem.checked || elem.attributes["checked"]
-    }
-  }, "first-child":function() {
-    return _lookLeft
-  }, "last-child":function() {
-    return _lookRight
-  }, "only-child":function(name, condition) {
-    return function(node) {
-      if(!_lookLeft(node)) {
-        return false
-      }
-      if(!_lookRight(node)) {
-        return false
-      }
-      return true
-    }
-  }, "empty":function(name, condition) {
-    return function(elem) {
-      var cn = elem.childNodes;
-      var cnl = elem.childNodes.length;
-      for(var x = cnl - 1;x >= 0;x--) {
-        var nt = cn[x].nodeType;
-        if(nt === 1 || nt == 3) {
-          return false
-        }
-      }
-      return true
-    }
-  }, "contains":function(name, condition) {
-    var cz = condition.charAt(0);
-    if(cz == '"' || cz == "'") {
-      condition = condition.slice(1, -1)
-    }
-    return function(elem) {
-      return elem.innerHTML.indexOf(condition) >= 0
-    }
-  }, "not":function(name, condition) {
-    var p = getQueryParts(condition)[0];
-    var ignores = {el:1};
-    if(p.tag != "*") {
-      ignores.tag = 1
-    }
-    if(!p.classes.length) {
-      ignores.classes = 1
-    }
-    var ntf = getSimpleFilterFunc(p, ignores);
-    return function(elem) {
-      return!ntf(elem)
-    }
-  }, "nth-child":function(name, condition) {
-    function pi(n) {
-      return parseInt(n, 10)
-    }
-    if(condition == "odd") {
-      return isOdd
-    }else {
-      if(condition == "even") {
-        return isEven
-      }
-    }
-    if(condition.indexOf("n") != -1) {
-      var tparts = condition.split("n", 2);
-      var pred = tparts[0] ? tparts[0] == "-" ? -1 : pi(tparts[0]) : 1;
-      var idx = tparts[1] ? pi(tparts[1]) : 0;
-      var lb = 0, ub = -1;
-      if(pred > 0) {
-        if(idx < 0) {
-          idx = idx % pred && pred + idx % pred
-        }else {
-          if(idx > 0) {
-            if(idx >= pred) {
-              lb = idx - idx % pred
-            }
-            idx = idx % pred
-          }
-        }
-      }else {
-        if(pred < 0) {
-          pred *= -1;
-          if(idx > 0) {
-            ub = idx;
-            idx = idx % pred
-          }
-        }
-      }
-      if(pred > 0) {
-        return function(elem) {
-          var i = getNodeIndex(elem);
-          return i >= lb && (ub < 0 || i <= ub) && i % pred == idx
-        }
-      }else {
-        condition = idx
-      }
-    }
-    var ncount = pi(condition);
-    return function(elem) {
-      return getNodeIndex(elem) == ncount
-    }
-  }};
-  var defaultGetter = goog.userAgent.IE ? function(cond) {
-    var clc = cond.toLowerCase();
-    if(clc == "class") {
-      cond = "className"
-    }
-    return function(elem) {
-      return caseSensitive ? elem.getAttribute(cond) : elem[cond] || elem[clc]
-    }
-  } : function(cond) {
-    return function(elem) {
-      return elem && elem.getAttribute && elem.hasAttribute(cond)
-    }
-  };
-  var getSimpleFilterFunc = function(query, ignores) {
-    if(!query) {
-      return goog.functions.TRUE
-    }
-    ignores = ignores || {};
-    var ff = null;
-    if(!ignores.el) {
-      ff = agree(ff, isElement)
-    }
-    if(!ignores.tag) {
-      if(query.tag != "*") {
-        ff = agree(ff, function(elem) {
-          return elem && elem.tagName == query.getTag()
-        })
-      }
-    }
-    if(!ignores.classes) {
-      goog.array.forEach(query.classes, function(cname, idx, arr) {
-        var re = new RegExp("(?:^|\\s)" + cname + "(?:\\s|$)");
-        ff = agree(ff, function(elem) {
-          return re.test(elem.className)
-        });
-        ff.count = idx
-      })
-    }
-    if(!ignores.pseudos) {
-      goog.array.forEach(query.pseudos, function(pseudo) {
-        var pn = pseudo.name;
-        if(pseudos[pn]) {
-          ff = agree(ff, pseudos[pn](pn, pseudo.value))
-        }
-      })
-    }
-    if(!ignores.attrs) {
-      goog.array.forEach(query.attrs, function(attr) {
-        var matcher;
-        var a = attr.attr;
-        if(attr.type && attrs[attr.type]) {
-          matcher = attrs[attr.type](a, attr.matchFor)
-        }else {
-          if(a.length) {
-            matcher = defaultGetter(a)
-          }
-        }
-        if(matcher) {
-          ff = agree(ff, matcher)
-        }
-      })
-    }
-    if(!ignores.id) {
-      if(query.id) {
-        ff = agree(ff, function(elem) {
-          return!!elem && elem.id == query.id
-        })
-      }
-    }
-    if(!ff) {
-      if(!("default" in ignores)) {
-        ff = goog.functions.TRUE
-      }
-    }
-    return ff
-  };
-  var nextSiblingIterator = function(filterFunc) {
-    return function(node, ret, bag) {
-      while(node = node[nSibling]) {
-        if(noNextElementSibling && !isElement(node)) {
-          continue
-        }
-        if((!bag || _isUnique(node, bag)) && filterFunc(node)) {
-          ret.push(node)
-        }
-        break
-      }
-      return ret
-    }
-  };
-  var nextSiblingsIterator = function(filterFunc) {
-    return function(root, ret, bag) {
-      var te = root[nSibling];
-      while(te) {
-        if(simpleNodeTest(te)) {
-          if(bag && !_isUnique(te, bag)) {
-            break
-          }
-          if(filterFunc(te)) {
-            ret.push(te)
-          }
-        }
-        te = te[nSibling]
-      }
-      return ret
-    }
-  };
-  var _childElements = function(filterFunc) {
-    filterFunc = filterFunc || goog.functions.TRUE;
-    return function(root, ret, bag) {
-      var te, x = 0, tret = root[childNodesName];
-      while(te = tret[x++]) {
-        if(simpleNodeTest(te) && (!bag || _isUnique(te, bag)) && filterFunc(te, x)) {
-          ret.push(te)
-        }
-      }
-      return ret
-    }
-  };
-  var _isDescendant = function(node, root) {
-    var pn = node.parentNode;
-    while(pn) {
-      if(pn == root) {
-        break
-      }
-      pn = pn.parentNode
-    }
-    return!!pn
-  };
-  var _getElementsFuncCache = {};
-  var getElementsFunc = function(query) {
-    var retFunc = _getElementsFuncCache[query.query];
-    if(retFunc) {
-      return retFunc
-    }
-    var io = query.infixOper;
-    var oper = io ? io.oper : "";
-    var filterFunc = getSimpleFilterFunc(query, {el:1});
-    var qt = query.tag;
-    var wildcardTag = "*" == qt;
-    var ecs = goog.dom.getDocument()["getElementsByClassName"];
-    if(!oper) {
-      if(query.id) {
-        filterFunc = !query.loops && wildcardTag ? goog.functions.TRUE : getSimpleFilterFunc(query, {el:1, id:1});
-        retFunc = function(root, arr) {
-          var te = goog.dom.getDomHelper(root).getElement(query.id);
-          if(!te || !filterFunc(te)) {
-            return
-          }
-          if(9 == root.nodeType) {
-            return getArr(te, arr)
-          }else {
-            if(_isDescendant(te, root)) {
-              return getArr(te, arr)
-            }
-          }
-        }
-      }else {
-        if(ecs && /\{\s*\[native code\]\s*\}/.test(String(ecs)) && query.classes.length && !cssCaseBug) {
-          filterFunc = getSimpleFilterFunc(query, {el:1, classes:1, id:1});
-          var classesString = query.classes.join(" ");
-          retFunc = function(root, arr) {
-            var ret = getArr(0, arr), te, x = 0;
-            var tret = root.getElementsByClassName(classesString);
-            while(te = tret[x++]) {
-              if(filterFunc(te, root)) {
-                ret.push(te)
-              }
-            }
-            return ret
-          }
-        }else {
-          if(!wildcardTag && !query.loops) {
-            retFunc = function(root, arr) {
-              var ret = getArr(0, arr), te, x = 0;
-              var tret = root.getElementsByTagName(query.getTag());
-              while(te = tret[x++]) {
-                ret.push(te)
-              }
-              return ret
-            }
-          }else {
-            filterFunc = getSimpleFilterFunc(query, {el:1, tag:1, id:1});
-            retFunc = function(root, arr) {
-              var ret = getArr(0, arr), te, x = 0;
-              var tret = root.getElementsByTagName(query.getTag());
-              while(te = tret[x++]) {
-                if(filterFunc(te, root)) {
-                  ret.push(te)
-                }
-              }
-              return ret
-            }
-          }
-        }
-      }
-    }else {
-      var skipFilters = {el:1};
-      if(wildcardTag) {
-        skipFilters.tag = 1
-      }
-      filterFunc = getSimpleFilterFunc(query, skipFilters);
-      if("+" == oper) {
-        retFunc = nextSiblingIterator(filterFunc)
-      }else {
-        if("~" == oper) {
-          retFunc = nextSiblingsIterator(filterFunc)
-        }else {
-          if("\x3e" == oper) {
-            retFunc = _childElements(filterFunc)
-          }
-        }
-      }
-    }
-    return _getElementsFuncCache[query.query] = retFunc
-  };
-  var filterDown = function(root, queryParts) {
-    var candidates = getArr(root), qp, x, te, qpl = queryParts.length, bag, ret;
-    for(var i = 0;i < qpl;i++) {
-      ret = [];
-      qp = queryParts[i];
-      x = candidates.length - 1;
-      if(x > 0) {
-        bag = {};
-        ret.nozip = true
-      }
-      var gef = getElementsFunc(qp);
-      for(var j = 0;te = candidates[j];j++) {
-        gef(te, ret, bag)
-      }
-      if(!ret.length) {
-        break
-      }
-      candidates = ret
-    }
-    return ret
-  };
-  var _queryFuncCacheDOM = {}, _queryFuncCacheQSA = {};
-  var getStepQueryFunc = function(query) {
-    var qparts = getQueryParts(goog.string.trim(query));
-    if(qparts.length == 1) {
-      var tef = getElementsFunc(qparts[0]);
-      return function(root) {
-        var r = tef(root, []);
-        if(r) {
-          r.nozip = true
-        }
-        return r
-      }
-    }
-    return function(root) {
-      return filterDown(root, qparts)
-    }
-  };
-  var qsa = "querySelectorAll";
-  var qsaAvail = !!goog.dom.getDocument()[qsa] && (!goog.userAgent.WEBKIT || goog.userAgent.isVersion("526"));
-  var getQueryFunc = function(query, opt_forceDOM) {
-    if(qsaAvail) {
-      var qsaCached = _queryFuncCacheQSA[query];
-      if(qsaCached && !opt_forceDOM) {
-        return qsaCached
-      }
-    }
-    var domCached = _queryFuncCacheDOM[query];
-    if(domCached) {
-      return domCached
-    }
-    var qcz = query.charAt(0);
-    var nospace = -1 == query.indexOf(" ");
-    if(query.indexOf("#") >= 0 && nospace) {
-      opt_forceDOM = true
-    }
-    var useQSA = qsaAvail && !opt_forceDOM && specials.indexOf(qcz) == -1 && (!goog.userAgent.IE || query.indexOf(":") == -1) && !(cssCaseBug && query.indexOf(".") >= 0) && query.indexOf(":contains") == -1 && query.indexOf("|\x3d") == -1;
-    if(useQSA) {
-      var tq = specials.indexOf(query.charAt(query.length - 1)) >= 0 ? query + " *" : query;
-      return _queryFuncCacheQSA[query] = function(root) {
-        try {
-          if(!(9 == root.nodeType || nospace)) {
-            throw"";
-          }
-          var r = root[qsa](tq);
-          if(goog.userAgent.IE) {
-            r.commentStrip = true
-          }else {
-            r.nozip = true
-          }
-          return r
-        }catch(e) {
-          return getQueryFunc(query, true)(root)
-        }
-      }
-    }else {
-      var parts = query.split(/\s*,\s*/);
-      return _queryFuncCacheDOM[query] = parts.length < 2 ? getStepQueryFunc(query) : function(root) {
-        var pindex = 0, ret = [], tp;
-        while(tp = parts[pindex++]) {
-          ret = ret.concat(getStepQueryFunc(tp)(root))
-        }
-        return ret
-      }
-    }
-  };
-  var _zipIdx = 0;
-  var _nodeUID = goog.userAgent.IE ? function(node) {
-    if(caseSensitive) {
-      return node.getAttribute("_uid") || node.setAttribute("_uid", ++_zipIdx) || _zipIdx
-    }else {
-      return node.uniqueID
-    }
-  } : function(node) {
-    return node["_uid"] || (node["_uid"] = ++_zipIdx)
-  };
-  var _isUnique = function(node, bag) {
-    if(!bag) {
-      return 1
-    }
-    var id = _nodeUID(node);
-    if(!bag[id]) {
-      return bag[id] = 1
-    }
-    return 0
-  };
-  var _zipIdxName = "_zipIdx";
-  var _zip = function(arr) {
-    if(arr && arr.nozip) {
-      return arr
-    }
-    var ret = [];
-    if(!arr || !arr.length) {
-      return ret
-    }
-    if(arr[0]) {
-      ret.push(arr[0])
-    }
-    if(arr.length < 2) {
-      return ret
-    }
-    _zipIdx++;
-    if(goog.userAgent.IE && caseSensitive) {
-      var szidx = _zipIdx + "";
-      arr[0].setAttribute(_zipIdxName, szidx);
-      for(var x = 1, te;te = arr[x];x++) {
-        if(arr[x].getAttribute(_zipIdxName) != szidx) {
-          ret.push(te)
-        }
-        te.setAttribute(_zipIdxName, szidx)
-      }
-    }else {
-      if(goog.userAgent.IE && arr.commentStrip) {
-        try {
-          for(var x = 1, te;te = arr[x];x++) {
-            if(isElement(te)) {
-              ret.push(te)
-            }
-          }
-        }catch(e) {
-        }
-      }else {
-        if(arr[0]) {
-          arr[0][_zipIdxName] = _zipIdx
-        }
-        for(var x = 1, te;te = arr[x];x++) {
-          if(arr[x][_zipIdxName] != _zipIdx) {
-            ret.push(te)
-          }
-          te[_zipIdxName] = _zipIdx
-        }
-      }
-    }
-    return ret
-  };
-  var query = function(query, root) {
-    if(!query) {
-      return[]
-    }
-    if(query.constructor == Array) {
-      return(query)
-    }
-    if(!goog.isString(query)) {
-      return[query]
-    }
-    if(goog.isString(root)) {
-      root = goog.dom.getElement(root);
-      if(!root) {
-        return[]
-      }
-    }
-    root = root || goog.dom.getDocument();
-    var od = root.ownerDocument || root.documentElement;
-    caseSensitive = root.contentType && root.contentType == "application/xml" || goog.userAgent.OPERA && (root.doctype || od.toString() == "[object XMLDocument]") || !!od && (goog.userAgent.IE ? od.xml : root.xmlVersion || od.xmlVersion);
-    var r = getQueryFunc(query)(root);
-    if(r && r.nozip) {
-      return r
-    }
-    return _zip(r)
-  };
-  query.pseudos = pseudos;
-  return query
-}();
-goog.exportSymbol("goog.dom.query", goog.dom.query);
-goog.exportSymbol("goog.dom.query.pseudos", goog.dom.query.pseudos);
-goog.provide("goog.dom.ViewportSizeMonitor");
-goog.require("goog.dom");
-goog.require("goog.events");
-goog.require("goog.events.EventTarget");
-goog.require("goog.events.EventType");
-goog.require("goog.math.Size");
-goog.require("goog.userAgent");
-goog.dom.ViewportSizeMonitor = function(opt_window) {
-  goog.events.EventTarget.call(this);
-  this.window_ = opt_window || window;
-  this.listenerKey_ = goog.events.listen(this.window_, goog.events.EventType.RESIZE, this.handleResize_, false, this);
-  this.size_ = goog.dom.getViewportSize(this.window_);
-  if(this.isPollingRequired_()) {
-    this.windowSizePollInterval_ = window.setInterval(goog.bind(this.checkForSizeChange_, this), goog.dom.ViewportSizeMonitor.WINDOW_SIZE_POLL_RATE)
-  }
-};
-goog.inherits(goog.dom.ViewportSizeMonitor, goog.events.EventTarget);
-goog.dom.ViewportSizeMonitor.getInstanceForWindow = function(opt_window) {
-  var currentWindow = opt_window || window;
-  var uid = goog.getUid(currentWindow);
-  return goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid] = goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid] || new goog.dom.ViewportSizeMonitor(currentWindow)
-};
-goog.dom.ViewportSizeMonitor.removeInstanceForWindow = function(opt_window) {
-  var uid = goog.getUid(opt_window || window);
-  goog.dispose(goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid]);
-  delete goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid]
-};
-goog.dom.ViewportSizeMonitor.windowInstanceMap_ = {};
-goog.dom.ViewportSizeMonitor.WINDOW_SIZE_POLL_RATE = 500;
-goog.dom.ViewportSizeMonitor.prototype.listenerKey_ = null;
-goog.dom.ViewportSizeMonitor.prototype.window_ = null;
-goog.dom.ViewportSizeMonitor.prototype.size_ = null;
-goog.dom.ViewportSizeMonitor.prototype.windowSizePollInterval_ = null;
-goog.dom.ViewportSizeMonitor.prototype.isPollingRequired_ = function() {
-  return goog.userAgent.WEBKIT && goog.userAgent.WINDOWS || goog.userAgent.OPERA && this.window_.self != this.window_.top
-};
-goog.dom.ViewportSizeMonitor.prototype.getSize = function() {
-  return this.size_ ? this.size_.clone() : null
-};
-goog.dom.ViewportSizeMonitor.prototype.disposeInternal = function() {
-  goog.dom.ViewportSizeMonitor.superClass_.disposeInternal.call(this);
-  if(this.listenerKey_) {
-    goog.events.unlistenByKey(this.listenerKey_);
-    this.listenerKey_ = null
-  }
-  if(this.windowSizePollInterval_) {
-    window.clearInterval(this.windowSizePollInterval_);
-    this.windowSizePollInterval_ = null
-  }
-  this.window_ = null;
-  this.size_ = null
-};
-goog.dom.ViewportSizeMonitor.prototype.handleResize_ = function(event) {
-  this.checkForSizeChange_()
-};
-goog.dom.ViewportSizeMonitor.prototype.checkForSizeChange_ = function() {
-  var size = goog.dom.getViewportSize(this.window_);
-  if(!goog.math.Size.equals(size, this.size_)) {
-    this.size_ = size;
-    this.dispatchEvent(goog.events.EventType.RESIZE)
-  }
-};
 goog.provide("enfocus.enlive.syntax");
 goog.require("cljs.core");
 enfocus.enlive.syntax.sel_to_str = function sel_to_str(input) {
@@ -31988,6 +31124,68 @@ enfocus.enlive.syntax.but = function() {
   but.cljs$core$IFn$_invoke$arity$variadic = but__delegate;
   return but
 }();
+goog.provide("goog.dom.ViewportSizeMonitor");
+goog.require("goog.dom");
+goog.require("goog.events");
+goog.require("goog.events.EventTarget");
+goog.require("goog.events.EventType");
+goog.require("goog.math.Size");
+goog.require("goog.userAgent");
+goog.dom.ViewportSizeMonitor = function(opt_window) {
+  goog.events.EventTarget.call(this);
+  this.window_ = opt_window || window;
+  this.listenerKey_ = goog.events.listen(this.window_, goog.events.EventType.RESIZE, this.handleResize_, false, this);
+  this.size_ = goog.dom.getViewportSize(this.window_);
+  if(this.isPollingRequired_()) {
+    this.windowSizePollInterval_ = window.setInterval(goog.bind(this.checkForSizeChange_, this), goog.dom.ViewportSizeMonitor.WINDOW_SIZE_POLL_RATE)
+  }
+};
+goog.inherits(goog.dom.ViewportSizeMonitor, goog.events.EventTarget);
+goog.dom.ViewportSizeMonitor.getInstanceForWindow = function(opt_window) {
+  var currentWindow = opt_window || window;
+  var uid = goog.getUid(currentWindow);
+  return goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid] = goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid] || new goog.dom.ViewportSizeMonitor(currentWindow)
+};
+goog.dom.ViewportSizeMonitor.removeInstanceForWindow = function(opt_window) {
+  var uid = goog.getUid(opt_window || window);
+  goog.dispose(goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid]);
+  delete goog.dom.ViewportSizeMonitor.windowInstanceMap_[uid]
+};
+goog.dom.ViewportSizeMonitor.windowInstanceMap_ = {};
+goog.dom.ViewportSizeMonitor.WINDOW_SIZE_POLL_RATE = 500;
+goog.dom.ViewportSizeMonitor.prototype.listenerKey_ = null;
+goog.dom.ViewportSizeMonitor.prototype.window_ = null;
+goog.dom.ViewportSizeMonitor.prototype.size_ = null;
+goog.dom.ViewportSizeMonitor.prototype.windowSizePollInterval_ = null;
+goog.dom.ViewportSizeMonitor.prototype.isPollingRequired_ = function() {
+  return goog.userAgent.WEBKIT && goog.userAgent.WINDOWS || goog.userAgent.OPERA && this.window_.self != this.window_.top
+};
+goog.dom.ViewportSizeMonitor.prototype.getSize = function() {
+  return this.size_ ? this.size_.clone() : null
+};
+goog.dom.ViewportSizeMonitor.prototype.disposeInternal = function() {
+  goog.dom.ViewportSizeMonitor.superClass_.disposeInternal.call(this);
+  if(this.listenerKey_) {
+    goog.events.unlistenByKey(this.listenerKey_);
+    this.listenerKey_ = null
+  }
+  if(this.windowSizePollInterval_) {
+    window.clearInterval(this.windowSizePollInterval_);
+    this.windowSizePollInterval_ = null
+  }
+  this.window_ = null;
+  this.size_ = null
+};
+goog.dom.ViewportSizeMonitor.prototype.handleResize_ = function(event) {
+  this.checkForSizeChange_()
+};
+goog.dom.ViewportSizeMonitor.prototype.checkForSizeChange_ = function() {
+  var size = goog.dom.getViewportSize(this.window_);
+  if(!goog.math.Size.equals(size, this.size_)) {
+    this.size_ = size;
+    this.dispatchEvent(goog.events.EventType.RESIZE)
+  }
+};
 goog.provide("clojure.string");
 goog.require("cljs.core");
 goog.require("goog.string.StringBuffer");
@@ -32204,16 +31402,6 @@ clojure.string.escape = function escape(s, cmap) {
     break
   }
 };
-goog.provide("domina.support");
-goog.require("cljs.core");
-goog.require("goog.events");
-goog.require("goog.dom");
-var div_9737 = document.createElement("div");
-var test_html_9738 = "   \x3clink/\x3e\x3ctable\x3e\x3c/table\x3e\x3ca href\x3d'/a' style\x3d'top:1px;float:left;opacity:.55;'\x3ea\x3c/a\x3e\x3cinput type\x3d'checkbox'/\x3e";
-div_9737.innerHTML = test_html_9738;
-domina.support.leading_whitespace_QMARK_ = cljs.core._EQ_.call(null, div_9737.firstChild.nodeType, 3);
-domina.support.extraneous_tbody_QMARK_ = cljs.core._EQ_.call(null, div_9737.getElementsByTagName("tbody").length, 0);
-domina.support.unscoped_html_elements_QMARK_ = cljs.core._EQ_.call(null, div_9737.getElementsByTagName("link").length, 0);
 goog.provide("goog.dom.xml");
 goog.require("goog.dom");
 goog.require("goog.dom.NodeType");
@@ -32519,6 +31707,16 @@ goog.dom.forms.setSelectMultiple_ = function(el, opt_value) {
     }
   }
 };
+goog.provide("domina.support");
+goog.require("cljs.core");
+goog.require("goog.events");
+goog.require("goog.dom");
+var div_9737 = document.createElement("div");
+var test_html_9738 = "   \x3clink/\x3e\x3ctable\x3e\x3c/table\x3e\x3ca href\x3d'/a' style\x3d'top:1px;float:left;opacity:.55;'\x3ea\x3c/a\x3e\x3cinput type\x3d'checkbox'/\x3e";
+div_9737.innerHTML = test_html_9738;
+domina.support.leading_whitespace_QMARK_ = cljs.core._EQ_.call(null, div_9737.firstChild.nodeType, 3);
+domina.support.extraneous_tbody_QMARK_ = cljs.core._EQ_.call(null, div_9737.getElementsByTagName("tbody").length, 0);
+domina.support.unscoped_html_elements_QMARK_ = cljs.core._EQ_.call(null, div_9737.getElementsByTagName("link").length, 0);
 goog.provide("domina");
 goog.require("cljs.core");
 goog.require("domina.support");
@@ -34209,6 +33407,808 @@ domina.xpath.xpath = function() {
   xpath.cljs$core$IFn$_invoke$arity$2 = xpath__2;
   return xpath
 }();
+/*
+ Portions of this code are from the Dojo Toolkit, received by
+ The Closure Library Authors under the BSD license. All other code is
+ Copyright 2005-2009 The Closure Library Authors. All Rights Reserved.
+
+The "New" BSD License:
+
+Copyright (c) 2005-2009, The Dojo Foundation
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+ Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+ Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+ Neither the name of the Dojo Foundation nor the names of its contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+goog.provide("goog.dom.query");
+goog.require("goog.array");
+goog.require("goog.dom");
+goog.require("goog.functions");
+goog.require("goog.string");
+goog.require("goog.userAgent");
+goog.dom.query = function() {
+  var cssCaseBug = goog.userAgent.WEBKIT && goog.dom.getDocument().compatMode == "BackCompat";
+  var childNodesName = !!goog.dom.getDocument().firstChild["children"] ? "children" : "childNodes";
+  var specials = "\x3e~+";
+  var caseSensitive = false;
+  var getQueryParts = function(query) {
+    if(specials.indexOf(query.slice(-1)) >= 0) {
+      query += " * "
+    }else {
+      query += " "
+    }
+    var ts = function(s, e) {
+      return goog.string.trim(query.slice(s, e))
+    };
+    var queryParts = [];
+    var inBrackets = -1, inParens = -1, inMatchFor = -1, inPseudo = -1, inClass = -1, inId = -1, inTag = -1, lc = "", cc = "", pStart;
+    var x = 0, ql = query.length, currentPart = null, cp = null;
+    var endTag = function() {
+      if(inTag >= 0) {
+        var tv = inTag == x ? null : ts(inTag, x);
+        if(specials.indexOf(tv) < 0) {
+          currentPart.tag = tv
+        }else {
+          currentPart.oper = tv
+        }
+        inTag = -1
+      }
+    };
+    var endId = function() {
+      if(inId >= 0) {
+        currentPart.id = ts(inId, x).replace(/\\/g, "");
+        inId = -1
+      }
+    };
+    var endClass = function() {
+      if(inClass >= 0) {
+        currentPart.classes.push(ts(inClass + 1, x).replace(/\\/g, ""));
+        inClass = -1
+      }
+    };
+    var endAll = function() {
+      endId();
+      endTag();
+      endClass()
+    };
+    var endPart = function() {
+      endAll();
+      if(inPseudo >= 0) {
+        currentPart.pseudos.push({name:ts(inPseudo + 1, x)})
+      }
+      currentPart.loops = currentPart.pseudos.length || currentPart.attrs.length || currentPart.classes.length;
+      currentPart.oquery = currentPart.query = ts(pStart, x);
+      currentPart.otag = currentPart.tag = currentPart.oper ? null : currentPart.tag || "*";
+      if(currentPart.tag) {
+        currentPart.tag = currentPart.tag.toUpperCase()
+      }
+      if(queryParts.length && queryParts[queryParts.length - 1].oper) {
+        currentPart.infixOper = queryParts.pop();
+        currentPart.query = currentPart.infixOper.query + " " + currentPart.query
+      }
+      queryParts.push(currentPart);
+      currentPart = null
+    };
+    for(;lc = cc, cc = query.charAt(x), x < ql;x++) {
+      if(lc == "\\") {
+        continue
+      }
+      if(!currentPart) {
+        pStart = x;
+        currentPart = {query:null, pseudos:[], attrs:[], classes:[], tag:null, oper:null, id:null, getTag:function() {
+          return caseSensitive ? this.otag : this.tag
+        }};
+        inTag = x
+      }
+      if(inBrackets >= 0) {
+        if(cc == "]") {
+          if(!cp.attr) {
+            cp.attr = ts(inBrackets + 1, x)
+          }else {
+            cp.matchFor = ts(inMatchFor || inBrackets + 1, x)
+          }
+          var cmf = cp.matchFor;
+          if(cmf) {
+            if(cmf.charAt(0) == '"' || cmf.charAt(0) == "'") {
+              cp.matchFor = cmf.slice(1, -1)
+            }
+          }
+          currentPart.attrs.push(cp);
+          cp = null;
+          inBrackets = inMatchFor = -1
+        }else {
+          if(cc == "\x3d") {
+            var addToCc = "|~^$*".indexOf(lc) >= 0 ? lc : "";
+            cp.type = addToCc + cc;
+            cp.attr = ts(inBrackets + 1, x - addToCc.length);
+            inMatchFor = x + 1
+          }
+        }
+      }else {
+        if(inParens >= 0) {
+          if(cc == ")") {
+            if(inPseudo >= 0) {
+              cp.value = ts(inParens + 1, x)
+            }
+            inPseudo = inParens = -1
+          }
+        }else {
+          if(cc == "#") {
+            endAll();
+            inId = x + 1
+          }else {
+            if(cc == ".") {
+              endAll();
+              inClass = x
+            }else {
+              if(cc == ":") {
+                endAll();
+                inPseudo = x
+              }else {
+                if(cc == "[") {
+                  endAll();
+                  inBrackets = x;
+                  cp = {}
+                }else {
+                  if(cc == "(") {
+                    if(inPseudo >= 0) {
+                      cp = {name:ts(inPseudo + 1, x), value:null};
+                      currentPart.pseudos.push(cp)
+                    }
+                    inParens = x
+                  }else {
+                    if(cc == " " && lc != cc) {
+                      endPart()
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return queryParts
+  };
+  var agree = function(first, second) {
+    if(!first) {
+      return second
+    }
+    if(!second) {
+      return first
+    }
+    return function() {
+      return first.apply(window, arguments) && second.apply(window, arguments)
+    }
+  };
+  function getArr(i, opt_arr) {
+    var r = opt_arr || [];
+    if(i) {
+      r.push(i)
+    }
+    return r
+  }
+  var isElement = function(n) {
+    return 1 == n.nodeType
+  };
+  var blank = "";
+  var getAttr = function(elem, attr) {
+    if(!elem) {
+      return blank
+    }
+    if(attr == "class") {
+      return elem.className || blank
+    }
+    if(attr == "for") {
+      return elem.htmlFor || blank
+    }
+    if(attr == "style") {
+      return elem.style.cssText || blank
+    }
+    return(caseSensitive ? elem.getAttribute(attr) : elem.getAttribute(attr, 2)) || blank
+  };
+  var attrs = {"*\x3d":function(attr, value) {
+    return function(elem) {
+      return getAttr(elem, attr).indexOf(value) >= 0
+    }
+  }, "^\x3d":function(attr, value) {
+    return function(elem) {
+      return getAttr(elem, attr).indexOf(value) == 0
+    }
+  }, "$\x3d":function(attr, value) {
+    var tval = " " + value;
+    return function(elem) {
+      var ea = " " + getAttr(elem, attr);
+      return ea.lastIndexOf(value) == ea.length - value.length
+    }
+  }, "~\x3d":function(attr, value) {
+    var tval = " " + value + " ";
+    return function(elem) {
+      var ea = " " + getAttr(elem, attr) + " ";
+      return ea.indexOf(tval) >= 0
+    }
+  }, "|\x3d":function(attr, value) {
+    value = " " + value;
+    return function(elem) {
+      var ea = " " + getAttr(elem, attr);
+      return ea == value || ea.indexOf(value + "-") == 0
+    }
+  }, "\x3d":function(attr, value) {
+    return function(elem) {
+      return getAttr(elem, attr) == value
+    }
+  }};
+  var noNextElementSibling = typeof goog.dom.getDocument().firstChild.nextElementSibling == "undefined";
+  var nSibling = !noNextElementSibling ? "nextElementSibling" : "nextSibling";
+  var pSibling = !noNextElementSibling ? "previousElementSibling" : "previousSibling";
+  var simpleNodeTest = noNextElementSibling ? isElement : goog.functions.TRUE;
+  var _lookLeft = function(node) {
+    while(node = node[pSibling]) {
+      if(simpleNodeTest(node)) {
+        return false
+      }
+    }
+    return true
+  };
+  var _lookRight = function(node) {
+    while(node = node[nSibling]) {
+      if(simpleNodeTest(node)) {
+        return false
+      }
+    }
+    return true
+  };
+  var getNodeIndex = function(node) {
+    var root = node.parentNode;
+    var i = 0, tret = root[childNodesName], ci = node["_i"] || -1, cl = root["_l"] || -1;
+    if(!tret) {
+      return-1
+    }
+    var l = tret.length;
+    if(cl == l && ci >= 0 && cl >= 0) {
+      return ci
+    }
+    root["_l"] = l;
+    ci = -1;
+    var te = root["firstElementChild"] || root["firstChild"];
+    for(;te;te = te[nSibling]) {
+      if(simpleNodeTest(te)) {
+        te["_i"] = ++i;
+        if(node === te) {
+          ci = i
+        }
+      }
+    }
+    return ci
+  };
+  var isEven = function(elem) {
+    return!(getNodeIndex(elem) % 2)
+  };
+  var isOdd = function(elem) {
+    return getNodeIndex(elem) % 2
+  };
+  var pseudos = {"checked":function(name, condition) {
+    return function(elem) {
+      return elem.checked || elem.attributes["checked"]
+    }
+  }, "first-child":function() {
+    return _lookLeft
+  }, "last-child":function() {
+    return _lookRight
+  }, "only-child":function(name, condition) {
+    return function(node) {
+      if(!_lookLeft(node)) {
+        return false
+      }
+      if(!_lookRight(node)) {
+        return false
+      }
+      return true
+    }
+  }, "empty":function(name, condition) {
+    return function(elem) {
+      var cn = elem.childNodes;
+      var cnl = elem.childNodes.length;
+      for(var x = cnl - 1;x >= 0;x--) {
+        var nt = cn[x].nodeType;
+        if(nt === 1 || nt == 3) {
+          return false
+        }
+      }
+      return true
+    }
+  }, "contains":function(name, condition) {
+    var cz = condition.charAt(0);
+    if(cz == '"' || cz == "'") {
+      condition = condition.slice(1, -1)
+    }
+    return function(elem) {
+      return elem.innerHTML.indexOf(condition) >= 0
+    }
+  }, "not":function(name, condition) {
+    var p = getQueryParts(condition)[0];
+    var ignores = {el:1};
+    if(p.tag != "*") {
+      ignores.tag = 1
+    }
+    if(!p.classes.length) {
+      ignores.classes = 1
+    }
+    var ntf = getSimpleFilterFunc(p, ignores);
+    return function(elem) {
+      return!ntf(elem)
+    }
+  }, "nth-child":function(name, condition) {
+    function pi(n) {
+      return parseInt(n, 10)
+    }
+    if(condition == "odd") {
+      return isOdd
+    }else {
+      if(condition == "even") {
+        return isEven
+      }
+    }
+    if(condition.indexOf("n") != -1) {
+      var tparts = condition.split("n", 2);
+      var pred = tparts[0] ? tparts[0] == "-" ? -1 : pi(tparts[0]) : 1;
+      var idx = tparts[1] ? pi(tparts[1]) : 0;
+      var lb = 0, ub = -1;
+      if(pred > 0) {
+        if(idx < 0) {
+          idx = idx % pred && pred + idx % pred
+        }else {
+          if(idx > 0) {
+            if(idx >= pred) {
+              lb = idx - idx % pred
+            }
+            idx = idx % pred
+          }
+        }
+      }else {
+        if(pred < 0) {
+          pred *= -1;
+          if(idx > 0) {
+            ub = idx;
+            idx = idx % pred
+          }
+        }
+      }
+      if(pred > 0) {
+        return function(elem) {
+          var i = getNodeIndex(elem);
+          return i >= lb && (ub < 0 || i <= ub) && i % pred == idx
+        }
+      }else {
+        condition = idx
+      }
+    }
+    var ncount = pi(condition);
+    return function(elem) {
+      return getNodeIndex(elem) == ncount
+    }
+  }};
+  var defaultGetter = goog.userAgent.IE ? function(cond) {
+    var clc = cond.toLowerCase();
+    if(clc == "class") {
+      cond = "className"
+    }
+    return function(elem) {
+      return caseSensitive ? elem.getAttribute(cond) : elem[cond] || elem[clc]
+    }
+  } : function(cond) {
+    return function(elem) {
+      return elem && elem.getAttribute && elem.hasAttribute(cond)
+    }
+  };
+  var getSimpleFilterFunc = function(query, ignores) {
+    if(!query) {
+      return goog.functions.TRUE
+    }
+    ignores = ignores || {};
+    var ff = null;
+    if(!ignores.el) {
+      ff = agree(ff, isElement)
+    }
+    if(!ignores.tag) {
+      if(query.tag != "*") {
+        ff = agree(ff, function(elem) {
+          return elem && elem.tagName == query.getTag()
+        })
+      }
+    }
+    if(!ignores.classes) {
+      goog.array.forEach(query.classes, function(cname, idx, arr) {
+        var re = new RegExp("(?:^|\\s)" + cname + "(?:\\s|$)");
+        ff = agree(ff, function(elem) {
+          return re.test(elem.className)
+        });
+        ff.count = idx
+      })
+    }
+    if(!ignores.pseudos) {
+      goog.array.forEach(query.pseudos, function(pseudo) {
+        var pn = pseudo.name;
+        if(pseudos[pn]) {
+          ff = agree(ff, pseudos[pn](pn, pseudo.value))
+        }
+      })
+    }
+    if(!ignores.attrs) {
+      goog.array.forEach(query.attrs, function(attr) {
+        var matcher;
+        var a = attr.attr;
+        if(attr.type && attrs[attr.type]) {
+          matcher = attrs[attr.type](a, attr.matchFor)
+        }else {
+          if(a.length) {
+            matcher = defaultGetter(a)
+          }
+        }
+        if(matcher) {
+          ff = agree(ff, matcher)
+        }
+      })
+    }
+    if(!ignores.id) {
+      if(query.id) {
+        ff = agree(ff, function(elem) {
+          return!!elem && elem.id == query.id
+        })
+      }
+    }
+    if(!ff) {
+      if(!("default" in ignores)) {
+        ff = goog.functions.TRUE
+      }
+    }
+    return ff
+  };
+  var nextSiblingIterator = function(filterFunc) {
+    return function(node, ret, bag) {
+      while(node = node[nSibling]) {
+        if(noNextElementSibling && !isElement(node)) {
+          continue
+        }
+        if((!bag || _isUnique(node, bag)) && filterFunc(node)) {
+          ret.push(node)
+        }
+        break
+      }
+      return ret
+    }
+  };
+  var nextSiblingsIterator = function(filterFunc) {
+    return function(root, ret, bag) {
+      var te = root[nSibling];
+      while(te) {
+        if(simpleNodeTest(te)) {
+          if(bag && !_isUnique(te, bag)) {
+            break
+          }
+          if(filterFunc(te)) {
+            ret.push(te)
+          }
+        }
+        te = te[nSibling]
+      }
+      return ret
+    }
+  };
+  var _childElements = function(filterFunc) {
+    filterFunc = filterFunc || goog.functions.TRUE;
+    return function(root, ret, bag) {
+      var te, x = 0, tret = root[childNodesName];
+      while(te = tret[x++]) {
+        if(simpleNodeTest(te) && (!bag || _isUnique(te, bag)) && filterFunc(te, x)) {
+          ret.push(te)
+        }
+      }
+      return ret
+    }
+  };
+  var _isDescendant = function(node, root) {
+    var pn = node.parentNode;
+    while(pn) {
+      if(pn == root) {
+        break
+      }
+      pn = pn.parentNode
+    }
+    return!!pn
+  };
+  var _getElementsFuncCache = {};
+  var getElementsFunc = function(query) {
+    var retFunc = _getElementsFuncCache[query.query];
+    if(retFunc) {
+      return retFunc
+    }
+    var io = query.infixOper;
+    var oper = io ? io.oper : "";
+    var filterFunc = getSimpleFilterFunc(query, {el:1});
+    var qt = query.tag;
+    var wildcardTag = "*" == qt;
+    var ecs = goog.dom.getDocument()["getElementsByClassName"];
+    if(!oper) {
+      if(query.id) {
+        filterFunc = !query.loops && wildcardTag ? goog.functions.TRUE : getSimpleFilterFunc(query, {el:1, id:1});
+        retFunc = function(root, arr) {
+          var te = goog.dom.getDomHelper(root).getElement(query.id);
+          if(!te || !filterFunc(te)) {
+            return
+          }
+          if(9 == root.nodeType) {
+            return getArr(te, arr)
+          }else {
+            if(_isDescendant(te, root)) {
+              return getArr(te, arr)
+            }
+          }
+        }
+      }else {
+        if(ecs && /\{\s*\[native code\]\s*\}/.test(String(ecs)) && query.classes.length && !cssCaseBug) {
+          filterFunc = getSimpleFilterFunc(query, {el:1, classes:1, id:1});
+          var classesString = query.classes.join(" ");
+          retFunc = function(root, arr) {
+            var ret = getArr(0, arr), te, x = 0;
+            var tret = root.getElementsByClassName(classesString);
+            while(te = tret[x++]) {
+              if(filterFunc(te, root)) {
+                ret.push(te)
+              }
+            }
+            return ret
+          }
+        }else {
+          if(!wildcardTag && !query.loops) {
+            retFunc = function(root, arr) {
+              var ret = getArr(0, arr), te, x = 0;
+              var tret = root.getElementsByTagName(query.getTag());
+              while(te = tret[x++]) {
+                ret.push(te)
+              }
+              return ret
+            }
+          }else {
+            filterFunc = getSimpleFilterFunc(query, {el:1, tag:1, id:1});
+            retFunc = function(root, arr) {
+              var ret = getArr(0, arr), te, x = 0;
+              var tret = root.getElementsByTagName(query.getTag());
+              while(te = tret[x++]) {
+                if(filterFunc(te, root)) {
+                  ret.push(te)
+                }
+              }
+              return ret
+            }
+          }
+        }
+      }
+    }else {
+      var skipFilters = {el:1};
+      if(wildcardTag) {
+        skipFilters.tag = 1
+      }
+      filterFunc = getSimpleFilterFunc(query, skipFilters);
+      if("+" == oper) {
+        retFunc = nextSiblingIterator(filterFunc)
+      }else {
+        if("~" == oper) {
+          retFunc = nextSiblingsIterator(filterFunc)
+        }else {
+          if("\x3e" == oper) {
+            retFunc = _childElements(filterFunc)
+          }
+        }
+      }
+    }
+    return _getElementsFuncCache[query.query] = retFunc
+  };
+  var filterDown = function(root, queryParts) {
+    var candidates = getArr(root), qp, x, te, qpl = queryParts.length, bag, ret;
+    for(var i = 0;i < qpl;i++) {
+      ret = [];
+      qp = queryParts[i];
+      x = candidates.length - 1;
+      if(x > 0) {
+        bag = {};
+        ret.nozip = true
+      }
+      var gef = getElementsFunc(qp);
+      for(var j = 0;te = candidates[j];j++) {
+        gef(te, ret, bag)
+      }
+      if(!ret.length) {
+        break
+      }
+      candidates = ret
+    }
+    return ret
+  };
+  var _queryFuncCacheDOM = {}, _queryFuncCacheQSA = {};
+  var getStepQueryFunc = function(query) {
+    var qparts = getQueryParts(goog.string.trim(query));
+    if(qparts.length == 1) {
+      var tef = getElementsFunc(qparts[0]);
+      return function(root) {
+        var r = tef(root, []);
+        if(r) {
+          r.nozip = true
+        }
+        return r
+      }
+    }
+    return function(root) {
+      return filterDown(root, qparts)
+    }
+  };
+  var qsa = "querySelectorAll";
+  var qsaAvail = !!goog.dom.getDocument()[qsa] && (!goog.userAgent.WEBKIT || goog.userAgent.isVersion("526"));
+  var getQueryFunc = function(query, opt_forceDOM) {
+    if(qsaAvail) {
+      var qsaCached = _queryFuncCacheQSA[query];
+      if(qsaCached && !opt_forceDOM) {
+        return qsaCached
+      }
+    }
+    var domCached = _queryFuncCacheDOM[query];
+    if(domCached) {
+      return domCached
+    }
+    var qcz = query.charAt(0);
+    var nospace = -1 == query.indexOf(" ");
+    if(query.indexOf("#") >= 0 && nospace) {
+      opt_forceDOM = true
+    }
+    var useQSA = qsaAvail && !opt_forceDOM && specials.indexOf(qcz) == -1 && (!goog.userAgent.IE || query.indexOf(":") == -1) && !(cssCaseBug && query.indexOf(".") >= 0) && query.indexOf(":contains") == -1 && query.indexOf("|\x3d") == -1;
+    if(useQSA) {
+      var tq = specials.indexOf(query.charAt(query.length - 1)) >= 0 ? query + " *" : query;
+      return _queryFuncCacheQSA[query] = function(root) {
+        try {
+          if(!(9 == root.nodeType || nospace)) {
+            throw"";
+          }
+          var r = root[qsa](tq);
+          if(goog.userAgent.IE) {
+            r.commentStrip = true
+          }else {
+            r.nozip = true
+          }
+          return r
+        }catch(e) {
+          return getQueryFunc(query, true)(root)
+        }
+      }
+    }else {
+      var parts = query.split(/\s*,\s*/);
+      return _queryFuncCacheDOM[query] = parts.length < 2 ? getStepQueryFunc(query) : function(root) {
+        var pindex = 0, ret = [], tp;
+        while(tp = parts[pindex++]) {
+          ret = ret.concat(getStepQueryFunc(tp)(root))
+        }
+        return ret
+      }
+    }
+  };
+  var _zipIdx = 0;
+  var _nodeUID = goog.userAgent.IE ? function(node) {
+    if(caseSensitive) {
+      return node.getAttribute("_uid") || node.setAttribute("_uid", ++_zipIdx) || _zipIdx
+    }else {
+      return node.uniqueID
+    }
+  } : function(node) {
+    return node["_uid"] || (node["_uid"] = ++_zipIdx)
+  };
+  var _isUnique = function(node, bag) {
+    if(!bag) {
+      return 1
+    }
+    var id = _nodeUID(node);
+    if(!bag[id]) {
+      return bag[id] = 1
+    }
+    return 0
+  };
+  var _zipIdxName = "_zipIdx";
+  var _zip = function(arr) {
+    if(arr && arr.nozip) {
+      return arr
+    }
+    var ret = [];
+    if(!arr || !arr.length) {
+      return ret
+    }
+    if(arr[0]) {
+      ret.push(arr[0])
+    }
+    if(arr.length < 2) {
+      return ret
+    }
+    _zipIdx++;
+    if(goog.userAgent.IE && caseSensitive) {
+      var szidx = _zipIdx + "";
+      arr[0].setAttribute(_zipIdxName, szidx);
+      for(var x = 1, te;te = arr[x];x++) {
+        if(arr[x].getAttribute(_zipIdxName) != szidx) {
+          ret.push(te)
+        }
+        te.setAttribute(_zipIdxName, szidx)
+      }
+    }else {
+      if(goog.userAgent.IE && arr.commentStrip) {
+        try {
+          for(var x = 1, te;te = arr[x];x++) {
+            if(isElement(te)) {
+              ret.push(te)
+            }
+          }
+        }catch(e) {
+        }
+      }else {
+        if(arr[0]) {
+          arr[0][_zipIdxName] = _zipIdx
+        }
+        for(var x = 1, te;te = arr[x];x++) {
+          if(arr[x][_zipIdxName] != _zipIdx) {
+            ret.push(te)
+          }
+          te[_zipIdxName] = _zipIdx
+        }
+      }
+    }
+    return ret
+  };
+  var query = function(query, root) {
+    if(!query) {
+      return[]
+    }
+    if(query.constructor == Array) {
+      return(query)
+    }
+    if(!goog.isString(query)) {
+      return[query]
+    }
+    if(goog.isString(root)) {
+      root = goog.dom.getElement(root);
+      if(!root) {
+        return[]
+      }
+    }
+    root = root || goog.dom.getDocument();
+    var od = root.ownerDocument || root.documentElement;
+    caseSensitive = root.contentType && root.contentType == "application/xml" || goog.userAgent.OPERA && (root.doctype || od.toString() == "[object XMLDocument]") || !!od && (goog.userAgent.IE ? od.xml : root.xmlVersion || od.xmlVersion);
+    var r = getQueryFunc(query)(root);
+    if(r && r.nozip) {
+      return r
+    }
+    return _zip(r)
+  };
+  query.pseudos = pseudos;
+  return query
+}();
+goog.exportSymbol("goog.dom.query", goog.dom.query);
+goog.exportSymbol("goog.dom.query.pseudos", goog.dom.query.pseudos);
 goog.provide("domina.css");
 goog.require("cljs.core");
 goog.require("goog.dom.query");
@@ -44212,6 +44212,9 @@ jsk.rpc.success_QMARK_ = function success_QMARK_(status) {
 jsk.rpc.unauthorized_QMARK_ = function unauthorized_QMARK_(status) {
   return cljs.core.some.call(null, cljs.core.PersistentHashSet.fromArray([status, null], true), cljs.core.PersistentVector.fromArray([401, 403], true))
 };
+jsk.rpc.server_error_QMARK_ = function server_error_QMARK_(status) {
+  return cljs.core._EQ_.call(null, 500, status)
+};
 jsk.rpc.edn_response_QMARK_ = function edn_response_QMARK_(xhr) {
   var ct = xhr.getResponseHeader("Content-Type");
   return jsk.util.str_contains_QMARK_.call(null, ct, jsk.rpc.app_edn)
@@ -47659,76 +47662,76 @@ goog.require("cljs.core.async");
 goog.require("jsk.util");
 goog.require("jsk.rpc");
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/jobs.html") == null) {
-  var vec__7366_7379 = enfocus.core.replace_ids.call(null, "en7165_", '\x3ctable class\x3d"table-hover"\x3e\n  \x3cthead\x3e\n    \x3ctr\x3e\n      \x3cth\x3eJob ID\x3c/th\x3e\n      \x3cth\x3eJob Name\x3c/th\x3e\n      \x3cth\x3eJob Enabled\x3c/th\x3e\n    \x3c/tr\x3e\n  \x3c/thead\x3e\n  \x3ctbody\x3e\n    \x3ctr data-job-id\x3d"1" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 1\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 1\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3etrue\x3c/td\x3e\n    \x3c/tr\x3e\n    \x3ctr data-job-id\x3d"2" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 2\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 2\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3efalse\x3c/td\x3e\n    \x3c/tr\x3e\n  \x3c/tbody\x3e\n\x3c/table\x3e\n');
-  var sym__3752__auto___7380 = cljs.core.nth.call(null, vec__7366_7379, 0, null);
-  var txt__3753__auto___7381 = cljs.core.nth.call(null, vec__7366_7379, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/jobs.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___7380, txt__3753__auto___7381], true))
+  var vec__12095_12108 = enfocus.core.replace_ids.call(null, "en7165_", '\x3ctable class\x3d"table-hover"\x3e\n  \x3cthead\x3e\n    \x3ctr\x3e\n      \x3cth\x3eJob ID\x3c/th\x3e\n      \x3cth\x3eJob Name\x3c/th\x3e\n      \x3cth\x3eJob Enabled\x3c/th\x3e\n    \x3c/tr\x3e\n  \x3c/thead\x3e\n  \x3ctbody\x3e\n    \x3ctr data-job-id\x3d"1" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 1\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 1\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3etrue\x3c/td\x3e\n    \x3c/tr\x3e\n    \x3ctr data-job-id\x3d"2" class\x3d"job-row"\x3e\n      \x3ctd class\x3d"job-id"\x3eID for job 2\x3c/td\x3e\n      \x3ctd class\x3d"job-name"\x3eJob Name 2\x3c/td\x3e\n      \x3ctd class\x3d"job-is-enabled"\x3efalse\x3c/td\x3e\n    \x3c/tr\x3e\n  \x3c/tbody\x3e\n\x3c/table\x3e\n');
+  var sym__3752__auto___12109 = cljs.core.nth.call(null, vec__12095_12108, 0, null);
+  var txt__3753__auto___12110 = cljs.core.nth.call(null, vec__12095_12108, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/jobs.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___12109, txt__3753__auto___12110], true))
 }else {
 }
 jsk.job.list_jobs = function list_jobs(jj) {
-  var vec__7374 = function() {
+  var vec__12103 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/jobs.html")
   }.call(null);
-  var id_sym7367 = cljs.core.nth.call(null, vec__7374, 0, null);
-  var pnod7368 = cljs.core.nth.call(null, vec__7374, 1, null);
-  var pnod7368__$1 = enfocus.core.create_hidden_dom.call(null, pnod7368);
-  enfocus.core.i_at.call(null, id_sym7367, pnod7368__$1, "tbody \x3e :not(tr:first-child)", enfocus.core.remove_node.call(null), "tbody \x3e tr", function(pnod__3788__auto__) {
+  var id_sym12096 = cljs.core.nth.call(null, vec__12103, 0, null);
+  var pnod12097 = cljs.core.nth.call(null, vec__12103, 1, null);
+  var pnod12097__$1 = enfocus.core.create_hidden_dom.call(null, pnod12097);
+  enfocus.core.i_at.call(null, id_sym12096, pnod12097__$1, "tbody \x3e :not(tr:first-child)", enfocus.core.remove_node.call(null), "tbody \x3e tr", function(pnod__3788__auto__) {
     var div__3789__auto__ = enfocus.core.create_hidden_dom.call(null, document.createDocumentFragment());
-    var seq__7375_7382 = cljs.core.seq.call(null, jj);
-    var chunk__7376_7383 = null;
-    var count__7377_7384 = 0;
-    var i__7378_7385 = 0;
+    var seq__12104_12111 = cljs.core.seq.call(null, jj);
+    var chunk__12105_12112 = null;
+    var count__12106_12113 = 0;
+    var i__12107_12114 = 0;
     while(true) {
-      if(i__7378_7385 < count__7377_7384) {
-        var j_7386 = cljs.core._nth.call(null, chunk__7376_7383, i__7378_7385);
+      if(i__12107_12114 < count__12106_12113) {
+        var j_12115 = cljs.core._nth.call(null, chunk__12105_12112, i__12107_12114);
         enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__7375_7382, chunk__7376_7383, count__7377_7384, i__7378_7385, j_7386) {
-          return function(p1__7365_SHARP_) {
-            return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__7365_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_7386))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
+        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__12104_12111, chunk__12105_12112, count__12106_12113, i__12107_12114, j_12115) {
+          return function(p1__12094_SHARP_) {
+            return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__12094_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_12115))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
           }
-        }(seq__7375_7382, chunk__7376_7383, count__7377_7384, i__7378_7385, j_7386), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_7386))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_7386)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, 
-        j_7386))].join("")));
-        var G__7387 = seq__7375_7382;
-        var G__7388 = chunk__7376_7383;
-        var G__7389 = count__7377_7384;
-        var G__7390 = i__7378_7385 + 1;
-        seq__7375_7382 = G__7387;
-        chunk__7376_7383 = G__7388;
-        count__7377_7384 = G__7389;
-        i__7378_7385 = G__7390;
+        }(seq__12104_12111, chunk__12105_12112, count__12106_12113, i__12107_12114, j_12115), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_12115))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_12115)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 
+        3958416656)).call(null, j_12115))].join("")));
+        var G__12116 = seq__12104_12111;
+        var G__12117 = chunk__12105_12112;
+        var G__12118 = count__12106_12113;
+        var G__12119 = i__12107_12114 + 1;
+        seq__12104_12111 = G__12116;
+        chunk__12105_12112 = G__12117;
+        count__12106_12113 = G__12118;
+        i__12107_12114 = G__12119;
         continue
       }else {
-        var temp__4092__auto___7391 = cljs.core.seq.call(null, seq__7375_7382);
-        if(temp__4092__auto___7391) {
-          var seq__7375_7392__$1 = temp__4092__auto___7391;
-          if(cljs.core.chunked_seq_QMARK_.call(null, seq__7375_7392__$1)) {
-            var c__3072__auto___7393 = cljs.core.chunk_first.call(null, seq__7375_7392__$1);
-            var G__7394 = cljs.core.chunk_rest.call(null, seq__7375_7392__$1);
-            var G__7395 = c__3072__auto___7393;
-            var G__7396 = cljs.core.count.call(null, c__3072__auto___7393);
-            var G__7397 = 0;
-            seq__7375_7382 = G__7394;
-            chunk__7376_7383 = G__7395;
-            count__7377_7384 = G__7396;
-            i__7378_7385 = G__7397;
+        var temp__4092__auto___12120 = cljs.core.seq.call(null, seq__12104_12111);
+        if(temp__4092__auto___12120) {
+          var seq__12104_12121__$1 = temp__4092__auto___12120;
+          if(cljs.core.chunked_seq_QMARK_.call(null, seq__12104_12121__$1)) {
+            var c__3072__auto___12122 = cljs.core.chunk_first.call(null, seq__12104_12121__$1);
+            var G__12123 = cljs.core.chunk_rest.call(null, seq__12104_12121__$1);
+            var G__12124 = c__3072__auto___12122;
+            var G__12125 = cljs.core.count.call(null, c__3072__auto___12122);
+            var G__12126 = 0;
+            seq__12104_12111 = G__12123;
+            chunk__12105_12112 = G__12124;
+            count__12106_12113 = G__12125;
+            i__12107_12114 = G__12126;
             continue
           }else {
-            var j_7398 = cljs.core.first.call(null, seq__7375_7392__$1);
+            var j_12127 = cljs.core.first.call(null, seq__12104_12121__$1);
             enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__7375_7382, chunk__7376_7383, count__7377_7384, i__7378_7385, j_7398, seq__7375_7392__$1, temp__4092__auto___7391) {
-              return function(p1__7365_SHARP_) {
-                return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__7365_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_7398))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
+            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "td.job-id", function(seq__12104_12111, chunk__12105_12112, count__12106_12113, i__12107_12114, j_12127, seq__12104_12121__$1, temp__4092__auto___12120) {
+              return function(p1__12094_SHARP_) {
+                return enfocus.core.at.call(null, jsk.util.parent_node.call(null, p1__12094_SHARP_), enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_12127))].join("")), enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.job_row_clicked)))
               }
-            }(seq__7375_7382, chunk__7376_7383, count__7377_7384, i__7378_7385, j_7398, seq__7375_7392__$1, temp__4092__auto___7391), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_7398))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_7398)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, 
-            "is-enabled", "is-enabled", 3958416656)).call(null, j_7398))].join("")));
-            var G__7399 = cljs.core.next.call(null, seq__7375_7392__$1);
-            var G__7400 = null;
-            var G__7401 = 0;
-            var G__7402 = 0;
-            seq__7375_7382 = G__7399;
-            chunk__7376_7383 = G__7400;
-            count__7377_7384 = G__7401;
-            i__7378_7385 = G__7402;
+            }(seq__12104_12111, chunk__12105_12112, count__12106_12113, i__12107_12114, j_12127, seq__12104_12121__$1, temp__4092__auto___12120), "td.job-id", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j_12127))].join("")), "td.job-name", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j_12127)), "td.job-is-enabled", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, 
+            "is-enabled", "is-enabled", 3958416656)).call(null, j_12127))].join("")));
+            var G__12128 = cljs.core.next.call(null, seq__12104_12121__$1);
+            var G__12129 = null;
+            var G__12130 = 0;
+            var G__12131 = 0;
+            seq__12104_12111 = G__12128;
+            chunk__12105_12112 = G__12129;
+            count__12106_12113 = G__12130;
+            i__12107_12114 = G__12131;
             continue
           }
         }else {
@@ -47739,93 +47742,93 @@ jsk.job.list_jobs = function list_jobs(jj) {
     enfocus.core.log_debug.call(null, div__3789__auto__);
     return enfocus.core.at.call(null, pnod__3788__auto__, enfocus.core.do__GT_.call(null, enfocus.core.after.call(null, enfocus.core.remove_node_return_child.call(null, div__3789__auto__)), enfocus.core.remove_node.call(null)))
   });
-  enfocus.core.reset_ids.call(null, id_sym7367, pnod7368__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod7368__$1)
+  enfocus.core.reset_ids.call(null, id_sym12096, pnod12097__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod12097__$1)
 };
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/edit-job.html") == null) {
-  var vec__7403_7408 = enfocus.core.replace_ids.call(null, "en7179_", '\x3cform id\x3d"job-save-form" role\x3d"form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n    \x3clegend\x3eJob Definition\x3c/legend\x3e\n\n    \x3cinput type\x3d"hidden" name\x3d"job-id" id\x3d"job-id" value\x3d""/\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-id-lbl" class\x3d"col-lg-2 control-label"\x3eID\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3clabel class\x3d"control-label text-left" id\x3d"job-id-lbl"\x3e34\x3c/label\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-name" class\x3d"col-lg-2 control-label"\x3eName\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"job-name" id\x3d"job-name"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-desc" class\x3d"col-lg-2 control-label"\x3eDescription\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"job-desc" id\x3d"job-desc"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-execution-directory" class\x3d"col-lg-2 control-label"\x3eExecution Directory\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"job-execution-directory" id\x3d"job-execution-directory"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-command-line" class\x3d"col-lg-2 control-label"\x3eCommand Line\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"job-command-line" id\x3d"job-command-line"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n        \x3cdiv class\x3d"checkbox"\x3e\n          \x3clabel\x3e\n            \x3cinput type\x3d"checkbox" id\x3d"is-enabled" name\x3d"is-enabled"\x3e Enabled\n          \x3c/label\x3e\n        \x3c/div\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n        \x3cbutton type\x3d"button" class\x3d"btn btn-default" name\x3d"save-btn" id\x3d"save-job-btn"\x3eSave\x3c/button\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n\n\x3cdiv id\x3d"job-schedule-associations"\x3e\n\x3c/div\x3e\n\n');
-  var sym__3752__auto___7409 = cljs.core.nth.call(null, vec__7403_7408, 0, null);
-  var txt__3753__auto___7410 = cljs.core.nth.call(null, vec__7403_7408, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/edit-job.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___7409, txt__3753__auto___7410], true))
+  var vec__12132_12137 = enfocus.core.replace_ids.call(null, "en7179_", '\x3cform id\x3d"job-save-form" role\x3d"form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n    \x3clegend\x3eJob Definition\x3c/legend\x3e\n\n    \x3cinput type\x3d"hidden" name\x3d"job-id" id\x3d"job-id" value\x3d""/\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-id-lbl" class\x3d"col-lg-2 control-label"\x3eID\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3clabel class\x3d"control-label text-left" id\x3d"job-id-lbl"\x3e34\x3c/label\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-name" class\x3d"col-lg-2 control-label"\x3eName\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"job-name" id\x3d"job-name"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"job-desc" class\x3d"col-lg-2 control-label"\x3eDescription\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"job-desc" id\x3d"job-desc"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"execution-directory" class\x3d"col-lg-2 control-label"\x3eExecution Directory\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3cinput type\x3d"text" class\x3d"form-control" name\x3d"execution-directory" id\x3d"execution-directory"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3clabel for\x3d"command-line" class\x3d"col-lg-2 control-label"\x3eCommand Line\x3c/label\x3e\n      \x3cdiv class\x3d"col-lg-10"\x3e\n        \x3ctextarea class\x3d"form-control" rows\x3d"2" name\x3d"command-line" id\x3d"command-line"/\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n    \x3cdiv class\x3d"form-group"\x3e\n      \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n        \x3cdiv class\x3d"checkbox"\x3e\n          \x3clabel\x3e\n            \x3cinput type\x3d"checkbox" id\x3d"is-enabled" name\x3d"is-enabled"\x3e Enabled\n          \x3c/label\x3e\n        \x3c/div\x3e\n      \x3c/div\x3e\n    \x3c/div\x3e\n\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n\n\x3cdiv class\x3d"form-group"\x3e\n  \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n    \x3cbutton type\x3d"button" class\x3d"btn btn-default" name\x3d"save-btn" id\x3d"save-btn"\x3eSave\x3c/button\x3e\n  \x3c/div\x3e\n\x3c/div\x3e\n\n\x3cdiv id\x3d"job-schedule-associations"\x3e\n\x3c/div\x3e\n\n');
+  var sym__3752__auto___12138 = cljs.core.nth.call(null, vec__12132_12137, 0, null);
+  var txt__3753__auto___12139 = cljs.core.nth.call(null, vec__12132_12137, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/edit-job.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___12138, txt__3753__auto___12139], true))
 }else {
 }
 jsk.job.edit_job = function edit_job(j) {
-  var vec__7407 = function() {
+  var vec__12136 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/edit-job.html")
   }.call(null);
-  var id_sym7404 = cljs.core.nth.call(null, vec__7407, 0, null);
-  var pnod7405 = cljs.core.nth.call(null, vec__7407, 1, null);
-  var pnod7405__$1 = enfocus.core.create_hidden_dom.call(null, pnod7405);
-  enfocus.core.i_at.call(null, id_sym7404, pnod7405__$1, "#job-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-id-lbl", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-name", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 
-  1125876963), (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j)), "#job-desc", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-desc", "job-desc", 3647161875)).call(null, j)), "#job-execution-directory", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), (new cljs.core.Keyword(null, "job-execution-directory", "job-execution-directory", 1867909978)).call(null, j)), "#job-command-line", enfocus.core.content.call(null, 
-  (new cljs.core.Keyword(null, "job-command-line", "job-command-line", 1857880248)).call(null, j)), "#is-enabled", enfocus.core.do__GT_.call(null, enfocus.core.set_prop.call(null, "checked", (new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, j), enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, j))].join("")))), "#save-job-btn", enfocus.events.listen.call(null, 
-  new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.save_job));
-  enfocus.core.reset_ids.call(null, id_sym7404, pnod7405__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod7405__$1)
+  var id_sym12133 = cljs.core.nth.call(null, vec__12136, 0, null);
+  var pnod12134 = cljs.core.nth.call(null, vec__12136, 1, null);
+  var pnod12134__$1 = enfocus.core.create_hidden_dom.call(null, pnod12134);
+  enfocus.core.i_at.call(null, id_sym12133, pnod12134__$1, "#job-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-id-lbl", enfocus.core.content.call(null, [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, j))].join("")), "#job-name", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 
+  1125876963), (new cljs.core.Keyword(null, "job-name", "job-name", 3647455757)).call(null, j)), "#job-desc", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "job-desc", "job-desc", 3647161875)).call(null, j)), "#execution-directory", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), (new cljs.core.Keyword(null, "execution-directory", "execution-directory", 3637510506)).call(null, j)), "#command-line", enfocus.core.content.call(null, (new cljs.core.Keyword(null, 
+  "command-line", "command-line", 2923740328)).call(null, j)), "#is-enabled", enfocus.core.do__GT_.call(null, enfocus.core.set_prop.call(null, "checked", (new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, j), enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656)).call(null, j))].join("")))), "#save-btn", enfocus.events.listen.call(null, new cljs.core.Keyword(null, 
+  "click", "click", 1108654330), jsk.job.save_job));
+  enfocus.core.reset_ids.call(null, id_sym12133, pnod12134__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod12134__$1)
 };
 if(cljs.core.deref.call(null, enfocus.core.tpl_cache).call(null, "compiledpublic/templates/job-schedule-assoc.html") == null) {
-  var vec__7411_7424 = enfocus.core.replace_ids.call(null, "en7185_", '\x3cform id\x3d"schedule-assoc-form" role\x3d"form" class\x3d"form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n      \x3clegend\x3eSchedule Associations\x3c/legend\x3e\n      \x3cinput type\x3d"hidden" name\x3d"job-id" id\x3d"job-id" value\x3d""/\x3e\n      \x3cdiv id\x3d"schedule-assoc-div"\x3e\n        \x3cdiv class\x3d"form-group"\x3e\n          \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n            \x3cinput type\x3d"checkbox" value\x3d"1" name\x3d"schedule-id"\x3e\n            \x3clabel\x3eSchedule Name\x3c/label\x3e\n          \x3c/div\x3e\n        \x3c/div\x3e\n      \x3c/div\x3e\n\n      \x3cdiv class\x3d"form-group"\x3e\n         \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n           \x3cbutton type\x3d"button" class\x3d"btn btn-default" name\x3d"save-btn" id\x3d"save-assoc-btn"\x3eSave\x3c/button\x3e\n         \x3c/div\x3e\n        \x3clabel id\x3d"save-assoc-msg-label"\x3e\x3c/label\x3e\n      \x3c/div\x3e\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n');
-  var sym__3752__auto___7425 = cljs.core.nth.call(null, vec__7411_7424, 0, null);
-  var txt__3753__auto___7426 = cljs.core.nth.call(null, vec__7411_7424, 1, null);
-  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/job-schedule-assoc.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___7425, txt__3753__auto___7426], true))
+  var vec__12140_12153 = enfocus.core.replace_ids.call(null, "en7185_", '\x3cform id\x3d"schedule-assoc-form" role\x3d"form" class\x3d"form" class\x3d"form-horizontal"\x3e\n  \x3cfieldset\x3e\n      \x3clegend\x3eSchedule Associations\x3c/legend\x3e\n      \x3cinput type\x3d"hidden" name\x3d"job-id" id\x3d"job-id" value\x3d""/\x3e\n      \x3cdiv id\x3d"schedule-assoc-div"\x3e\n        \x3cdiv class\x3d"form-group"\x3e\n          \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n            \x3cinput type\x3d"checkbox" value\x3d"1" name\x3d"schedule-id"\x3e\n            \x3clabel\x3eSchedule Name\x3c/label\x3e\n          \x3c/div\x3e\n        \x3c/div\x3e\n      \x3c/div\x3e\n\n      \x3cdiv class\x3d"form-group"\x3e\n         \x3cdiv class\x3d"col-lg-offset-2 col-lg-10"\x3e\n           \x3cbutton type\x3d"button" class\x3d"btn btn-default" name\x3d"save-btn" id\x3d"save-assoc-btn"\x3eSave\x3c/button\x3e\n         \x3c/div\x3e\n        \x3clabel id\x3d"save-assoc-msg-label"\x3e\x3c/label\x3e\n      \x3c/div\x3e\n  \x3c/fieldset\x3e\n\x3c/form\x3e\n');
+  var sym__3752__auto___12154 = cljs.core.nth.call(null, vec__12140_12153, 0, null);
+  var txt__3753__auto___12155 = cljs.core.nth.call(null, vec__12140_12153, 1, null);
+  cljs.core.swap_BANG_.call(null, enfocus.core.tpl_cache, cljs.core.assoc, "compiledpublic/templates/job-schedule-assoc.html", cljs.core.PersistentVector.fromArray([sym__3752__auto___12154, txt__3753__auto___12155], true))
 }else {
 }
 jsk.job.schedule_assoc = function schedule_assoc(job, ss, selected_ids) {
-  var vec__7419 = function() {
+  var vec__12148 = function() {
     return enfocus.core.get_cached_dom.call(null, "compiledpublic/templates/job-schedule-assoc.html")
   }.call(null);
-  var id_sym7412 = cljs.core.nth.call(null, vec__7419, 0, null);
-  var pnod7413 = cljs.core.nth.call(null, vec__7419, 1, null);
-  var pnod7413__$1 = enfocus.core.create_hidden_dom.call(null, pnod7413);
-  enfocus.core.i_at.call(null, id_sym7412, pnod7413__$1, "#job-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, job))].join("")), "#schedule-assoc-div", function(pnod__3788__auto__) {
+  var id_sym12141 = cljs.core.nth.call(null, vec__12148, 0, null);
+  var pnod12142 = cljs.core.nth.call(null, vec__12148, 1, null);
+  var pnod12142__$1 = enfocus.core.create_hidden_dom.call(null, pnod12142);
+  enfocus.core.i_at.call(null, id_sym12141, pnod12142__$1, "#job-id", enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "job-id", "job-id", 4154071197)).call(null, job))].join("")), "#schedule-assoc-div", function(pnod__3788__auto__) {
     var div__3789__auto__ = enfocus.core.create_hidden_dom.call(null, document.createDocumentFragment());
-    var seq__7420_7427 = cljs.core.seq.call(null, ss);
-    var chunk__7421_7428 = null;
-    var count__7422_7429 = 0;
-    var i__7423_7430 = 0;
+    var seq__12149_12156 = cljs.core.seq.call(null, ss);
+    var chunk__12150_12157 = null;
+    var count__12151_12158 = 0;
+    var i__12152_12159 = 0;
     while(true) {
-      if(i__7423_7430 < count__7422_7429) {
-        var s_7431 = cljs.core._nth.call(null, chunk__7421_7428, i__7423_7430);
+      if(i__12152_12159 < count__12151_12158) {
+        var s_12160 = cljs.core._nth.call(null, chunk__12150_12157, i__12152_12159);
         enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "label", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_7431)), "input", enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_7431))].join("")), enfocus.core.set_prop.call(null, 
-        new cljs.core.Keyword(null, "checked", "checked", 1756218137), cljs.core.contains_QMARK_.call(null, selected_ids, (new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_7431)))));
-        var G__7432 = seq__7420_7427;
-        var G__7433 = chunk__7421_7428;
-        var G__7434 = count__7422_7429;
-        var G__7435 = i__7423_7430 + 1;
-        seq__7420_7427 = G__7432;
-        chunk__7421_7428 = G__7433;
-        count__7422_7429 = G__7434;
-        i__7423_7430 = G__7435;
+        enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "label", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_12160)), "input", enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_12160))].join("")), enfocus.core.set_prop.call(null, 
+        new cljs.core.Keyword(null, "checked", "checked", 1756218137), cljs.core.contains_QMARK_.call(null, selected_ids, (new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_12160)))));
+        var G__12161 = seq__12149_12156;
+        var G__12162 = chunk__12150_12157;
+        var G__12163 = count__12151_12158;
+        var G__12164 = i__12152_12159 + 1;
+        seq__12149_12156 = G__12161;
+        chunk__12150_12157 = G__12162;
+        count__12151_12158 = G__12163;
+        i__12152_12159 = G__12164;
         continue
       }else {
-        var temp__4092__auto___7436 = cljs.core.seq.call(null, seq__7420_7427);
-        if(temp__4092__auto___7436) {
-          var seq__7420_7437__$1 = temp__4092__auto___7436;
-          if(cljs.core.chunked_seq_QMARK_.call(null, seq__7420_7437__$1)) {
-            var c__3072__auto___7438 = cljs.core.chunk_first.call(null, seq__7420_7437__$1);
-            var G__7439 = cljs.core.chunk_rest.call(null, seq__7420_7437__$1);
-            var G__7440 = c__3072__auto___7438;
-            var G__7441 = cljs.core.count.call(null, c__3072__auto___7438);
-            var G__7442 = 0;
-            seq__7420_7427 = G__7439;
-            chunk__7421_7428 = G__7440;
-            count__7422_7429 = G__7441;
-            i__7423_7430 = G__7442;
+        var temp__4092__auto___12165 = cljs.core.seq.call(null, seq__12149_12156);
+        if(temp__4092__auto___12165) {
+          var seq__12149_12166__$1 = temp__4092__auto___12165;
+          if(cljs.core.chunked_seq_QMARK_.call(null, seq__12149_12166__$1)) {
+            var c__3072__auto___12167 = cljs.core.chunk_first.call(null, seq__12149_12166__$1);
+            var G__12168 = cljs.core.chunk_rest.call(null, seq__12149_12166__$1);
+            var G__12169 = c__3072__auto___12167;
+            var G__12170 = cljs.core.count.call(null, c__3072__auto___12167);
+            var G__12171 = 0;
+            seq__12149_12156 = G__12168;
+            chunk__12150_12157 = G__12169;
+            count__12151_12158 = G__12170;
+            i__12152_12159 = G__12171;
             continue
           }else {
-            var s_7443 = cljs.core.first.call(null, seq__7420_7437__$1);
+            var s_12172 = cljs.core.first.call(null, seq__12149_12166__$1);
             enfocus.core.at.call(null, div__3789__auto__, enfocus.core.append.call(null, pnod__3788__auto__.cloneNode(true)));
-            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "label", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_7443)), "input", enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_7443))].join("")), enfocus.core.set_prop.call(null, 
-            new cljs.core.Keyword(null, "checked", "checked", 1756218137), cljs.core.contains_QMARK_.call(null, selected_ids, (new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_7443)))));
-            var G__7444 = cljs.core.next.call(null, seq__7420_7437__$1);
-            var G__7445 = null;
-            var G__7446 = 0;
-            var G__7447 = 0;
-            seq__7420_7427 = G__7444;
-            chunk__7421_7428 = G__7445;
-            count__7422_7429 = G__7446;
-            i__7423_7430 = G__7447;
+            enfocus.core.at.call(null, goog.dom.getLastElementChild(div__3789__auto__), "label", enfocus.core.content.call(null, (new cljs.core.Keyword(null, "schedule-name", "schedule-name", 2645361523)).call(null, s_12172)), "input", enfocus.core.do__GT_.call(null, enfocus.core.set_attr.call(null, new cljs.core.Keyword(null, "value", "value", 1125876963), [cljs.core.str((new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_12172))].join("")), enfocus.core.set_prop.call(null, 
+            new cljs.core.Keyword(null, "checked", "checked", 1756218137), cljs.core.contains_QMARK_.call(null, selected_ids, (new cljs.core.Keyword(null, "schedule-id", "schedule-id", 1189903235)).call(null, s_12172)))));
+            var G__12173 = cljs.core.next.call(null, seq__12149_12166__$1);
+            var G__12174 = null;
+            var G__12175 = 0;
+            var G__12176 = 0;
+            seq__12149_12156 = G__12173;
+            chunk__12150_12157 = G__12174;
+            count__12151_12158 = G__12175;
+            i__12152_12159 = G__12176;
             continue
           }
         }else {
@@ -47836,27 +47839,27 @@ jsk.job.schedule_assoc = function schedule_assoc(job, ss, selected_ids) {
     enfocus.core.log_debug.call(null, div__3789__auto__);
     return enfocus.core.at.call(null, pnod__3788__auto__, enfocus.core.do__GT_.call(null, enfocus.core.after.call(null, enfocus.core.remove_node_return_child.call(null, div__3789__auto__)), enfocus.core.remove_node.call(null)))
   }, "#save-assoc-btn", enfocus.events.listen.call(null, new cljs.core.Keyword(null, "click", "click", 1108654330), jsk.job.save_job_schedule_assoc));
-  enfocus.core.reset_ids.call(null, id_sym7412, pnod7413__$1);
-  return enfocus.core.remove_node_return_child.call(null, pnod7413__$1)
+  enfocus.core.reset_ids.call(null, id_sym12141, pnod12142__$1);
+  return enfocus.core.remove_node_return_child.call(null, pnod12142__$1)
 };
 jsk.job.show_jobs = function show_jobs() {
   var c__5209__auto__ = cljs.core.async.chan.call(null, 1);
   cljs.core.async.impl.dispatch.run.call(null, function() {
     var f__5210__auto__ = function() {
-      var switch__5159__auto__ = function(state_7467) {
-        var state_val_7468 = state_7467[1];
-        if(state_val_7468 === 2) {
-          var inst_7462 = state_7467[2];
-          var inst_7463 = jsk.job.list_jobs.call(null, inst_7462);
-          var inst_7464 = enfocus.core.content.call(null, inst_7463);
-          var inst_7465 = enfocus.core.at.call(null, "#container", inst_7464);
-          var state_7467__$1 = state_7467;
-          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_7467__$1, inst_7465)
+      var switch__5159__auto__ = function(state_12196) {
+        var state_val_12197 = state_12196[1];
+        if(state_val_12197 === 2) {
+          var inst_12191 = state_12196[2];
+          var inst_12192 = jsk.job.list_jobs.call(null, inst_12191);
+          var inst_12193 = enfocus.core.content.call(null, inst_12192);
+          var inst_12194 = enfocus.core.at.call(null, "#container", inst_12193);
+          var state_12196__$1 = state_12196;
+          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_12196__$1, inst_12194)
         }else {
-          if(state_val_7468 === 1) {
-            var inst_7460 = jsk.rpc.GET.call(null, "/jobs");
-            var state_7467__$1 = state_7467;
-            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_7467__$1, 2, inst_7460)
+          if(state_val_12197 === 1) {
+            var inst_12189 = jsk.rpc.GET.call(null, "/jobs");
+            var state_12196__$1 = state_12196;
+            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_12196__$1, 2, inst_12189)
           }else {
             return null
           }
@@ -47866,14 +47869,14 @@ jsk.job.show_jobs = function show_jobs() {
         return function() {
           var state_machine__5160__auto__ = null;
           var state_machine__5160__auto____0 = function() {
-            var statearr_7470 = new Array(5);
-            statearr_7470[0] = state_machine__5160__auto__;
-            statearr_7470[1] = 1;
-            return statearr_7470
+            var statearr_12199 = new Array(5);
+            statearr_12199[0] = state_machine__5160__auto__;
+            statearr_12199[1] = 1;
+            return statearr_12199
           };
-          var state_machine__5160__auto____1 = function(state_7467) {
+          var state_machine__5160__auto____1 = function(state_12196) {
             while(true) {
-              var result__5161__auto__ = switch__5159__auto__.call(null, state_7467);
+              var result__5161__auto__ = switch__5159__auto__.call(null, state_12196);
               if(cljs.core.keyword_identical_QMARK_.call(null, result__5161__auto__, new cljs.core.Keyword(null, "recur", "recur", 1122293407))) {
                 continue
               }else {
@@ -47882,12 +47885,12 @@ jsk.job.show_jobs = function show_jobs() {
               break
             }
           };
-          state_machine__5160__auto__ = function(state_7467) {
+          state_machine__5160__auto__ = function(state_12196) {
             switch(arguments.length) {
               case 0:
                 return state_machine__5160__auto____0.call(this);
               case 1:
-                return state_machine__5160__auto____1.call(this, state_7467)
+                return state_machine__5160__auto____1.call(this, state_12196)
             }
             throw new Error("Invalid arity: " + arguments.length);
           };
@@ -47898,9 +47901,9 @@ jsk.job.show_jobs = function show_jobs() {
       }(switch__5159__auto__)
     }();
     var state__5211__auto__ = function() {
-      var statearr_7471 = f__5210__auto__.call(null);
-      statearr_7471[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
-      return statearr_7471
+      var statearr_12200 = f__5210__auto__.call(null);
+      statearr_12200[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
+      return statearr_12200
     }();
     return cljs.core.async.impl.ioc_helpers.run_state_machine_wrapped.call(null, state__5211__auto__)
   });
@@ -47910,29 +47913,29 @@ jsk.job.save_job = function save_job(e) {
   var c__5209__auto__ = cljs.core.async.chan.call(null, 1);
   cljs.core.async.impl.dispatch.run.call(null, function() {
     var f__5210__auto__ = function() {
-      var switch__5159__auto__ = function(state_7502) {
-        var state_val_7503 = state_7502[1];
-        if(state_val_7503 === 2) {
-          var inst_7497 = state_7502[2];
-          var inst_7498 = [cljs.core.str("Job saved with id "), cljs.core.str(inst_7497)].join("");
-          var inst_7499 = jsk.util.log.call(null, inst_7498);
-          var inst_7500 = jsk.job.show_jobs.call(null);
-          var state_7502__$1 = function() {
-            var statearr_7504 = state_7502;
-            statearr_7504[5] = inst_7499;
-            return statearr_7504
+      var switch__5159__auto__ = function(state_12231) {
+        var state_val_12232 = state_12231[1];
+        if(state_val_12232 === 2) {
+          var inst_12226 = state_12231[2];
+          var inst_12227 = [cljs.core.str("Job saved with id "), cljs.core.str(inst_12226)].join("");
+          var inst_12228 = jsk.util.log.call(null, inst_12227);
+          var inst_12229 = jsk.job.show_jobs.call(null);
+          var state_12231__$1 = function() {
+            var statearr_12233 = state_12231;
+            statearr_12233[5] = inst_12228;
+            return statearr_12233
           }();
-          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_7502__$1, inst_7500)
+          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_12231__$1, inst_12229)
         }else {
-          if(state_val_7503 === 1) {
-            var inst_7490 = enfocus.core.read_form.call(null);
-            var inst_7491 = enfocus.core.from.call(null, "#job-save-form", inst_7490);
-            var inst_7492 = jsk.util.update_str__GT_int.call(null, inst_7491, new cljs.core.Keyword(null, "job-id", "job-id", 4154071197));
-            var inst_7493 = jsk.util.element_checked_QMARK_.call(null, "is-enabled");
-            var inst_7494 = cljs.core.assoc.call(null, inst_7492, new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656), inst_7493);
-            var inst_7495 = jsk.rpc.POST.call(null, "/jobs/save", inst_7494);
-            var state_7502__$1 = state_7502;
-            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_7502__$1, 2, inst_7495)
+          if(state_val_12232 === 1) {
+            var inst_12219 = enfocus.core.read_form.call(null);
+            var inst_12220 = enfocus.core.from.call(null, "#job-save-form", inst_12219);
+            var inst_12221 = jsk.util.update_str__GT_int.call(null, inst_12220, new cljs.core.Keyword(null, "job-id", "job-id", 4154071197));
+            var inst_12222 = jsk.util.element_checked_QMARK_.call(null, "is-enabled");
+            var inst_12223 = cljs.core.assoc.call(null, inst_12221, new cljs.core.Keyword(null, "is-enabled", "is-enabled", 3958416656), inst_12222);
+            var inst_12224 = jsk.rpc.POST.call(null, "/jobs/save", inst_12223);
+            var state_12231__$1 = state_12231;
+            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_12231__$1, 2, inst_12224)
           }else {
             return null
           }
@@ -47942,14 +47945,14 @@ jsk.job.save_job = function save_job(e) {
         return function() {
           var state_machine__5160__auto__ = null;
           var state_machine__5160__auto____0 = function() {
-            var statearr_7506 = new Array(6);
-            statearr_7506[0] = state_machine__5160__auto__;
-            statearr_7506[1] = 1;
-            return statearr_7506
+            var statearr_12235 = new Array(6);
+            statearr_12235[0] = state_machine__5160__auto__;
+            statearr_12235[1] = 1;
+            return statearr_12235
           };
-          var state_machine__5160__auto____1 = function(state_7502) {
+          var state_machine__5160__auto____1 = function(state_12231) {
             while(true) {
-              var result__5161__auto__ = switch__5159__auto__.call(null, state_7502);
+              var result__5161__auto__ = switch__5159__auto__.call(null, state_12231);
               if(cljs.core.keyword_identical_QMARK_.call(null, result__5161__auto__, new cljs.core.Keyword(null, "recur", "recur", 1122293407))) {
                 continue
               }else {
@@ -47958,12 +47961,12 @@ jsk.job.save_job = function save_job(e) {
               break
             }
           };
-          state_machine__5160__auto__ = function(state_7502) {
+          state_machine__5160__auto__ = function(state_12231) {
             switch(arguments.length) {
               case 0:
                 return state_machine__5160__auto____0.call(this);
               case 1:
-                return state_machine__5160__auto____1.call(this, state_7502)
+                return state_machine__5160__auto____1.call(this, state_12231)
             }
             throw new Error("Invalid arity: " + arguments.length);
           };
@@ -47974,9 +47977,9 @@ jsk.job.save_job = function save_job(e) {
       }(switch__5159__auto__)
     }();
     var state__5211__auto__ = function() {
-      var statearr_7507 = f__5210__auto__.call(null);
-      statearr_7507[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
-      return statearr_7507
+      var statearr_12236 = f__5210__auto__.call(null);
+      statearr_12236[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
+      return statearr_12236
     }();
     return cljs.core.async.impl.ioc_helpers.run_state_machine_wrapped.call(null, state__5211__auto__)
   });
@@ -47994,51 +47997,51 @@ jsk.job.job_row_clicked = function job_row_clicked(e) {
   var c__5209__auto__ = cljs.core.async.chan.call(null, 1);
   cljs.core.async.impl.dispatch.run.call(null, function() {
     var f__5210__auto__ = function() {
-      var switch__5159__auto__ = function(state_7548) {
-        var state_val_7549 = state_7548[1];
-        if(state_val_7549 === 4) {
-          var inst_7541 = state_7548[5];
-          var inst_7538 = state_7548[6];
-          var inst_7545 = state_7548[2];
-          var inst_7546 = jsk.job.show_job_edit.call(null, inst_7538, inst_7541, inst_7545);
-          var state_7548__$1 = state_7548;
-          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_7548__$1, inst_7546)
+      var switch__5159__auto__ = function(state_12277) {
+        var state_val_12278 = state_12277[1];
+        if(state_val_12278 === 4) {
+          var inst_12270 = state_12277[5];
+          var inst_12267 = state_12277[6];
+          var inst_12274 = state_12277[2];
+          var inst_12275 = jsk.job.show_job_edit.call(null, inst_12267, inst_12270, inst_12274);
+          var state_12277__$1 = state_12277;
+          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_12277__$1, inst_12275)
         }else {
-          if(state_val_7549 === 3) {
-            var inst_7535 = state_7548[7];
-            var inst_7541 = state_7548[2];
-            var inst_7542 = [cljs.core.str(inst_7535), cljs.core.str("/sched-assoc")].join("");
-            var inst_7543 = jsk.rpc.GET.call(null, inst_7542);
-            var state_7548__$1 = function() {
-              var statearr_7550 = state_7548;
-              statearr_7550[5] = inst_7541;
-              return statearr_7550
+          if(state_val_12278 === 3) {
+            var inst_12264 = state_12277[7];
+            var inst_12270 = state_12277[2];
+            var inst_12271 = [cljs.core.str(inst_12264), cljs.core.str("/sched-assoc")].join("");
+            var inst_12272 = jsk.rpc.GET.call(null, inst_12271);
+            var state_12277__$1 = function() {
+              var statearr_12279 = state_12277;
+              statearr_12279[5] = inst_12270;
+              return statearr_12279
             }();
-            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_7548__$1, 4, inst_7543)
+            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_12277__$1, 4, inst_12272)
           }else {
-            if(state_val_7549 === 2) {
-              var inst_7538 = state_7548[2];
-              var inst_7539 = jsk.rpc.GET.call(null, "/schedules");
-              var state_7548__$1 = function() {
-                var statearr_7551 = state_7548;
-                statearr_7551[6] = inst_7538;
-                return statearr_7551
+            if(state_val_12278 === 2) {
+              var inst_12267 = state_12277[2];
+              var inst_12268 = jsk.rpc.GET.call(null, "/schedules");
+              var state_12277__$1 = function() {
+                var statearr_12280 = state_12277;
+                statearr_12280[6] = inst_12267;
+                return statearr_12280
               }();
-              return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_7548__$1, 3, inst_7539)
+              return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_12277__$1, 3, inst_12268)
             }else {
-              if(state_val_7549 === 1) {
-                var inst_7535 = state_7548[7];
-                var inst_7532 = jsk.util.event_source.call(null, e);
-                var inst_7533 = enfocus.core.get_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360));
-                var inst_7534 = enfocus.core.from.call(null, inst_7532, inst_7533);
-                var inst_7535__$1 = [cljs.core.str("/jobs/"), cljs.core.str(inst_7534)].join("");
-                var inst_7536 = jsk.rpc.GET.call(null, inst_7535__$1);
-                var state_7548__$1 = function() {
-                  var statearr_7552 = state_7548;
-                  statearr_7552[7] = inst_7535__$1;
-                  return statearr_7552
+              if(state_val_12278 === 1) {
+                var inst_12264 = state_12277[7];
+                var inst_12261 = jsk.util.event_source.call(null, e);
+                var inst_12262 = enfocus.core.get_attr.call(null, new cljs.core.Keyword(null, "data-job-id", "data-job-id", 2291171360));
+                var inst_12263 = enfocus.core.from.call(null, inst_12261, inst_12262);
+                var inst_12264__$1 = [cljs.core.str("/jobs/"), cljs.core.str(inst_12263)].join("");
+                var inst_12265 = jsk.rpc.GET.call(null, inst_12264__$1);
+                var state_12277__$1 = function() {
+                  var statearr_12281 = state_12277;
+                  statearr_12281[7] = inst_12264__$1;
+                  return statearr_12281
                 }();
-                return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_7548__$1, 2, inst_7536)
+                return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_12277__$1, 2, inst_12265)
               }else {
                 return null
               }
@@ -48050,14 +48053,14 @@ jsk.job.job_row_clicked = function job_row_clicked(e) {
         return function() {
           var state_machine__5160__auto__ = null;
           var state_machine__5160__auto____0 = function() {
-            var statearr_7554 = new Array(8);
-            statearr_7554[0] = state_machine__5160__auto__;
-            statearr_7554[1] = 1;
-            return statearr_7554
+            var statearr_12283 = new Array(8);
+            statearr_12283[0] = state_machine__5160__auto__;
+            statearr_12283[1] = 1;
+            return statearr_12283
           };
-          var state_machine__5160__auto____1 = function(state_7548) {
+          var state_machine__5160__auto____1 = function(state_12277) {
             while(true) {
-              var result__5161__auto__ = switch__5159__auto__.call(null, state_7548);
+              var result__5161__auto__ = switch__5159__auto__.call(null, state_12277);
               if(cljs.core.keyword_identical_QMARK_.call(null, result__5161__auto__, new cljs.core.Keyword(null, "recur", "recur", 1122293407))) {
                 continue
               }else {
@@ -48066,12 +48069,12 @@ jsk.job.job_row_clicked = function job_row_clicked(e) {
               break
             }
           };
-          state_machine__5160__auto__ = function(state_7548) {
+          state_machine__5160__auto__ = function(state_12277) {
             switch(arguments.length) {
               case 0:
                 return state_machine__5160__auto____0.call(this);
               case 1:
-                return state_machine__5160__auto____1.call(this, state_7548)
+                return state_machine__5160__auto____1.call(this, state_12277)
             }
             throw new Error("Invalid arity: " + arguments.length);
           };
@@ -48082,9 +48085,9 @@ jsk.job.job_row_clicked = function job_row_clicked(e) {
       }(switch__5159__auto__)
     }();
     var state__5211__auto__ = function() {
-      var statearr_7555 = f__5210__auto__.call(null);
-      statearr_7555[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
-      return statearr_7555
+      var statearr_12284 = f__5210__auto__.call(null);
+      statearr_12284[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
+      return statearr_12284
     }();
     return cljs.core.async.impl.ioc_helpers.run_state_machine_wrapped.call(null, state__5211__auto__)
   });
@@ -48106,24 +48109,24 @@ jsk.job.save_job_schedule_assoc = function save_job_schedule_assoc(e) {
   var c__5209__auto__ = cljs.core.async.chan.call(null, 1);
   cljs.core.async.impl.dispatch.run.call(null, function() {
     var f__5210__auto__ = function() {
-      var switch__5159__auto__ = function(state_7576) {
-        var state_val_7577 = state_7576[1];
-        if(state_val_7577 === 2) {
-          var inst_7572 = state_7576[2];
-          var inst_7573 = enfocus.core.content.call(null, "Associations saved.");
-          var inst_7574 = enfocus.core.at.call(null, "#save-assoc-msg-label", inst_7573);
-          var state_7576__$1 = function() {
-            var statearr_7578 = state_7576;
-            statearr_7578[5] = inst_7572;
-            return statearr_7578
+      var switch__5159__auto__ = function(state_12305) {
+        var state_val_12306 = state_12305[1];
+        if(state_val_12306 === 2) {
+          var inst_12301 = state_12305[2];
+          var inst_12302 = enfocus.core.content.call(null, "Associations saved.");
+          var inst_12303 = enfocus.core.at.call(null, "#save-assoc-msg-label", inst_12302);
+          var state_12305__$1 = function() {
+            var statearr_12307 = state_12305;
+            statearr_12307[5] = inst_12301;
+            return statearr_12307
           }();
-          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_7576__$1, inst_7574)
+          return cljs.core.async.impl.ioc_helpers.return_chan.call(null, state_12305__$1, inst_12303)
         }else {
-          if(state_val_7577 === 1) {
-            var inst_7569 = jsk.job.parse_job_schedule_assoc_form.call(null);
-            var inst_7570 = jsk.rpc.POST.call(null, "/jobs/assoc", inst_7569);
-            var state_7576__$1 = state_7576;
-            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_7576__$1, 2, inst_7570)
+          if(state_val_12306 === 1) {
+            var inst_12298 = jsk.job.parse_job_schedule_assoc_form.call(null);
+            var inst_12299 = jsk.rpc.POST.call(null, "/jobs/assoc", inst_12298);
+            var state_12305__$1 = state_12305;
+            return cljs.core.async.impl.ioc_helpers.take_BANG_.call(null, state_12305__$1, 2, inst_12299)
           }else {
             return null
           }
@@ -48133,14 +48136,14 @@ jsk.job.save_job_schedule_assoc = function save_job_schedule_assoc(e) {
         return function() {
           var state_machine__5160__auto__ = null;
           var state_machine__5160__auto____0 = function() {
-            var statearr_7580 = new Array(6);
-            statearr_7580[0] = state_machine__5160__auto__;
-            statearr_7580[1] = 1;
-            return statearr_7580
+            var statearr_12309 = new Array(6);
+            statearr_12309[0] = state_machine__5160__auto__;
+            statearr_12309[1] = 1;
+            return statearr_12309
           };
-          var state_machine__5160__auto____1 = function(state_7576) {
+          var state_machine__5160__auto____1 = function(state_12305) {
             while(true) {
-              var result__5161__auto__ = switch__5159__auto__.call(null, state_7576);
+              var result__5161__auto__ = switch__5159__auto__.call(null, state_12305);
               if(cljs.core.keyword_identical_QMARK_.call(null, result__5161__auto__, new cljs.core.Keyword(null, "recur", "recur", 1122293407))) {
                 continue
               }else {
@@ -48149,12 +48152,12 @@ jsk.job.save_job_schedule_assoc = function save_job_schedule_assoc(e) {
               break
             }
           };
-          state_machine__5160__auto__ = function(state_7576) {
+          state_machine__5160__auto__ = function(state_12305) {
             switch(arguments.length) {
               case 0:
                 return state_machine__5160__auto____0.call(this);
               case 1:
-                return state_machine__5160__auto____1.call(this, state_7576)
+                return state_machine__5160__auto____1.call(this, state_12305)
             }
             throw new Error("Invalid arity: " + arguments.length);
           };
@@ -48165,9 +48168,9 @@ jsk.job.save_job_schedule_assoc = function save_job_schedule_assoc(e) {
       }(switch__5159__auto__)
     }();
     var state__5211__auto__ = function() {
-      var statearr_7581 = f__5210__auto__.call(null);
-      statearr_7581[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
-      return statearr_7581
+      var statearr_12310 = f__5210__auto__.call(null);
+      statearr_12310[cljs.core.async.impl.ioc_helpers.USER_START_IDX] = c__5209__auto__;
+      return statearr_12310
     }();
     return cljs.core.async.impl.ioc_helpers.run_state_machine_wrapped.call(null, state__5211__auto__)
   });

@@ -8,7 +8,7 @@
 
 (defentity job
   (pk :job-id)
-  (entity-fields :job-id :job-name :job-desc :job-execution-directory :job-command-line :is-enabled))
+  (entity-fields :job-id :job-name :job-desc :execution-directory :command-line :is-enabled))
 
 (defentity job-schedule
   (pk :job-schedule-id)
@@ -61,7 +61,7 @@
 ; Insert a job. Answers with the inserted job's row id.
 ;-----------------------------------------------------------------------
 (defn- insert-job! [m user-id]
-  (let [merged-map (merge m {:create-user-id user-id :update-user-id user-id})]
+  (let [merged-map (merge (dissoc m :job-id) {:create-user-id user-id :update-user-id user-id})]
     (info "Creating new job with values: " merged-map)
     (-> (insert job (values merged-map))
         jdb/extract-identity)))
@@ -80,10 +80,10 @@
 
 
 (defn save-job* [{:keys [job-id] :as j} user-id]
-  (-<> (if job-id
+  (-<> (if (jdb/id? job-id)
          (update-job! j user-id)
          (insert-job! j user-id))
-       {:success? true :schedule-id <>}))
+       {:success? true :job-id <>}))
 
 ;-----------------------------------------------------------------------
 ; Saves the job either inserting or updating depending on the
