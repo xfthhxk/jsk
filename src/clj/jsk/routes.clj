@@ -43,10 +43,10 @@
 
   (POST "/jobs/assoc" [_ :as request]
         (info "request is: " request)
-        (-> (:edn-params request) j/assoc-schedules! response/edn))
+        (-> (:edn-params request) (j/assoc-schedules! (uid request)) response/edn))
 
   (DELETE "/jobs/dissoc" [_ :as request]
-        (-> (:params request) j/dissoc-schedules! response/edn)))
+        (-> (:params request) (j/dissoc-schedules! (uid request)) response/edn)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to schedules

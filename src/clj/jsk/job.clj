@@ -117,24 +117,20 @@
 ; schedule-ids is a set of integer ids
 ;-----------------------------------------------------------------------
 (defn assoc-schedules!
-  ([{:keys [job-id schedule-ids]}]
-    (assoc-schedules! job-id schedule-ids "amar"))
+  ([{:keys [job-id schedule-ids]} user-id]
+    (assoc-schedules! job-id schedule-ids user-id))
 
   ([job-id schedule-ids user-id]
-    (info "omg! job-id " job-id " is to be associated with schedules " schedule-ids)
-    (let [ts (jdb/now)
-          data {:job-id job-id
-                :created-at ts
-                :updated-at ts
-                :created-by user-id
-                :updated-by user-id}
+    (info "user-id " user-id " requests job-id " job-id " be associated with schedules " schedule-ids)
+
+    (let [data {:job-id job-id :create-user-id user-id}
           insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) (set schedule-ids))]
 
       (transaction
         (rm-schedules-for-job! job-id) ; delete all existing entries for the job
         (insert job-schedule (values insert-maps)))
 
-      (info "job schedules associations made for job-id: " job-id)
+      (info "job schedule associations made for job-id: " job-id)
       true)))
 
 ;-----------------------------------------------------------------------
@@ -142,14 +138,18 @@
 ; schedule-ids is a set of integer ids
 ;-----------------------------------------------------------------------
 (defn dissoc-schedules!
-  ([{:keys [job-id schedule-ids]}]
-   (dissoc-schedules! job-id schedule-ids))
+  ([{:keys [job-id schedule-ids]} user-id]
+   (dissoc-schedules! job-id schedule-ids user-id))
 
-  ([job-id schedule-ids]
-    (info "job-id " job-id " is to be disassociated from schedules " schedule-ids)
+  ([job-id schedule-ids user-id]
+    (info "user-id " user-id " requests job-id " job-id " be dissociated from schedules " schedule-ids)
+
     (delete job-schedule
       (where {:job-id job-id
-              :schedule-id [in schedule-ids]}))))
+              :schedule-id [in schedule-ids]}))
+   (info "job schedule dissociations complete for job-id: " job-id)
+   true))
+
 
 
 ;-----------------------------------------------------------------------
