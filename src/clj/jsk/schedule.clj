@@ -26,6 +26,10 @@
   (first (select schedule
           (where {:schedule-id id}))))
 
+(defn get-schedules [ids]
+  (select schedule
+    (where {:schedule-id [in ids]})))
+
 (defn get-schedule-by-name
   "Gets a schedule by name if one exists otherwise returns nil"
   [nm]

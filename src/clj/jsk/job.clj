@@ -1,6 +1,8 @@
 (ns jsk.job
   (:require [taoensso.timbre :as timbre :refer (info warn error)]
             [bouncer [core :as b] [validators :as v]]
+            [jsk.quartz :as q]
+            [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as jdb])
   (:use [korma core db]
@@ -8,7 +10,8 @@
 
 (defentity job
   (pk :job-id)
-  (entity-fields :job-id :job-name :job-desc :execution-directory :command-line :is-enabled))
+  (entity-fields :job-id :job-name :job-desc :execution-directory :command-line :is-enabled)
+  (many-to-many s/schedule :job-schedule))
 
 (defentity job-schedule
   (pk :job-schedule-id)
@@ -94,12 +97,23 @@
     (ju/make-error-response errors)
     (save-job* j user-id)))
 
+;-----------------------------------------------------------------------
+; Schedule ids associated with the specified job id.
+;-----------------------------------------------------------------------
+(defn schedules-for-job [job-id]
+  (->> (select job-schedule (where {:job-id job-id}))
+       (map :schedule-id)
+       set))
+
 
 ;-----------------------------------------------------------------------
 ; Deletes from job-schedule all rows matching job-schedule-ids
+; Also removes from quartz all jobs matching the job-schedule-id
+; ie the triggers IDd by job-scheduler-id
 ;-----------------------------------------------------------------------
-(defn rm-job-schedules! [job-schedule-ids]
+(defn- rm-job-schedules! [job-schedule-ids]
   (info "Removing job-schedule associations for the following PK: " job-schedule-ids)
+  (q/rm-triggers! job-schedule-ids)
   (delete job-schedule
     (where {:job-schedule-id [in job-schedule-ids]})))
 
@@ -108,8 +122,17 @@
 ;-----------------------------------------------------------------------
 (defn rm-schedules-for-job! [job-id]
   (info "Removing job-schedule associations for job id: " job-id)
-  (delete job-schedule
-    (where {:job-id job-id})))
+  (-> job-id schedules-for-job rm-job-schedules!))
+
+(defn- get-job-schedule-info [job-id]
+  (exec-raw ["select js.job_schedule_id, s.* from job_schedule js join schedule s on js.schedule_id = s.schedule_id where job_id = ?" [job-id]] :results))
+
+
+(defn- create-triggers [job-id]
+  (info "Creating triggers for job " job-id)
+  (let [schedules (get-job-schedule-info job-id)
+        job (get-job job-id)]
+    (q/schedule-cron-job! job schedules)))
 
 
 ;-----------------------------------------------------------------------
@@ -130,6 +153,8 @@
         (rm-schedules-for-job! job-id) ; delete all existing entries for the job
         (insert job-schedule (values insert-maps)))
 
+      (create-triggers job-id)
+
       (info "job schedule associations made for job-id: " job-id)
       true)))
 
@@ -149,19 +174,6 @@
               :schedule-id [in schedule-ids]}))
    (info "job schedule dissociations complete for job-id: " job-id)
    true))
-
-
-
-;-----------------------------------------------------------------------
-; Schedule ids associated with the specified job id.
-;-----------------------------------------------------------------------
-(defn schedules-for-job [job-id]
-  (->> (select job-schedule (where {:job-id job-id}))
-       (map :schedule-id)
-       set))
-
-
-
 
 
 

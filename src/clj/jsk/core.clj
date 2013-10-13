@@ -9,10 +9,8 @@
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
             [ring.middleware.edn :as redn]
-            ; [noir.util.middleware :as middleware]
             [noir.response :as response]
             [ring.util.response :as rr]
-            [clojurewerkz.quartzite.scheduler :as qs]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor])
   (:use [swiss-arrows core]
@@ -20,12 +18,6 @@
         [ring.middleware.resource :only [wrap-resource]]
         [ring.middleware.file-info :only [wrap-file-info]]))
 
-
-;  (let [date-job (q/make-shell-job "date")
-;        cal-job (q/make-shell-job "cal" [[1] [2012]])
-;        trigger (q/make-trigger "triggers.1")]
-;    (qs/schedule cal-job (q/make-trigger "triggers.1"))
-;    (qs/schedule date-job (q/make-trigger "triggers.2")))
 
 
 ;-----------------------------------------------------------------------
@@ -54,8 +46,7 @@
    on an app server such as Tomcat"
 
   (init-logging)
-  (qs/initialize)
-  (qs/start)
+  (q/start)
   (info "JSK started successfully."))
 
 ;-----------------------------------------------------------------------
@@ -65,7 +56,7 @@
   "destroy will be called when the app is shut down"
 
   (info "JSK is shutting down...")
-  (qs/shutdown)
+  (q/stop)
   (info "JSK has stopped."))
 
 
@@ -154,9 +145,9 @@
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
-             wrap-jsk-user-in-session
-             make-friend-auth
-             wrap-api-unauthenticated
+             ;wrap-jsk-user-in-session
+             ;make-friend-auth
+             ;wrap-api-unauthenticated
              ch/site
              wrap-dir-index
              (wrap-resource "public")
