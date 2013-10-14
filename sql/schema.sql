@@ -39,21 +39,28 @@ create table job_var ( job_var_id       int         auto_increment primary key
                      , var_expr         varchar(50) not null );
 
 
-drop table if exists job_start;
+drop table if exists job_execution_status;
+create table job_execution_status ( job_execution_status_id int auto_increment primary key
+                                  , status_code varchar(20)
+                                  , status_desc varchar(255));
 
-create table job_start ( job_start_id int       auto_increment primary key
-                       , job_id       int       not null
-                       , started_at   timestamp not null default current_timestamp());
+alter table job_execution_status add constraint unq_job_execution_status unique(status_code);
+insert into job_execution_status (job_execution_status_id, status_code, status_desc)
+       values (1, 'started', 'Job started.')
+            , (2, 'finished-success', 'Finished successfully.')
+            , (3, 'finished-errored', 'Finished with errors.');
 
-alter table job_start add constraint fk_job_start_job_id foreign key (job_id) references job(job_id);
 
-drop table if exists job_finish;
+drop table if exists job_execution;
 
-create table job_finish ( job_start_id int       not null
-                        , finished_at  timestamp not null default current_timestamp());
+create table job_execution ( job_execution_id    int       auto_increment primary key
+                           , job_id              int       not null
+                           , execution_status_id int       not null
+                           , started_at          timestamp not null default current_timestamp()
+                           , finished_at         timestamp null );
 
-alter table job_finish add constraint fk_job_finish_job_start_id foreign key (job_start_id) references job_start(job_start_id);
-
+alter table job_execution add constraint fk_job_execution_job_id foreign key (job_id) references job(job_id);
+alter table job_execution add constraint fk_job_execution_job_status_id foreign key (execution_status_id) references job_execution_status(job_execution_status_id);
 
 drop table if exists schedule;
 

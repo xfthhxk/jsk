@@ -97,7 +97,7 @@
 
 (defn- update-schedule-quartz! [schedule-id]
   (let [ss (get-job-schedule-info schedule-id)]
-    (q/update-triggers ss)))
+    (q/update-triggers! ss)))
 
 (defn- update-schedule! [{:keys [schedule-id] :as s} user-id]
   (update-schedule-db! s user-id)

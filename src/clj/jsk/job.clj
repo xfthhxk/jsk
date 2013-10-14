@@ -87,12 +87,11 @@
       (update-job! j user-id)
       (insert-job! j user-id)))
 
-(defn- save-job-scheduler! [job]
-  (q/save-job! job))
-
-(defn- save-job* [j user-id]
+(defn- save-job*
+  "Saves the job to the database and the scheduler."
+  [j user-id]
   (let [job-id (save-job-db j user-id)]
-    (save-job-scheduler! (assoc j :job-id job-id))
+    (q/save-job! (assoc j :job-id job-id))
     {:success? true :job-id job-id}))
 
 ;-----------------------------------------------------------------------
@@ -104,13 +103,16 @@
     (ju/make-error-response errors)
     (save-job* j user-id)))
 
+;-----------------------------------------------------------------------
+; Schedule ids associated with the specified job id.
+;-----------------------------------------------------------------------
 (defn schedules-for-job [job-id]
   (->> (select job-schedule (where {:job-id job-id}))
        (map :schedule-id)
        set))
 
 ;-----------------------------------------------------------------------
-; Schedule ids associated with the specified job id.
+; Job schedule ids associated with the specified job id.
 ;-----------------------------------------------------------------------
 (defn- job-schedules-for-job [job-id]
   (->> (select job-schedule (where {:job-id job-id}))
@@ -124,7 +126,7 @@
 ; ie the triggers IDd by job-scheduler-id
 ;-----------------------------------------------------------------------
 (defn- rm-job-schedules! [job-schedule-ids]
-  (info "no more deleteing Removing job-schedule associations for the following PK: " job-schedule-ids)
+  (info "Removing job-schedule associations for the following PK: " job-schedule-ids)
   (q/rm-triggers! job-schedule-ids)
   (delete job-schedule (where {:job-schedule-id [in job-schedule-ids]})))
 

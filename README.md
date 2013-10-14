@@ -12,6 +12,24 @@ tail -f log/jsk.log
 
 ```
 
+## Quartz
+There are a few table:
+* job
+* schedule
+* job_schedule
+
+Schedules are identified by the schedule_id from the schedule table.
+
+Jobs within Quartz are identified by the job_id from the job table.
+Quartz's concept of a trigger is really the concept of a job and a schedule within JSK.
+Triggers are identified by the job_schedule_id from the job_schedule table.
+
+
+Saving a job always replaces any existing instance registered with Quartz.
+
+Right now schedule associations are a bit stupid.
+It first deletes all associations and then adds whatever might be selected.
+
 
 ## Enfocus notes
 Can't have anything other than actual selectors and functions in defaction,
@@ -21,12 +39,14 @@ Have to pass strings to ef/content. doesn't like ints even.
 
 
 ## TODO
-Updating a schedule should find all triggers associated with the schedule and
-update them by calling Scheduler.rescheduleJob(Trigger old, Trigger new)
-  * Find all job-schedule-id instances where the schedule-id is x.
-  * Create new triggers for them and call rescheduleJob
 
-On startup read jobs and schedules from database and create jobs and triggers
+* On startup read jobs and schedules from database and create jobs and triggers
+* UI for displaying job executions
+  * Have multiple sections
+    a. Executing
+    b. Finished Successfully
+    c. Errored
+
 
 
 Three types are most important:
