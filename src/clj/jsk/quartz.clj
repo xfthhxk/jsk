@@ -12,7 +12,7 @@
             [clojurewerkz.quartzite.schedule.cron :as cron]
             [clojurewerkz.quartzite.schedule.simple :as simple])
   (:import (org.quartz.impl.matchers GroupMatcher EverythingMatcher))
-  (:import (org.quartz CronExpression)))
+  (:import (org.quartz CronExpression JobDetail JobKey Scheduler Trigger TriggerBuilder TriggerKey)))
 
 
 (defn start []
@@ -23,12 +23,22 @@
   (qs/shutdown))
 
 
+(defn- add-job [^JobDetail job-detail]
+  (.addJob ^Scheduler @qs/*scheduler* job-detail true))
 
-(defprotocol StringMatcher
-  "Search  various objects"
-  (match? [this expr])
-  (regex-match? [this expr])
-  (fuzzy-match? [this expr]))
+(defn- schedule-trigger [^Trigger trigger]
+  (.scheduleJob ^Scheduler @qs/*scheduler* trigger))
+
+(defn- reschedule-job [^TriggerKey tkey ^Trigger new-trigger]
+  (.rescheduleJob ^Scheduler @qs/*scheduler* tkey new-trigger))
+
+;-----------------------------------------------------------------------
+; Answers if the cron expression is valid or not.
+;-----------------------------------------------------------------------
+(defn cron-expr? [expr]
+  (if expr
+    (CronExpression/isValidExpression expr)
+    false))
 
 ;-----------------------------------------------------------------------
 ; Didn't know about NativeJob. Maybe use that instead.
@@ -40,6 +50,12 @@
     (info "execution" (ps/exec ps argsv))))
 
 
+(defn- make-job-key [id]
+  (info "make-job-key id: " id)
+  (j/key (str id) "jsk-job"))
+
+(defn- make-trigger-key [id]
+  (t/key (str id) "jsk-trigger"))
 
 ;-----------------------------------------------------------------------
 ; Creates a ShellJob instance by specifying JobData
@@ -53,28 +69,16 @@
   ([job-id ps-name] (make-shell-job ps-name []))
 
   ([job-id ps-name argsv]
-   (let [job-map {"ps" ps-name "argsv" argsv}
-         job-key (j/key job-id)]
+   (let [job-map {"ps" ps-name "argsv" argsv} ; have to use string keys for quartz
+         job-key (make-job-key job-id)]
 
      ; NB. j/build is a macro which creates and passes itself in using ->
      (j/build (j/of-type ShellJob)
               (j/using-job-data job-map)
-              (j/with-identity job-key)))))
+              (j/with-identity job-key)
+              (j/store-durably)))))
 
-;-----------------------------------------------------------------------
-; Makes a trigger from a Schedule instance.
-; Trigger-id is a string.
-; Returns a trigger instance.
-;-----------------------------------------------------------------------
-(defn make-cron-trigger
-  "Makes a cron trigger instance based on the schedule specified."
-  [trigger-id cron-expr]
-  (let [cron-sched (cron/schedule (cron/cron-schedule cron-expr))
-        trigger-key (t/key trigger-id)]
-    (t/build
-     (t/with-identity trigger-key)
-     (t/start-now)
-     (t/with-schedule cron-sched))))
+
 
 ; parse the executable and tokenize the rest to be argsv
 ; [cmd [args]]
@@ -84,19 +88,43 @@
 
 (defn- create-job-instance [job]
   (info "creating job for: " job)
-  (let [job-id (-> :job-id job str)
+  (let [job-id (:job-id job)
         [ps-name argsv] (-> :command-line job parse-job-command-line)]
     (make-shell-job job-id ps-name argsv)))
 
-(defn- create-trigger-instances [schedules]
-  (let [args (map (juxt #(-> % :job-schedule-id str) :cron-expression) schedules)]
+(defn save-job! [job]
+  (add-job (create-job-instance job)))
+
+
+(defn- trigger-for-job-key [^TriggerBuilder tb ^JobKey job-key]
+  (.forJob tb job-key))
+
+;-----------------------------------------------------------------------
+; Makes a trigger from a Schedule instance.
+; Trigger-id is a string.
+; Returns a trigger instance.
+;-----------------------------------------------------------------------
+(defn make-cron-trigger
+  "Makes a cron trigger instance based on the schedule specified."
+  [trigger-id cron-expr job-id]
+  (info "make-cron-trigger id " trigger-id ", cron: " cron-expr ", job-id:" job-id)
+  (let [cron-sched (cron/schedule (cron/cron-schedule cron-expr))
+        trigger-key (make-trigger-key trigger-id)
+        job-key (make-job-key job-id)]
+    (t/build
+     (t/with-identity trigger-key)
+     (trigger-for-job-key job-key)
+     (t/start-now)
+     (t/with-schedule cron-sched))))
+
+
+(defn- create-trigger-instances [job-id schedules]
+  (let [args (map (juxt #(:job-schedule-id %) :cron-expression (constantly job-id)) schedules)]
     (map #(apply make-cron-trigger %) args)))
 
-(defn schedule-cron-job! [job schedules]
-  (let [job* (create-job-instance job)
-        triggers (create-trigger-instances schedules)]
-    (doseq [t triggers]
-      (qs/schedule job* t))))
+(defn schedule-cron-job! [job-id schedules]
+  (doseq [t (create-trigger-instances job-id schedules)]
+      (schedule-trigger t)))
 
 
 (defn rm-triggers! [trigger-ids]
@@ -104,16 +132,26 @@
     (info "tk is " tk)
    (qs/delete-trigger tk)))
 
-;-----------------------------------------------------------------------
-; Answers if the cron expression is valid or not.
-;-----------------------------------------------------------------------
-(defn cron-expr? [expr]
-  (if expr
-    (CronExpression/isValidExpression expr)
-    false))
 
-;  (let [date-job (q/make-shell-job "date")
-;        cal-job (q/make-shell-job "cal" [[1] [2012]])
-;        trigger (q/make-trigger "triggers.1")]
-;    (qs/schedule cal-job (q/make-trigger "triggers.1"))
-;    (qs/schedule date-job (q/make-trigger "triggers.2")))
+;-----------------------------------------------------------------------
+; Update triggers.
+;-----------------------------------------------------------------------
+(defn update-triggers [schedule-infos]
+  (doseq [{:keys [job-schedule-id job-id cron-expression]} schedule-infos]
+    (let [t (make-cron-trigger job-schedule-id cron-expression job-id)]
+      (reschedule-job (.getKey t) t))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

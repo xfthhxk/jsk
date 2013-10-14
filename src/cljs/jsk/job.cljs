@@ -90,7 +90,9 @@
 
 (defn- parse-job-schedule-assoc-form []
   (let [form (ef/from "#schedule-assoc-form" (ef/read-form))
-        schedule-id-strs (ju/ensure-coll (:schedule-id form))
+        schedule-id-strs (if-let [sch-id (:schedule-id form)]
+                           (ju/ensure-coll sch-id)
+                           [])
         schedule-ids (map ju/str->int schedule-id-strs)]
     (ju/log (str "form is: " form))
     (ju/log (str "schedule-id-strs is: " schedule-id-strs))

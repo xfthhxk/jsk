@@ -10,8 +10,8 @@
 
 (defentity job
   (pk :job-id)
-  (entity-fields :job-id :job-name :job-desc :execution-directory :command-line :is-enabled)
-  (many-to-many s/schedule :job-schedule))
+  (entity-fields :job-id :job-name :job-desc :execution-directory :command-line :is-enabled))
+  ;(many-to-many s/schedule :job-schedule))
 
 (defentity job-schedule
   (pk :job-schedule-id)
@@ -82,11 +82,18 @@
   job-id)
 
 
-(defn save-job* [{:keys [job-id] :as j} user-id]
-  (-<> (if (jdb/id? job-id)
-         (update-job! j user-id)
-         (insert-job! j user-id))
-       {:success? true :job-id <>}))
+(defn- save-job-db [{:keys [job-id] :as j} user-id]
+  (if (jdb/id? job-id)
+      (update-job! j user-id)
+      (insert-job! j user-id)))
+
+(defn- save-job-scheduler! [job]
+  (q/save-job! job))
+
+(defn- save-job* [j user-id]
+  (let [job-id (save-job-db j user-id)]
+    (save-job-scheduler! (assoc j :job-id job-id))
+    {:success? true :job-id job-id}))
 
 ;-----------------------------------------------------------------------
 ; Saves the job either inserting or updating depending on the
@@ -97,12 +104,17 @@
     (ju/make-error-response errors)
     (save-job* j user-id)))
 
-;-----------------------------------------------------------------------
-; Schedule ids associated with the specified job id.
-;-----------------------------------------------------------------------
 (defn schedules-for-job [job-id]
   (->> (select job-schedule (where {:job-id job-id}))
        (map :schedule-id)
+       set))
+
+;-----------------------------------------------------------------------
+; Schedule ids associated with the specified job id.
+;-----------------------------------------------------------------------
+(defn- job-schedules-for-job [job-id]
+  (->> (select job-schedule (where {:job-id job-id}))
+       (map :job-schedule-id)
        set))
 
 
@@ -112,17 +124,16 @@
 ; ie the triggers IDd by job-scheduler-id
 ;-----------------------------------------------------------------------
 (defn- rm-job-schedules! [job-schedule-ids]
-  (info "Removing job-schedule associations for the following PK: " job-schedule-ids)
+  (info "no more deleteing Removing job-schedule associations for the following PK: " job-schedule-ids)
   (q/rm-triggers! job-schedule-ids)
-  (delete job-schedule
-    (where {:job-schedule-id [in job-schedule-ids]})))
+  (delete job-schedule (where {:job-schedule-id [in job-schedule-ids]})))
 
 ;-----------------------------------------------------------------------
 ; Deletes from job-schedule all rows matching job-id
 ;-----------------------------------------------------------------------
 (defn rm-schedules-for-job! [job-id]
   (info "Removing job-schedule associations for job id: " job-id)
-  (-> job-id schedules-for-job rm-job-schedules!))
+  (-> job-id job-schedules-for-job rm-job-schedules!))
 
 (defn- get-job-schedule-info [job-id]
   (exec-raw ["select js.job_schedule_id, s.* from job_schedule js join schedule s on js.schedule_id = s.schedule_id where job_id = ?" [job-id]] :results))
@@ -130,9 +141,8 @@
 
 (defn- create-triggers [job-id]
   (info "Creating triggers for job " job-id)
-  (let [schedules (get-job-schedule-info job-id)
-        job (get-job job-id)]
-    (q/schedule-cron-job! job schedules)))
+  (let [schedules (get-job-schedule-info job-id)]
+    (q/schedule-cron-job! job-id schedules)))
 
 
 ;-----------------------------------------------------------------------
@@ -146,12 +156,14 @@
   ([job-id schedule-ids user-id]
     (info "user-id " user-id " requests job-id " job-id " be associated with schedules " schedule-ids)
 
-    (let [data {:job-id job-id :create-user-id user-id}
-          insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) (set schedule-ids))]
+    (let [schedule-id-set (set schedule-ids)
+          data {:job-id job-id :create-user-id user-id}
+          insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) schedule-id-set)]
 
       (transaction
         (rm-schedules-for-job! job-id) ; delete all existing entries for the job
-        (insert job-schedule (values insert-maps)))
+        (if (not (empty? insert-maps))
+          (insert job-schedule (values insert-maps))))
 
       (create-triggers job-id)
 

@@ -12,17 +12,6 @@ tail -f log/jsk.log
 
 ```
 
-* In LightTable connect to the project by CMD+Enter in jsk/repl.clj
-* Open an instarepl
-
-```clojure
-
-(load "jsk/repl")       ; loads jsk.repl namespace which exposes start-server and stop-server fns
-(jsk.repl/start-server) ; starts the server
-(jsk.repl/stop-server)  ; stops the server
-
-```
-
 
 ## Enfocus notes
 Can't have anything other than actual selectors and functions in defaction,
@@ -32,9 +21,13 @@ Have to pass strings to ef/content. doesn't like ints even.
 
 
 ## TODO
-Quartz doesn't have the concept of a schedule which should exist.
-Should create a job and associate schedules to that job.  Schedule is a
-record of id, name, description, and a cron expression
+Updating a schedule should find all triggers associated with the schedule and
+update them by calling Scheduler.rescheduleJob(Trigger old, Trigger new)
+  * Find all job-schedule-id instances where the schedule-id is x.
+  * Create new triggers for them and call rescheduleJob
+
+On startup read jobs and schedules from database and create jobs and triggers
+
 
 Three types are most important:
 * Cron/Calendar

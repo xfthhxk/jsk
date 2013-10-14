@@ -16,7 +16,12 @@
 (def app-edn "application/edn")
 
 (defn edn-request? [r]
-  (let [ct (:content-type r)]
+  (let [^String ct (:content-type r)]
     (if ct
       (not= -1 (.indexOf ct app-edn))
       false)))
+
+(defn nan? [x]
+  (Double/isNaN x))
+
+(def not-nan (complement nan?))

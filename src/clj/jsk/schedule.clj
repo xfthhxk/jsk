@@ -73,12 +73,35 @@
 ; Update an existing schedule
 ; Answers with the schedule-id if update is successful.
 ;-----------------------------------------------------------------------
-(defn- update-schedule! [{:keys [schedule-id] :as m} user-id]
+(defn- update-schedule-db! [{:keys [schedule-id] :as m} user-id]
   (let [merged-map (merge m {:update-user-id user-id :updated-at (jdb/now)})]
     (info "Updating schedule: " m)
     (update schedule (set-fields (dissoc m :schedule-id))
       (where {:schedule-id schedule-id})))
   schedule-id)
+
+
+(defn- get-job-schedule-info [schedule-id]
+  (exec-raw ["select
+                     js.job_schedule_id
+                   , js.job_id
+                   , s.cron_expression
+                from
+                     job_schedule js
+                join schedule     s
+                  on js.schedule_id = s.schedule_id
+               where js.schedule_id = ?"
+             [schedule-id]]
+            :results))
+
+
+(defn- update-schedule-quartz! [schedule-id]
+  (let [ss (get-job-schedule-info schedule-id)]
+    (q/update-triggers ss)))
+
+(defn- update-schedule! [{:keys [schedule-id] :as s} user-id]
+  (update-schedule-db! s user-id)
+  (update-schedule-quartz! schedule-id))
 
 
 (defn- save-schedule* [{:keys [schedule-id] :as s} user-id]
