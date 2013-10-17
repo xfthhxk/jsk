@@ -12,6 +12,29 @@ tail -f log/jsk.log
 
 ```
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+; With a main method
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+lein run
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; AOT compilation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+lein compile
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Standalone jar
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+lein uberjar
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Running Standalone jar
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+java -jar ./target/jsk-0.1.0-SNAPSHOT-standalone.jar
+
+
+
 ## Quartz
 There are a few table:
 * job

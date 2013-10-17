@@ -1,5 +1,5 @@
-(ns jsk.core
-  "JSK core"
+(ns jsk.handler
+  "JSK handler"
   (:require [jsk.routes :as routes]
             [jsk.ps :as ps]
             [jsk.quartz :as q]
@@ -9,14 +9,38 @@
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
             [ring.middleware.edn :as redn]
-            [noir.response :as response]
+            [ring.middleware.reload :as reload]
             [ring.util.response :as rr]
+            [com.keminglabs.jetty7-websockets-async.core :refer [configurator]]
+            [clojure.core.async :refer [chan go >! <!]]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor])
   (:use [swiss-arrows core]
         [ring.middleware.session.memory :only [memory-store]]
         [ring.middleware.resource :only [wrap-resource]]
         [ring.middleware.file-info :only [wrap-file-info]]))
+
+
+
+; web socket clients, output channels
+(def ws-clients (atom #{}))
+
+; As clients connect they are added to this channel
+; how do we know when they disconnect.
+(def ws-connect-channel (chan))
+
+
+(def ws-configurator
+  (configurator ws-connect-channel {:path "/executions"}))
+
+(defn init-ws []
+  (go
+   (loop []
+     (info "before getting into ws channel block")
+     (let [ws-req (<! ws-connect-channel)]
+       (info "read off of ws-socket-channel: " ws-req)
+       (>! (:in ws-req) "Hello new websocket client!")
+       (recur)))))
 
 
 
@@ -46,6 +70,7 @@
    on an app server such as Tomcat"
 
   (init-logging)
+  (init-ws)
   (q/start)
   (info "JSK started successfully."))
 
@@ -72,7 +97,7 @@
       (handler request)
       (catch Exception ex
         (error ex)
-        (-> [(.getMessage ex)] ju/make-error-response response/edn (rr/status 500))))))
+        (-> [(.getMessage ex)] ju/make-error-response routes/edn-response (rr/status 500))))))
 
 ;-----------------------------------------------------------------------
 ; Serve up index.html when nothing specified.
@@ -109,7 +134,7 @@
                                               :max-nonce-age (* 1000 60 5) ; 5 minutes in milliseconds
                                               :credential-fn friend-credential-fn)]}))
 
-(def unauth-ring-response (-> ["Unauthenticated."] ju/make-error-response response/edn (rr/status 401)))
+(def unauth-ring-response (-> ["Unauthenticated."] ju/make-error-response routes/edn-response (rr/status 401)))
 
 (defn- send-unauth-ring-response [msg app-user edn?]
   (warn "send-unauth-ring: " msg)
@@ -154,5 +179,3 @@
              wrap-file-info
              wrap-exception))
 
-
-(def war-handler app)

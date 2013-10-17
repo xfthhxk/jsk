@@ -16,7 +16,7 @@
 (def app-edn "application/edn")
 
 (defn edn-request? [r]
-  (let [^String ct (:content-type r)]
+  (let [ct (:content-type r)]
     (if ct
       (not= -1 (.indexOf ct app-edn))
       false)))

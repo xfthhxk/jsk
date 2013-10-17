@@ -52,7 +52,7 @@
 
 (defn- register-job-recorder! []
   (reset! job-execution-recorder (je/make-job-recorder "JSK-Job-Execution-Recorder"))
-  (-> @qs/*scheduler* .getListenerManager (.addJobListener @job-execution-recorder (EverythingMatcher/allJobs))))
+  (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener @job-execution-recorder (EverythingMatcher/allJobs))))
 
 (defn start []
   (qs/initialize)

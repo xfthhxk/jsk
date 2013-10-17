@@ -3,10 +3,12 @@
               [enfocus.effects :as effects]
               [enfocus.events :as events]
               [clojure.browser.repl :as repl]
+              [cljs.core.async :as async :refer [<!]]
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
               [jsk.schedule :as s])
+    (:require-macros [cljs.core.async.macros :refer [go]])
     (:use-macros [enfocus.macros :only [deftemplate defsnippet defaction]]))
 
 ;-----------------------------------------------------------------------
@@ -37,6 +39,14 @@
   "#schedule-list-action" (events/listen :click #(s/show-schedules))
   "#schedule-add-action"  (events/listen :click #(s/show-add-schedule)))
 
+
+(defn ws-connect []
+  (let [{:keys [in out]} (rpc/ws-connect! (str "ws://" ju/host "/executions"))]
+    (go
+     (loop [[msg-type msg]  (<! out)]
+       (ju/log (str "msg-type: " msg-type ", msg: " msg))
+       (recur (<! out))))))
+
 ;-----------------------------------------------------------------------
 ; Initilization
 ;-----------------------------------------------------------------------
@@ -45,6 +55,8 @@
   (init-events)
   (ju/log "Adding default XHR error handler.")
   (reset! rpc/error-handler rpc-error-handler)
+  (ju/log "Begin initializing websocket.")
+  (ws-connect)
   (ju/log "Initialization complete.")
   (repl-connect))
 

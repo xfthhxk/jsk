@@ -1,6 +1,9 @@
 (ns jsk.rpc
   (:require [jsk.util :as ju]
             [goog.net.XhrIo :as xhr]
+            [goog.net.WebSocket]
+            [goog.net.WebSocket.MessageEvent]
+            [goog.net.WebSocket.EventType :as Events]
             [goog.Uri :as uri]
             [goog.events :as events]
             [goog.structs :as structs]
@@ -101,3 +104,23 @@
 
 (defn DELETE [url data cb]
   (rpc-call "DELETE" url data cb))
+
+;;;;;;;;;;;;;;;;;;;;;;;
+; Web Socket stuff
+;;;;;;;;;;;;;;;;;;;;;;;
+(defn ws-connect!
+  [url]
+  (let [ws  (goog.net.WebSocket.)
+        in  (chan)
+        out (chan)]
+    (goog.events.listen ws Events/OPENED  (fn [e] (put! out [:opened e])))
+    (goog.events.listen ws Events/CLOSED  (fn [e] (put! out [:closed e])))
+    (goog.events.listen ws Events/MESSAGE (fn [e] (put! out [:message (.-message e)])))
+    (goog.events.listen ws Events/ERROR   (fn [e] (put! out [:error e])))
+    (.open ws url)
+    (go
+     (loop [msg (<! in)]
+       (when msg
+         (.send ws msg)
+         (recur (<! in)))))
+    {:in in :out out}))

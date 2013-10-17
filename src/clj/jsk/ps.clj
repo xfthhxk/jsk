@@ -1,18 +1,18 @@
 (ns jsk.ps
   "JSK process"
-  (:import (org.zeroturnaround.exec ProcessExecutor)))
+  (:import (org.zeroturnaround.exec ProcessExecutor ProcessResult)))
 
 (defn- create
   "Makes the proc executor instance required"
-  [cmd-with-args exec-dir]
+  [^String cmd-with-args ^String exec-dir]
   (doto (ProcessExecutor.)
     (.commandSplit cmd-with-args)
     (.directory (java.io.File. exec-dir))))
 
 (defn- run
   "Executes a process executor returning the result."
-  [pe]
-  (let [result (-> pe (.readOutput true) .exitValueAny .execute)]
+  [^ProcessExecutor pe]
+  (let [^ProcessResult result (-> pe (.readOutput true) .exitValueAny .execute)]
     {:output (.outputUTF8 result)
      :exit-code (.exitValue result)}))
 

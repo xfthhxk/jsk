@@ -69,8 +69,6 @@
   (set! (-> js/window .-location .-href) "login.html"))
 
 
-
-
-
-
+(def host
+  (aget js/window "location" "host"))
 

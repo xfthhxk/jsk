@@ -17,10 +17,10 @@
                  [korma "0.3.0-RC5"]                 ; sql dsl
                  [com.cemerick/friend "0.2.0"]       ; openid auth
                  [compojure "1.1.5"]                 ; routing library for ring
-                 [ring-server "0.2.8"]
+                 [com.keminglabs/jetty7-websockets-async "0.1.0"]
+                 [ring "1.2.0"]
+                 ;[ring-server "0.2.8"]
                  [fogus/ring-edn "0.2.0"]
-                 [ring-middleware-format "0.3.1"]
-                 [lib-noir "0.6.8"]
                  [enfocus "2.0.0-SNAPSHOT"]]         ; cljs enlive like lib
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}
@@ -31,12 +31,15 @@
   :plugins [[lein-ring "0.8.7"]
             [lein-typed "0.3.0"]
             [lein-cljsbuild "0.3.3"]]
-  :ring {:handler jsk.core/war-handler
-         :init jsk.core/init
-         :destroy jsk.core/destroy}
+  :ring {:handler jsk.handler/app
+         :init jsk.handler/init
+         :destroy jsk.handler/destroy
+         :configurator jsk.handler/ws-configurator}
   :cljsbuild {:builds [{:source-paths ["src/cljs"]
                         :compiler {:output-to "resources/public/js/main.js"
                                    :optimizations :whitespace
                                    :pretty-print true}}]}
   ; :core.typed {:check [jsk.core jsk.handler jsk.ps jsk.repl jsk.quartz]}
-  :min-lein-version "2.0.0")
+  :min-lein-version "2.0.0"
+  :main jsk.main
+  :aot :all)
