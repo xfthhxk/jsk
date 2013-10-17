@@ -5,6 +5,7 @@
             [jsk.quartz :as q]
             [jsk.util :as ju]
             [jsk.user :as juser]
+            [jsk.execution :as execution]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -12,7 +13,7 @@
             [ring.middleware.reload :as reload]
             [ring.util.response :as rr]
             [com.keminglabs.jetty7-websockets-async.core :refer [configurator]]
-            [clojure.core.async :refer [chan go >! <!]]
+            [clojure.core.async :refer [chan go go-loop put! >! <!]]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor])
   (:use [swiss-arrows core]
@@ -30,17 +31,37 @@
 (def ws-connect-channel (chan))
 
 
+(defn broadcast-execution [data]
+  (doseq [c @ws-clients]
+    (put! c (pr-str data))))
+
+
+(defn- setup-job-execution-recorder []
+  (let [job-event-ch (chan)
+        job-recorder (execution/make-job-recorder "JSK-Job-Execution-Listener" job-event-ch)]
+
+    (q/register-job-execution-recorder! job-recorder)
+
+
+    (go-loop [exec-map (<! job-event-ch)]
+      (info "Read from execution event channel: " exec-map)
+
+      (broadcast-execution exec-map)
+      (recur (<! job-event-ch)))))
+
+
 (def ws-configurator
   (configurator ws-connect-channel {:path "/executions"}))
 
 (defn init-ws []
-  (go
-   (loop []
-     (info "before getting into ws channel block")
-     (let [ws-req (<! ws-connect-channel)]
-       (info "read off of ws-socket-channel: " ws-req)
-       (>! (:in ws-req) "Hello new websocket client!")
-       (recur)))))
+  (go-loop []
+    (info "before getting into ws channel block")
+    (let [{:keys[in out] :as ws-req} (<! ws-connect-channel)]
+      (info "read off of ws-socket-channel: " ws-req)
+      (swap! ws-clients conj in)
+      ;(>! in "Hello new websocket client!")
+      (>! in (pr-str {:greeting "hello"}))
+      (recur))))
 
 
 
@@ -68,10 +89,16 @@
 (defn init []
   "init will be called once when the app is deployed as a servlet
    on an app server such as Tomcat"
-
   (init-logging)
+
+  (q/init)
+  (info "Quartz initialized.")
+
+  (setup-job-execution-recorder)
   (init-ws)
+
   (q/start)
+
   (info "JSK started successfully."))
 
 ;-----------------------------------------------------------------------

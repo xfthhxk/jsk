@@ -48,15 +48,14 @@
     (CronExpression/isValidExpression expr)
     false))
 
-(def job-execution-recorder (atom nil))
 
-(defn- register-job-recorder! []
-  (reset! job-execution-recorder (je/make-job-recorder "JSK-Job-Execution-Recorder"))
-  (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener @job-execution-recorder (EverythingMatcher/allJobs))))
+(defn register-job-execution-recorder! [job-execution-recorder]
+  (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener job-execution-recorder (EverythingMatcher/allJobs))))
+
+(defn init []
+  (qs/initialize))
 
 (defn start []
-  (qs/initialize)
-  (register-job-recorder!)
   (qs/start))
 
 (defn stop []

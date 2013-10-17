@@ -115,7 +115,7 @@
         out (chan)]
     (goog.events.listen ws Events/OPENED  (fn [e] (put! out [:opened e])))
     (goog.events.listen ws Events/CLOSED  (fn [e] (put! out [:closed e])))
-    (goog.events.listen ws Events/MESSAGE (fn [e] (put! out [:message (.-message e)])))
+    (goog.events.listen ws Events/MESSAGE (fn [e] (put! out [:message (reader/read-string (.-message e))])))
     (goog.events.listen ws Events/ERROR   (fn [e] (put! out [:error e])))
     (.open ws url)
     (go
