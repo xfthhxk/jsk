@@ -7,6 +7,7 @@
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
+              [jsk.executions :as executions]
               [jsk.schedule :as s])
     (:require-macros [cljs.core.async.macros :refer [go]])
     (:use-macros [enfocus.macros :only [deftemplate defsnippet defaction]]))
@@ -43,8 +44,11 @@
 (defn ws-connect []
   (let [{:keys [in out]} (rpc/ws-connect! (str "ws://" ju/host "/executions"))]
     (go
-     (loop [[msg-type msg]  (<! out)]
+     (loop [[msg-type msg] (<! out)]
        (ju/log (str "msg-type: " msg-type ", msg: " msg))
+       (when (= :message msg-type)
+         (ju/log "It's a message.")
+         (executions/add-execution msg))
        (recur (<! out))))))
 
 ;-----------------------------------------------------------------------
