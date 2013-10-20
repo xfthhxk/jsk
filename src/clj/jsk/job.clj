@@ -1,12 +1,17 @@
 (ns jsk.job
   (:require [taoensso.timbre :as timbre :refer (info warn error)]
             [bouncer [core :as b] [validators :as v]]
+            [clojure.stacktrace :as st]
             [jsk.quartz :as q]
             [jsk.schedule :as s]
             [jsk.util :as ju]
-            [jsk.db :as jdb])
+            [jsk.db :as jdb]
+            [clojure.core.async :refer [put!]])
+  (:import (org.quartz CronExpression JobDetail JobExecutionContext
+                       JobKey Scheduler Trigger TriggerBuilder TriggerKey))
   (:use [korma core db]
         [swiss-arrows core]))
+
 
 (defentity job
   (pk :job-id)
@@ -16,6 +21,8 @@
 (defentity job-schedule
   (pk :job-schedule-id)
   (entity-fields :job-schedule-id :job-id :schedule-id))
+
+
 
 
 ;-----------------------------------------------------------------------
@@ -31,6 +38,12 @@
   [id]
   (first (select job
            (where {:job-id id}))))
+
+(defn get-job-name
+  "Answers with the job name for the job id, otherwise nil if no such job."
+  [id]
+  (if-let [j (get-job id)]
+    (:job-name j)))
 
 (defn get-job-by-name
   "Gets a job by name if one exists otherwise returns nil"
@@ -194,6 +207,111 @@
 
 
 
+
+;-----------------------------------------------------------------------
+; Job execution stuff should be in another place likely
+; schedule-ids is a set of integer ids
+;-----------------------------------------------------------------------
+; These are tied to what is in the job_execution_status table
+(def started-status 1)
+(def finished-success 2)
+(def finished-error 3)
+
+(defentity job-execution
+  (pk :job-execution-id)
+  (entity-fields :job-id :execution-status-id :started-at :finished-at))
+
+(defn- job-started*
+  "Creates a row in the job_execution table and returns the id
+   of the newly created row."
+  [job-id started-at]
+  (-> (insert job-execution
+        (values {:job-id job-id
+                 :execution-status-id started-status
+                 :started-at started-at}))
+      jdb/extract-identity))
+
+
+(defn- job-started
+  "Returns a map with keys: :event, :execution-id and :ts"
+  [job-id]
+  (let [ts (jdb/now)
+        execution-id (job-started* job-id ts)
+        job-name (get-job-name job-id)]
+    {:event :start
+     :execution-id execution-id
+     :start-ts ts
+     :job-id job-id
+     :job-name job-name}))
+
+
+
+(defn- job-finished [job-execution-id success? finished-ts]
+  "Marks the job as finished and sets the status."
+  (let [status (if success? finished-success finished-error)]
+    (update job-execution (set-fields {:execution-status-id status :finished-at finished-ts})
+            (where {:job-execution-id job-execution-id}))))
+
+
+
+
+(defn- job-ctx->job-id [^JobExecutionContext ctx]
+  (-> ctx .getJobDetail .getKey .getName Integer/parseInt))
+
+
+(defn- exception->msg [^Throwable t]
+  (when t
+    (.getMessage t)))
+    ;(let [rc (st/root-cause t)]
+    ;(format "%s: %s" (class rc) (.getMessage rc)))))
+
+(defn make-job-recorder [listener-name job-event-channel]
+  (reify
+
+    org.quartz.JobListener
+
+    ;----------------------------------------------
+    ; Answers with this listener's name
+    ;----------------------------------------------
+    (getName [this] listener-name)
+
+    ;----------------------------------------------
+    ; Record job started in job_execution table.
+    ; Also stows the job execution info for later
+    ; when a job finishes.
+    ;----------------------------------------------
+    (jobToBeExecuted [this job-ctx]
+      (let [job-id (job-ctx->job-id job-ctx)
+            {:keys [execution-id] :as exec-info} (job-started job-id)]
+
+        (info "Job id " job-id "is to be executed with execution-id " execution-id)
+
+        (.put job-ctx :jsk-job-execution-info exec-info) ; stow for reading later
+        (put! job-event-channel exec-info)))
+
+    ;----------------------------------------------
+    ; Record job finished in job_execution table.
+    ;----------------------------------------------
+    (jobWasExecuted [this job-ctx job-exception]
+      (let [finish-ts (jdb/now)
+            {:keys[execution-id] :as exec-info} (.get job-ctx :jsk-job-execution-info)
+            success? (nil? job-exception)
+            error-msg (exception->msg job-exception)
+            merged-info (merge exec-info {:event :finish :finish-ts finish-ts :success? success? :error error-msg})]
+
+        (job-finished execution-id success? finish-ts)
+        (info "Job execution with id " execution-id " has finished. Success? " success?)
+
+        (if error-msg
+          (info "Job execution-id " execution-id " exception: " error-msg))
+
+        (put! job-event-channel merged-info)))
+
+    ;----------------------------------------------
+    ; Nothing should be vetoing. Just log for now.
+    ;----------------------------------------------
+    (jobExecutionVetoed [this job-ctx]
+      (warn "WTF? This job was vetoed: job-id=" (job-ctx->job-id job-ctx)))))
 
 
 

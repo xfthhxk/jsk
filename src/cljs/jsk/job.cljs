@@ -58,7 +58,8 @@
 (defn show-jobs []
   (go
    (let [jj (<! (rpc/GET "/jobs"))]
-   (ef/at "#container" (ef/content (list-jobs jj))))))
+     (ju/showcase (list-jobs jj)))))
+     ;(ef/at "#container" (ef/content (list-jobs jj))))))
 
 (defn- save-job [e]
   (go
@@ -70,7 +71,8 @@
       (show-jobs))))
 
 (defn show-job-edit [j ss associated-schedule-ids]
-  (ef/at "#container" (ef/content (edit-job j)))
+  (ju/showcase (edit-job j))
+  ;(ef/at "#container" (ef/content (edit-job j)))
   (if ss
     (ef/at "#job-schedule-associations" (ef/content (schedule-assoc j ss associated-schedule-ids)))))
 

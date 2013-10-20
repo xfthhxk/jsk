@@ -35,10 +35,11 @@
 ; Main screen event handling.
 ;-----------------------------------------------------------------------
 (defaction init-events []
-  "#job-list-action"      (events/listen :click #(j/show-jobs))
-  "#job-add-action"       (events/listen :click #(j/show-add-job))
-  "#schedule-list-action" (events/listen :click #(s/show-schedules))
-  "#schedule-add-action"  (events/listen :click #(s/show-add-schedule)))
+  "#show-dashboard-action" (events/listen :click #(ju/display-dashboard))
+  "#job-list-action"       (events/listen :click #(j/show-jobs))
+  "#job-add-action"        (events/listen :click #(j/show-add-job))
+  "#schedule-list-action"  (events/listen :click #(s/show-schedules))
+  "#schedule-add-action"   (events/listen :click #(s/show-add-schedule)))
 
 
 (defn ws-connect []
@@ -61,6 +62,7 @@
   (reset! rpc/error-handler rpc-error-handler)
   (ju/log "Begin initializing websocket.")
   (ws-connect)
+  (ju/display-dashboard)
   (ju/log "Initialization complete.")
   (repl-connect))
 

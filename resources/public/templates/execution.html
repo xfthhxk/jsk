@@ -1,12 +1,36 @@
-<li class="list-group-item"></li>
+<html>
+  <head> </head>
+  <body>
+
+    <li id="execution-list-item" class="list-group-item"></li>
+
+    <table id="currently-executing-table">
+      <tr id="currently-executing-row" data-execution-id="134" data-job-id="42" class="execution-row">
+        <td class="job-execution-id">134</td>
+        <td class="job-name">Job 42 Name</td>
+        <td class="job-start">13:23:12.001 March 27 2013</td>
+      </tr>
+    </table>
+
+    <table id="execution-errored-table">
+      <tr id="execution-error-row" data-execution-id="134" data-job-id="42" class="execution-row">
+        <td class="job-execution-id">134</td>
+        <td class="job-name">Job 42 Name</td>
+        <td class="job-start">13:23:12.001 March 27 2013</td>
+        <td class="job-finish">13:28:39.627 March 27 2013</td>
+        <td class="job-error-message">Something bad happened.</td>
+      </tr>
+    </table>
 
 
-<!--
-<tr data-execution-id="134" data-job-id="42" class="execution-row">
-  <td class="job-execution-id">134</td>
-  <td class="job-name">Job 42 Name</td>
-  <td class="job-start">13:23:12.001 March 27 2013</td>
-  <td id="job-execution-finish-134" class="job-finish">13:28:39.627 March 27 2013</td>
-  <td id="job-execution-status-134" class="job-status">Success</td>
-</tr>
--->
+    <table id="execution-finished-table">
+      <tr id="execution-successful-row" data-execution-id="134" data-job-id="42" class="execution-row">
+        <td class="job-execution-id">134</td>
+        <td class="job-name">Job 42 Name</td>
+        <td class="job-start">13:23:12.001 March 27 2013</td>
+        <td class="job-finish">13:28:39.627 March 27 2013</td>
+      </tr>
+    </table>
+
+  </body>
+</html>

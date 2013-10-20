@@ -1,0 +1,63 @@
+<form id="job-vars-save-form" role="form" class="form-horizontal">
+  <fieldset>
+      <legend>Job Vars</legend>
+
+    <input type="hidden" name="job-id" id="job-id" value=""/>
+
+    <div class="form-group">
+      <label for="job-id-lbl" class="col-lg-2 control-label">ID</label>
+      <div class="col-lg-10">
+        <label class="control-label text-left" id="job-id-lbl">34</label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="job-name" class="col-lg-2 control-label">Name</label>
+      <div class="col-lg-10">
+        <input type="text" class="form-control" name="job-name" id="job-name"/>
+      </div>
+    </div>
+
+
+    <div class="form-group">
+      <label for="job-desc" class="col-lg-2 control-label">Description</label>
+      <div class="col-lg-10">
+        <textarea class="form-control" rows="2" name="job-desc" id="job-desc"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="execution-directory" class="col-lg-2 control-label">Execution Directory</label>
+      <div class="col-lg-10">
+        <input type="text" class="form-control" name="execution-directory" id="execution-directory"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="command-line" class="col-lg-2 control-label">Command Line</label>
+      <div class="col-lg-10">
+        <textarea class="form-control" rows="2" name="command-line" id="command-line"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="col-lg-offset-2 col-lg-10">
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" id="is-enabled" name="is-enabled"> Enabled
+          </label>
+        </div>
+      </div>
+    </div>
+
+  </fieldset>
+</form>
+
+<div class="form-group">
+  <div class="col-lg-offset-2 col-lg-10">
+    <button type="button" class="btn btn-default" name="save-btn" id="save-btn">Save</button>
+  </div>
+</div>
+
+<div id="job-schedule-associations">
+</div>

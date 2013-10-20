@@ -43,7 +43,8 @@
 (defn show-schedules []
   (go
    (let [ss (<! (rpc/GET "/schedules"))]
-     (ef/at "#container" (ef/content (list-schedules ss))))))
+     (ju/showcase (list-schedules ss)))))
+     ;(ef/at "#container" (ef/content (list-schedules ss))))))
 
 (defn- save-schedule [e]
   (go
@@ -58,7 +59,8 @@
           (edit-schedule form))))))
 
 (defn- show-schedule-edit [s]
-  (ef/at "#container" (ef/content (edit-schedule s))))
+  (ju/showcase (edit-schedule s)))
+  ;(ef/at "#container" (ef/content (edit-schedule s))))
 
 (defn- schedule-row-clicked [e]
   (go

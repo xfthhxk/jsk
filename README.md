@@ -60,10 +60,15 @@ defsnippet and deftemplate etc.
 
 Have to pass strings to ef/content. doesn't like ints even.
 
+defsnippet only works if the source file is a proper html file. ie can't just
+have random elements not enclosed by html and body elements.
+
 
 ## TODO
 
 * On startup read jobs and schedules from database and create jobs and triggers
+* Run now
+* Job failure emails
 * UI for displaying job executions
   * Have multiple sections
     a. Executing

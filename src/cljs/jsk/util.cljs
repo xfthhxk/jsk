@@ -72,3 +72,62 @@
 (def host
   (aget js/window "location" "host"))
 
+(defn- hide-element [selector]
+  (ef/at selector (ef/do->
+                    (ef/remove-class "visible")
+                    (ef/add-class "hidden"))))
+
+(defn- show-element [selector]
+  (ef/at selector (ef/do->
+                    (ef/remove-class "hidden")
+                    (ef/add-class "visible"))))
+
+
+(def container "#container")
+(def dashboard "#executions-accordion")
+
+
+(def visible-element (atom dashboard))
+
+(defn- set-visible-element [e]
+  (reset! visible-element e))
+
+(defn- dashboard-visible? []
+  (= dashboard @visible-element))
+
+(def dashboard-hidden? (complement dashboard-visible?))
+
+(defn- container-visible? []
+  (= container @visible-element))
+
+(def container-hidden? (complement container-visible?))
+
+(defn- hide-dashboard []
+  (when (dashboard-visible?)
+    (set-visible-element "")
+    (hide-element dashboard)))
+
+(defn- show-dashboard []
+  (when (dashboard-hidden?)
+    (set-visible-element dashboard)
+    (show-element dashboard)))
+
+(defn- hide-container []
+  (when (container-visible?)
+    (set-visible-element "")
+    (hide-element container)))
+
+(defn- show-container []
+  (when (container-hidden?)
+    (set-visible-element container)
+    (show-element container)))
+
+(defn showcase [view]
+  (hide-dashboard)
+  (show-container)
+  (ef/at "#container" (ef/content view)))
+
+
+(defn display-dashboard []
+  (hide-container)
+  (show-dashboard))

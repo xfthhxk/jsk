@@ -5,7 +5,7 @@
             [jsk.quartz :as q]
             [jsk.util :as ju]
             [jsk.user :as juser]
-            [jsk.execution :as execution]
+            [jsk.job :as job]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -38,7 +38,7 @@
 
 (defn- setup-job-execution-recorder []
   (let [job-event-ch (chan)
-        job-recorder (execution/make-job-recorder "JSK-Job-Execution-Listener" job-event-ch)]
+        job-recorder (job/make-job-recorder "JSK-Job-Execution-Listener" job-event-ch)]
 
     (q/register-job-execution-recorder! job-recorder)
 

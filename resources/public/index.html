@@ -24,9 +24,8 @@
 
       <!-- Collect the nav links, forms, and other content for toggling -->
       <div class="collapse navbar-collapse navbar-ex1-collapse">
-        <ul class="nav navbar-nav">
-          <li class="active"><a href="#">Link</a></li>
-          <li><a href="#">Link</a></li>
+        <ul class="nav navbar-nav navbar-right">
+          <li><a id="show-dashboard-action" href="#">Dashboard</a></li>
           <li class="dropdown">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown">Schedules <b class="caret"></b></a>
             <ul class="dropdown-menu">
@@ -42,10 +41,12 @@
             </ul>
           </li>
         </ul>
+
+        <!-- TODO: make visible when settings/config options are avail
+
         <ul class="nav navbar-nav navbar-right">
-          <li><a href="#">Link</a></li>
           <li class="dropdown">
-            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Settings <b class="caret"></b></a>
             <ul class="dropdown-menu">
               <li><a href="#">Action</a></li>
               <li><a href="#">Another action</a></li>
@@ -54,6 +55,7 @@
             </ul>
           </li>
         </ul>
+-->
       </div><!-- /.navbar-collapse -->
     </nav>
 
@@ -64,10 +66,116 @@
     <div id="container">
     </div>
 
-    <div id="executions-div">
-      <ul id="exec-list" class="list-group">
-      </ul>
-    </div>
+    <!-- Job executions section -->
+    <div class="panel-group" id="executions-accordion">
+      <div class="panel panel-default">
+
+        <!-- panel header -->
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a class="accordion-toggle" data-toggle="collapse" data-parent="#executions-accordion" href="#all-executions">
+              Executions
+            </a>
+          </h4>
+        </div>
+
+        <div id="all-executions" class="panel-collapse collapse in">
+
+          <!-- Currently executing -->
+          <div class="panel-group" id="currently-executing-accordion">
+            <div class="panel panel-default">
+
+              <!-- sub panel header -->
+              <div class="panel-heading">
+                  <h5 class="panel-title">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#currently-executing-accordion" href="#jobs-currently-executing">
+                      Currently Executing
+                    </a>
+                  </h5>
+              </div>
+
+              <div id="jobs-currently-executing" class="panel-collapse collapse in">
+                <table class="table table-condensed table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Start</th>
+                    </tr>
+                  </thead>
+                   <tbody id="jobs-currently-executing-tbody">
+                   </tbody>
+                </table>
+              </div>
+
+            </div> <!-- panel -->
+          </div> <!-- panel-group -->
+
+
+          <!-- Finished executing -->
+          <div class="panel-group" id="jobs-errored-accordion">
+            <div class="panel panel-default">
+
+              <div class="panel-heading">
+                <h5 class="panel-title">
+                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#jobs-errored-accordion" href="#jobs-errored">
+                    <span class="text-danger">Errored</span>
+                    </a>
+                </h5>
+              </div>
+
+              <div id="jobs-errored" class="panel-collapse collapse in">
+                <table class="table table-condensed table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Start</th>
+                      <th>Finish</th>
+                      <th>Error</th>
+                    </tr>
+                  </thead>
+                  <tbody id="jobs-errored-tbody">
+                  </tbody>
+                </table>
+              </div> <!-- finished executions table div -->
+            </div> <!-- error executions panel -->
+          </div> <!-- error executions accordion div -->
+
+          <!-- Jobs executed successfully -->
+          <div class="panel-group" id="jobs-executed-accordion">
+            <div class="panel panel-default">
+
+              <div class="panel-heading">
+                <h5 class="panel-title">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#jobs-executed-accordion" href="#jobs-executed">
+                      <span class="text-success">Successful</span>
+                    </a>
+                </h5>
+              </div>
+
+              <div id="jobs-executed" class="panel-collapse collapse in">
+                <table class="table table-condensed table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Start</th>
+                      <th>Finish</th>
+                    </tr>
+                  </thead>
+                  <tbody id="jobs-executed-tbody">
+                  </tbody>
+                </table>
+              </div> <!-- finished executions table div -->
+
+
+            </div> <!-- panel -->
+          </div> <!-- panel-group -->
+
+        </div> <!-- executions panel -->
+      </div>   <!-- executions panel group -->
+    </div>  <!-- executions accordion div -->
 
   </body>
 </html>
