@@ -6,6 +6,7 @@
             [cemerick.friend :as friend]
             [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
+            [jsk.quartz :as q]
             [jsk.schedule :as s]))
 
 
@@ -68,6 +69,9 @@
   (GET "/jobs/:id/sched-assoc" [id]
        (-> id j/schedules-for-job edn-response))
 
+  (GET "/jobs/:id/trigger-now" [id]
+       (-> id q/trigger-now edn-response))
+
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) (j/save-job! (uid request)) edn-response))
 
@@ -89,7 +93,6 @@
        (-> id s/get-schedule edn-response))
 
   (POST "/schedules/save" [_ :as request]
-        (info "booy")
        (-> (:params request) (s/save-schedule! (uid request)) edn-response)))
 
 

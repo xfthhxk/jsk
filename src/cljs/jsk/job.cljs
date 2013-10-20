@@ -9,6 +9,17 @@
 
 (declare save-job job-row-clicked save-job-schedule-assoc)
 
+(defn- trigger-job-now [e]
+  ; the row the button is in is also a listener for clicks,
+  ; we're handling it here
+  (.stopPropagation e)
+  (let [source (ju/event-source e)
+        job-id (ef/from source (ef/get-attr :data-job-id))
+        url (str "/jobs/" job-id "/trigger-now")]
+    (rpc/GET url)))
+
+
+
 ;-----------------------------------------------------------------------
 ; List all jobs
 ;-----------------------------------------------------------------------
@@ -23,7 +34,10 @@
                                             (events/listen :click job-row-clicked)))
                  "td.job-id" (ef/content (str (:job-id j)))
                  "td.job-name" (ef/content (:job-name j))
-                 "td.job-is-enabled" (ef/content (str (:is-enabled j)))))
+                 "td.job-is-enabled" (ef/content (str (:is-enabled j)))
+                 "td.job-trigger-now > button" (ef/do->
+                                                 (ef/set-attr :data-job-id (str (:job-id j)))
+                                                 (events/listen :click trigger-job-now))))
 
 
 ;-----------------------------------------------------------------------

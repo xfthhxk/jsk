@@ -33,6 +33,9 @@
   [^TriggerBuilder tb ^JobKey job-key]
   (.forJob tb job-key))
 
+(defn- run-job-now [^JobKey job-key]
+  (.triggerJob ^Scheduler @qs/*scheduler* job-key))
+
 
 (defn- make-job-key [id]
   (j/key (str id) "jsk-job"))
@@ -145,6 +148,15 @@
       (reschedule-job t))))
 
 
+
+
+;-----------------------------------------------------------------------
+; Schedule job to be triggered now.
+;-----------------------------------------------------------------------
+(defn trigger-now [job-id]
+  (info "Triggering job " job-id " right now.")
+  (run-job-now (make-job-key job-id))
+  true)
 
 
 

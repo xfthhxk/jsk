@@ -66,10 +66,10 @@ have random elements not enclosed by html and body elements.
 
 ## TODO
 * Job failure emails
-* Run now
 
 ## DONE
 * On startup read jobs and schedules from database and create jobs and triggers
+* Run now
 * UI for displaying job executions
   * Have multiple sections
     a. Executing
