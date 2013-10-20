@@ -65,16 +65,16 @@ have random elements not enclosed by html and body elements.
 
 
 ## TODO
-
-* On startup read jobs and schedules from database and create jobs and triggers
-* Run now
 * Job failure emails
+* Run now
+
+## DONE
+* On startup read jobs and schedules from database and create jobs and triggers
 * UI for displaying job executions
   * Have multiple sections
     a. Executing
     b. Finished Successfully
     c. Errored
-
 
 
 Three types are most important:

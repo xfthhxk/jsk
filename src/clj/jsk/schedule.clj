@@ -119,3 +119,21 @@
   (if-let [errors (validate-save s)]
     (ju/make-error-response errors)
     (save-schedule* s user-id)))
+
+;-----------------------------------------------------------------------
+; FIXME: This should be in a different ns.
+;        Feels wrong for it to be here.
+;-----------------------------------------------------------------------
+(defn enabled-jobs-schedule-info []
+  (exec-raw ["select
+                     js.job_schedule_id
+                   , js.job_id
+                   , s.cron_expression
+                from
+                     job_schedule js
+                join schedule     s
+                  on js.schedule_id = s.schedule_id
+                join job          j
+                  on js.job_id = j.job_id
+               where j.is_enabled = 1"]
+            :results))

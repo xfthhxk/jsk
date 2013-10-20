@@ -6,6 +6,7 @@
             [jsk.util :as ju]
             [jsk.user :as juser]
             [jsk.job :as job]
+            [jsk.schedule :as schedule]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -42,7 +43,6 @@
 
     (q/register-job-execution-recorder! job-recorder)
 
-
     (go-loop [exec-map (<! job-event-ch)]
       (info "Read from execution event channel: " exec-map)
 
@@ -55,12 +55,10 @@
 
 (defn init-ws []
   (go-loop []
-    (info "before getting into ws channel block")
     (let [{:keys[in out] :as ws-req} (<! ws-connect-channel)]
       (info "read off of ws-socket-channel: " ws-req)
       (swap! ws-clients conj in)
-      ;(>! in "Hello new websocket client!")
-      (>! in (pr-str {:greeting "hello"}))
+      ;(>! in (pr-str {:greeting "hello"}))
       (recur))))
 
 
@@ -84,6 +82,30 @@
 
 
 ;-----------------------------------------------------------------------
+; Read jobs from database and creates them in quartz.
+;-----------------------------------------------------------------------
+(defn- populate-quartz-jobs []
+  (let [jj (job/enabled-jobs)]
+    (info "Setting up " (count jj) " jobs in Quartz.")
+    (doseq [j jj]
+      (q/save-job! j))))
+
+;-----------------------------------------------------------------------
+; Read schedules from database and associates them to jobs in quartz.
+;-----------------------------------------------------------------------
+(defn- populate-quartz-triggers []
+  (let [ss (schedule/enabled-jobs-schedule-info)
+        ss-by-job (group-by :job-id ss)]
+    (info "Setting up " (count ss) " triggers in Quartz.")
+    (doseq [job-id (keys ss-by-job)]
+      (q/schedule-cron-job! job-id (ss-by-job job-id)))))
+
+(defn- populate-quartz []
+  (populate-quartz-jobs)
+  (populate-quartz-triggers))
+
+
+;-----------------------------------------------------------------------
 ; App starts ticking here.
 ;-----------------------------------------------------------------------
 (defn init []
@@ -96,8 +118,14 @@
 
   (setup-job-execution-recorder)
   (init-ws)
+  (info "Job execution tracking setup.")
+
+
+  (populate-quartz)
+  (info "Quartz populated.")
 
   (q/start)
+  (info "Quartz started.")
 
   (info "JSK started successfully."))
 

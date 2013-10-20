@@ -33,6 +33,11 @@
   []
   (select job))
 
+(defn enabled-jobs
+  "Gets all active jobs."
+  []
+  (select job (where {:is-enabled true})))
+
 (defn get-job
   "Gets a job for the id specified"
   [id]
