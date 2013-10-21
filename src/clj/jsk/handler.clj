@@ -7,6 +7,7 @@
             [jsk.user :as juser]
             [jsk.job :as job]
             [jsk.schedule :as schedule]
+            [jsk.notification :as n]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -31,6 +32,12 @@
 ; how do we know when they disconnect.
 (def ws-connect-channel (chan))
 
+(defn notify-error [{:keys [job-name execution-id error]}]
+  (if error
+    (let [to "xfthhxk@gmail.com"
+          subject (str "[JSK ERROR] " job-name)
+          body (str "Job execution ID: " execution-id "\n" error)]
+      (n/mail to subject body))))
 
 (defn broadcast-execution [data]
   (doseq [c @ws-clients]
@@ -45,8 +52,8 @@
 
     (go-loop [exec-map (<! job-event-ch)]
       (info "Read from execution event channel: " exec-map)
-
       (broadcast-execution exec-map)
+      (notify-error exec-map)
       (recur (<! job-event-ch)))))
 
 
@@ -112,6 +119,9 @@
   "init will be called once when the app is deployed as a servlet
    on an app server such as Tomcat"
   (init-logging)
+
+  (n/init)
+  (info "Notifications initialized.")
 
   (q/init)
   (info "Quartz initialized.")

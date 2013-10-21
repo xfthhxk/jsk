@@ -90,3 +90,20 @@ alter table job_schedule add constraint fk_job_schedule_job_id foreign key (job_
 alter table job_schedule add constraint fk_job_schedule_schedule_id foreign key (schedule_id) references schedule(schedule_id);
 alter table job_schedule add constraint fk_job_schedule_create_user_id foreign key (create_user_id) references app_user(app_user_id);
 alter table job_schedule add constraint unq_job_schedule_job_id_schedule_id unique(job_id, schedule_id);
+
+
+drop table if exists email_profile;
+
+create table email_profile ( email_profile_id     int auto_increment primary key
+                           , email_profile_name   varchar(50) not null
+                           , host                 varchar(50) not null
+                           , port                 int         not null
+                           , email_user_id        varchar(50) not null
+                           , email_pass           varchar(50) not null);
+
+alter table email_profile add constraint unq_email_profile_name unique(email_profile_name);
+
+insert into email_profile (email_profile_name, host, port, email_user_id, email_pass)
+       values ('Google', 'smtp.gmail.com', 587, 'fix-me-user', 'fix-me-pass');
+
+

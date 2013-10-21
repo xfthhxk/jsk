@@ -21,6 +21,10 @@
                  [ring "1.2.0"]
                  ;[ring-server "0.2.8"]
                  [fogus/ring-edn "0.2.0"]
+                 [javax.mail/mail "1.4.4"
+                  :exclusions [javax.activation/activation]]
+                 ;[javax.mail/javax.mail-api "1.5.0"
+                 ; :exclusions [javax.activation/activation]]
                  [enfocus "2.0.0-SNAPSHOT"]]         ; cljs enlive like lib
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}
