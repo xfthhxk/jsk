@@ -1,6 +1,8 @@
 # Job Scheduling Kit
 Quartz backed job scheduling.
 Provides UI.
+Jobs are considered to have run successfully if it returns 0.
+
 
 ## Usage
 
@@ -64,17 +66,6 @@ defsnippet only works if the source file is a proper html file. ie can't just
 have random elements not enclosed by html and body elements.
 
 
-## TODO
-* Job failure emails
-
-## DONE
-* On startup read jobs and schedules from database and create jobs and triggers
-* Run now
-* UI for displaying job executions
-  * Have multiple sections
-    a. Executing
-    b. Finished Successfully
-    c. Errored
 
 
 Three types are most important:

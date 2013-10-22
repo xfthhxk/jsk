@@ -1,18 +1,11 @@
 (ns jsk.notification
-  (:require [taoensso.timbre :refer (info warn error)])
-  (:use [korma core])
+  (:require [taoensso.timbre :refer (info warn error)]
+            [jsk.conf :as conf])
   (:import (javax.mail Message Message$RecipientType MessagingException PasswordAuthentication Session Transport)
            (javax.mail.internet InternetAddress MimeMessage)
            (java.util Properties)))
 
 (def mail-session (atom nil))
-(def mail-config (atom {}))
-
-(defn- fetch-mail-config []
-  (first
-   (exec-raw ["select *
-                 from email_profile
-                where email_profile_name = 'Google'"] :results)))
 
 (defn- mail-config->Properties [host port]
   (doto (Properties.)
@@ -30,12 +23,10 @@
 (defn init
   "Initializes notifications."
   []
-  (let [{:keys [email-user-id email-pass host port] :as conf} (fetch-mail-config)
+  (let [{:keys [user pass host port]} (conf/mail-info)
         props (mail-config->Properties host port)
-        auth (make-authenticator email-user-id email-pass)
+        auth (make-authenticator user pass)
         session (Session/getDefaultInstance props auth)]
-    (info "mail-config: " conf)
-    (reset! mail-config conf) ; FIXME: should these be refs?
     (reset! mail-session session)))
 
 
@@ -52,8 +43,8 @@
     (.setText body)))
 
 (defn- mail* [to subject body]
-  (let [{:keys[email-user-id]} @mail-config
-        mail-from (email->address email-user-id)
+  (let [{:keys[user]} (conf/mail-info)
+        mail-from (email->address user)
         mail-to (email->address to)
         msg (make-mail-message @mail-session mail-from mail-to subject body)]
     (Transport/send msg)))

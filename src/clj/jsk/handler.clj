@@ -1,6 +1,9 @@
 (ns jsk.handler
   "JSK handler"
-  (:require [jsk.routes :as routes]
+  (:require
+            [jsk.conf :as conf]
+            [jsk.db :as db]
+            [jsk.routes :as routes]
             [jsk.ps :as ps]
             [jsk.quartz :as q]
             [jsk.util :as ju]
@@ -34,9 +37,10 @@
 
 (defn notify-error [{:keys [job-name execution-id error]}]
   (if error
-    (let [to "xfthhxk@gmail.com"
+    (let [to (conf/error-email-to)
           subject (str "[JSK ERROR] " job-name)
-          body (str "Job execution ID: " execution-id "\n" error)]
+          body (str "Job execution ID: " execution-id "\n\n" error)]
+      (info "Sending error email for execution: " execution-id)
       (n/mail to subject body))))
 
 (defn broadcast-execution [data]
@@ -51,7 +55,7 @@
     (q/register-job-execution-recorder! job-recorder)
 
     (go-loop [exec-map (<! job-event-ch)]
-      (info "Read from execution event channel: " exec-map)
+      ;(info "Read from execution event channel: " exec-map)
       (broadcast-execution exec-map)
       (notify-error exec-map)
       (recur (<! job-event-ch)))))
@@ -63,7 +67,7 @@
 (defn init-ws []
   (go-loop []
     (let [{:keys[in out] :as ws-req} (<! ws-connect-channel)]
-      (info "read off of ws-socket-channel: " ws-req)
+      ; (info "read off of ws-socket-channel: " ws-req)
       (swap! ws-clients conj in)
       ;(>! in (pr-str {:greeting "hello"}))
       (recur))))
@@ -118,7 +122,14 @@
 (defn init []
   "init will be called once when the app is deployed as a servlet
    on an app server such as Tomcat"
+
   (init-logging)
+  (conf/init "conf/jsk-conf.clj")
+  (db/init (conf/db-spec))
+
+  (info "Ensuring log directory exists at: " (conf/exec-log-dir))
+  (ju/ensure-directory (conf/exec-log-dir))
+
 
   (n/init)
   (info "Notifications initialized.")
@@ -235,9 +246,9 @@
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
-             ;wrap-jsk-user-in-session
-             ;make-friend-auth
-             ;wrap-api-unauthenticated
+             wrap-jsk-user-in-session
+             make-friend-auth
+             wrap-api-unauthenticated
              ch/site
              wrap-dir-index
              (wrap-resource "public")

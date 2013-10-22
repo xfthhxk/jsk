@@ -1,5 +1,6 @@
 (ns jsk.util
   (:require [jsk.user :as juser]
+            [clojure.java.io :as io]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]))
 
 
@@ -25,3 +26,7 @@
   (Double/isNaN x))
 
 (def not-nan (complement nan?))
+
+
+(defn ensure-directory [dir]
+  (-> dir io/file .mkdirs))

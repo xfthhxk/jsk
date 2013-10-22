@@ -1,7 +1,7 @@
 (ns jsk.quartz
   "JSK quartz"
   (:require [jsk.ps :as ps]
-            [jsk.execution :as je]
+            [jsk.conf :as conf]
             [taoensso.timbre :as timbre
              :refer (trace debug info warn error fatal spy with-log-level)]
             [clojurewerkz.quartzite.scheduler :as qs]
@@ -72,9 +72,12 @@
 ;-----------------------------------------------------------------------
 (j/defjob ShellJob
   [ctx]
-  (let [{:strs [cmd-line exec-dir]} (qc/from-job-data ctx)]
-    (info "cmd-line: " cmd-line ", exec-dir: " exec-dir)
-    (info "execution" (ps/exec cmd-line exec-dir))))
+  (let [{:strs [cmd-line exec-dir]} (qc/from-job-data ctx)
+        {:keys [execution-id] :as exec-info} (.get ctx :jsk-job-execution-info)
+        log-file-name (str (conf/exec-log-dir) "/" execution-id ".log")]
+
+    (info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
+    (ps/exec cmd-line exec-dir log-file-name)))
 
 
 ;-----------------------------------------------------------------------

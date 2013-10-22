@@ -5,17 +5,14 @@
 
 ; not using any delimiters around table/col name otherwise h2 says table doesn't exist
 
-(def db-url "tcp://localhost:9092/nio:~/projects/jsk/resources/db/jsk.db;AUTO_SERVER=TRUE")
+;(def db-url "tcp://localhost:9092/nio:~/projects/jsk/resources/db/jsk.db;AUTO_SERVER=TRUE")
 
-(def db-spec {:classname "org.h2.Driver"
-              :db db-url
-              :subname db-url
-              :user "sa"
-              :subprotocol "h2"
-              :password "" })
-
-
-(defdb jsk-db db-spec)
+;(def db-spec {:classname "org.h2.Driver"
+;              :db db-url
+;              :subname db-url
+;              :user "sa"
+;              :subprotocol "h2"
+;              :password "" })
 
 ; used to convert keys to column/field names
 (defn- fields-fn [s]
@@ -25,12 +22,19 @@
 (defn- keys-fn [s]
   (-> s (str/lower-case) (str/replace "_" "-")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; FIXME: doing a defdb in a fn.  this is horrible
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn init [db-spec]
+  (defdb jsk-db db-spec)
+  (set-delimiters "")
+  ; lower case keywords for result sets
+  (set-naming {:keys keys-fn :fields fields-fn}))
+
+
 ; current date time
 (defn now [] (java.util.Date.))
 
-(set-delimiters "")
-; lower case keywords for result sets
-(set-naming {:keys keys-fn :fields fields-fn})
 
 
 ;-----------------------------------------------------------------------

@@ -8,7 +8,7 @@
                  [org.clojure/core.async "0.1.242.0-44b1e3-alpha"]
                  [org.clojure/core.typed "0.2.3"]    ; static type checking
                  [clojurewerkz/quartzite "1.1.0"]    ; clojure wrapper around quartz scheduling
-                 [org.zeroturnaround/zt-exec "1.4"]  ; process execution
+                 [org.zeroturnaround/zt-exec "1.5"]  ; process execution
                  [com.taoensso/timbre "2.6.1"]       ; logging
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
                  [swiss-arrows "0.6.0"]              ; syntactic sugar
