@@ -1,13 +1,13 @@
 <html>
   <head>
-    <script language="javascript" src="js/main.js"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-    <link href="css/bootstrap-slate.css" rel="stylesheet">
-    <script src="js/bootstrap.min.js"></script>
-    <link href="css/bootstrap-switch.css" rel="stylesheet">
-    <script src="js/bootstrap-switch.js"></script>
+    <link href="css/lib/bootstrap/bootstrap-slate.css" rel="stylesheet">
+    <script src="js/lib/bootstrap/bootstrap.min.js"></script>
+    <!-- <link href="css/lib/bootstrap/bootstrap-switch.css" rel="stylesheet">
+<script src="js/lib/bootstrap/bootstrap-switch.js"></script> -->
     <link href="css/jsk.css" rel="stylesheet">
     <link rel="icon" type="image/png" href="/images/favicon.png" />
+    <script language="javascript" src="js/main.js"></script>
   </head>
   <body>
     <nav class="navbar navbar-default" role="navigation">
@@ -38,6 +38,14 @@
             <ul class="dropdown-menu">
               <li><a id="job-list-action" href="#">List</a></li>
               <li><a id="job-add-action"  href="#">Add</a></li>
+            </ul>
+          </li>
+          <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Workflows <b class="caret"></b></a>
+            <ul class="dropdown-menu">
+              <li><a id="workflow-list-action" href="#">List</a></li>
+              <li><a id="workflow-add-action"  href="#">Add</a></li>
+              <li><a id="workflow-test-action"  href="/test.html">Test</a></li>
             </ul>
           </li>
         </ul>
