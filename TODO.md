@@ -1,3 +1,18 @@
+Top Priority
+-------------
+jquery slide left code: http://jsfiddle.net/adeneo/VN8es/1/
+for the job list panel
+
+Make designer area a jquery droppable
+
+Handle on drop event
+  * move the dragged item back to where it was on the  source panel.
+  * add a new workflow-node item to the designer
+  * associate with jsplumb
+
+
+
+
 ## TODO
 * Job Workflow
   workflow

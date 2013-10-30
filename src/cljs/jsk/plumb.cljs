@@ -120,7 +120,7 @@
                                              :anchor :Continuous}))))
 
 (defn make-target-alt []
-  (-> js-plumb (.makeTarget ($ :.w) (clj->js {:dropOptions {:hoverClass :dragHover}
+  (-> js-plumb (.makeTarget ($ :.workflow-node) (clj->js {:dropOptions {:hoverClass :dragHover}
                                              :anchor :Continuous}))))
 
 (defn draggable [selector]

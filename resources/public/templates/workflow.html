@@ -2,31 +2,69 @@
     <head></head>
     <body>
 
-        <!-- sample workflow layout -->
         <div id="workflow-designer">
 
-            <div class="w" id="window1">
-                <div id="j1">Job 1</div>
-                <p/>
-                <div class="ep-fail" id="ep-fail-1"></div>
-                <div class="ep" id="ep1"></div>
-            </div>
+            <!-- This is the jobs list on the left -->
+            <div id="workflow-designer-job-explorer" class="pull-left"> </div>
 
-            <div class="w" id="window2">
-                <div id="j2">Job two</div>
-                <p/>
-                <div class="ep-fail" id="ep-fail-2"></div>
-                <div class="ep" id="ep2"></div>
+            <div id="workflow-design-area" class="pull-right">
+              <!--
+                  workflow visual area
+                  workflow-node elements will exist here
+              -->
             </div>
+        </div>
 
-            <div class="w" id="window3">
-                <div id="j3">Job three</div>
-                <p/>
-                <div class="ep-fail" id="ep-fail-3"></div>
-                <div class="ep" id="ep3"></div>
-             </div>
-      </div>
-        <!-- end sample workflow layout -->
+
+
+        <!-- workflow explorer displayed on left -->
+        <div id="workflow-designer-job-tree" class="panel panel-info">
+            <div class="panel-heading">
+                <h3 class="panel-title">Available Jobs</h3>
+            </div>
+            <div class="panel-body">
+                <ul id="workflow-designer-jobs-list" class="list-group">
+                    <li data-job-id="123" id="123" class="list-group-item available-job">Job 1</li>
+                    <li data-job-id="34" id="34" class="list-group-item available-job">Job 2</li>
+                </ul>
+            </div>
+        </div>
+
+
+        <!-- workflow node -->
+        <div class="w" id="workflow-node">
+            <div id="j1">Job 1</div>
+            <p>
+                <div class="ep-fail" id="ep-fail-1" data-id="123 fail"></div>
+                <div class="ep-success" id="ep-success-1" data-id="123 success"></div>
+             </p>
+        </div>
+
+        <!-- workflow test -->
+        <div id="workflow-test">
+        <div class="workflow-node">
+            <div id="j1">Job 1</div>
+            <p>
+                <div class="ep-fail" id="ep-fail-1" data-id="123 fail"></div>
+                <div class="ep-success" id="ep-success-1" data-id="123 success"></div>
+             </p>
+        </div>
+        <div class="workflow-node">
+            <div id="j2">Job 2</div>
+            <p>
+                <div class="ep-fail" id="ep-fail-2" data-id="34 fail"></div>
+                <div class="ep-success" id="ep-success-2" data-id="34 success"></div>
+             </p>
+        </div>
+<div class="workflow-node">
+            <div id="j3">Job 3</div>
+            <p>
+                <div class="ep-fail" id="ep-fail-3" data-id="23 fail"></div>
+            <div class="ep-success" id="ep-success-3" data-id="23 success"></div>
+             </p>
+        </div>
+        </div>
+
 
     </body>
 </html>

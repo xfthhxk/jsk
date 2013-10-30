@@ -1,6 +1,7 @@
 (ns jsk.job
   (:require [jsk.rpc :as rpc]
             [jsk.util :as ju]
+            [jsk.rfn :as rfn]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
             [enfocus.events :as events])
@@ -14,9 +15,10 @@
   ; we're handling it here
   (.stopPropagation e)
   (let [source (ju/event-source e)
-        job-id (ef/from source (ef/get-attr :data-job-id))
-        url (str "/jobs/" job-id "/trigger-now")]
-    (rpc/GET url)))
+        job-id (ef/from source (ef/get-attr :data-job-id))]
+    (rfn/trigger-job-now job-id)))
+;        url (str "/jobs/" job-id "/trigger-now")]
+;    (rpc/GET url)))
 
 
 
@@ -71,32 +73,29 @@
 
 (defn show-jobs []
   (go
-   (let [jj (<! (rpc/GET "/jobs"))]
+   (let [jj (<! (rfn/fetch-all-jobs))]
      (ju/showcase (list-jobs jj)))))
-     ;(ef/at "#container" (ef/content (list-jobs jj))))))
 
 (defn- save-job [e]
   (go
     (let [form (ef/from "#job-save-form" (ef/read-form))
           data (ju/update-str->int form :job-id)
           data1 (assoc data :is-enabled (ju/element-checked? "is-enabled"))
-          job-id (<! (rpc/POST "/jobs/save" data1))]
+          job-id (<! (rfn/save-job data1))]
       (ju/log (str "Job saved with id " job-id))
       (show-jobs))))
 
 (defn show-job-edit [j ss associated-schedule-ids]
   (ju/showcase (edit-job j))
-  ;(ef/at "#container" (ef/content (edit-job j)))
   (if ss
     (ef/at "#job-schedule-associations" (ef/content (schedule-assoc j ss associated-schedule-ids)))))
 
 (defn job-row-clicked [e]
   (go
     (let [id (ef/from (ju/event-source e) (ef/get-attr :data-job-id))
-          url (str "/jobs/" id)
-          j (<! (rpc/GET url))
-          ss (<! (rpc/GET "/schedules"))
-          assoc-schedule-ids (<! (rpc/GET (str url "/sched-assoc")))]
+          j (<! (rfn/fetch-job-details id))
+          ss (<! (rfn/fetch-all-schedules))
+          assoc-schedule-ids (<! (rfn/fetch-schedule-associations id))]
       (show-job-edit j ss assoc-schedule-ids))))
 
 
@@ -120,7 +119,7 @@
 (defn- save-job-schedule-assoc [e]
   (go
    (let [data (parse-job-schedule-assoc-form)]
-     (<! (rpc/POST "/jobs/assoc" data))
+     (<! (rfn/save-job-schedule-associations data))
      (ef/at "#save-assoc-msg-label" (ef/content "Associations saved.")))))
 
 

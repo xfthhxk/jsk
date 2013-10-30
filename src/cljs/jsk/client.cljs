@@ -40,9 +40,10 @@
   "#show-dashboard-action" (events/listen :click #(ju/display-dashboard))
   "#job-list-action"       (events/listen :click #(j/show-jobs))
   "#job-add-action"        (events/listen :click #(j/show-add-job))
-  "#workflow-test-action"  (events/listen :click #(w/show-test))
   "#schedule-list-action"  (events/listen :click #(s/show-schedules))
-  "#schedule-add-action"   (events/listen :click #(s/show-add-schedule)))
+  "#schedule-add-action"   (events/listen :click #(s/show-add-schedule))
+  "#workflow-add-action"   (events/listen :click #(w/show-designer))
+  "#workflow-test-action"  (events/listen :click #(w/show-test)))
 
 
 (defn ws-connect []

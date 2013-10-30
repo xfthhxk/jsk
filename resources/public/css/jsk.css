@@ -19,5 +19,22 @@ div.visible {
   visibility: visible;
 }
 
+#workflow-designer-job-explorer {
+;  position: absolute;
+;  left: 0;
+  width: 20%;
+}
+
+#workflow-design-area {
+  position: absolute;
+  left: 300px;
+  width: 80%;
+  height: 100%;
+  border-style: solid;
+  border-color: white;
+}
 
 
+.available-job {
+ cursor: pointer;
+}

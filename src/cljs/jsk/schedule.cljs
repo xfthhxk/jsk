@@ -1,5 +1,5 @@
 (ns jsk.schedule
-  (:require [jsk.rpc :as rpc]
+  (:require [jsk.rfn :as rfn]
             [jsk.util :as ju]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
@@ -42,15 +42,14 @@
 
 (defn show-schedules []
   (go
-   (let [ss (<! (rpc/GET "/schedules"))]
+   (let [ss (<! (rfn/fetch-all-schedules))]
      (ju/showcase (list-schedules ss)))))
-     ;(ef/at "#container" (ef/content (list-schedules ss))))))
 
 (defn- save-schedule [e]
   (go
     (let [form (ef/from "#schedule-save-form" (ef/read-form))
           data (ju/update-str->int form :schedule-id)
-          {:keys [success? schedule-id errors] :as save-result} (<! (rpc/POST "/schedules/save" data))]
+          {:keys [success? schedule-id errors] :as save-result} (<! (rfn/save-schedule data))]
       (ju/log (str "Result: " save-result))
       (if success?
         (show-schedules)
@@ -60,13 +59,12 @@
 
 (defn- show-schedule-edit [s]
   (ju/showcase (edit-schedule s)))
-  ;(ef/at "#container" (ef/content (edit-schedule s))))
+
 
 (defn- schedule-row-clicked [e]
   (go
     (let [id (ef/from (ju/event-source e) (ef/get-attr :data-schedule-id))
-          url (str "/schedules/" id)
-          sched (<! (rpc/GET url))]
+          sched (<! (rfn/fetch-schedule-details id))]
       (show-schedule-edit sched))))
 
 (defn show-add-schedule []

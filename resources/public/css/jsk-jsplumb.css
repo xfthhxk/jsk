@@ -29,7 +29,7 @@
 
 
 
-.w {
+.workflow-node {
 	width:5em;
 	padding:1em;
 	position:absolute;
@@ -53,7 +53,7 @@
 	transition:background-color 0.25s ease-in;
 }
 
-.w:hover {
+.workflow-node:hover {
 	background-color: #5c96bc;
 	color:white;
 
@@ -79,7 +79,8 @@
 	cursor:pointer;
 }
 
-.ep {
+/* ep => end point the thing that is the source for connections */
+.ep-success {
 	position:absolute;
 	bottom: 10%;
 	/* right: 5px; */
@@ -97,7 +98,7 @@
   border-radius: 0.5em;
 }
 
-.ep:hover {
+.ep-success:hover {
 	box-shadow: 0px 0px 6px black;
 }
 
