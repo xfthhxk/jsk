@@ -4,19 +4,6 @@
             [enfocus.events :as events])
   (:use [jayq.core :only [$ ->selector]]))
 
-(def anchor-locations
-  [[ 0.00 1 0 1 ]
-   [ 0.25 1 0 1 ]
-   [ 0.50 1 0 1 ]
-   [ 0.75 1 0 1 ]
-   [ 1.00 1 0 1 ]])
-
-(def drop-options
-  {:tolerance :touch
-   :hoverClass :dropHover
-   :activeClass :dragActive})
-
-
 ; an arbitarily large number
 (def max-connections 999)
 
@@ -51,7 +38,7 @@
    :connectorStyle {:strokeStyle :red :lineWidth 2 :dashstyle "2 2" :outlineColor "transparent" :outlineWidth 4}})
 
 (defn import-defaults [jsp]
-  (let [data {:ConnectionOverlays [[:Arrow {:location 1 :id :arrow :length 14 :foldback 0.7}]]
+  (let [data {:ConnectionOverlays [[:Arrow {:location 1 :id :arrow :length 14 :width 9 :foldback 0.7}]]
               :Endpoint           [:Dot {:radius 2}]
               :HoverPaintStyle    {:strokeStyle "#1e8151" :lineWidth 2}}]
     (ju/log "defaults: " (clj->js data))
@@ -105,13 +92,12 @@
 ;-----------------------------------------------------------------------
 ; Endpoint
 ;-----------------------------------------------------------------------
-(defn add-endpoint [id]
-  (-> js-plumb (.addEndpoint (->selector id) (clj->js endpoint-options))))
+;(defn add-endpoint [id]
+;  (-> js-plumb (.addEndpoint (->selector id) (clj->js endpoint-options))))
 
-(defn make-source [id]
-  (ju/log "make-source, js-plumb is: " js-plumb)
-  ; (-> js-plumb (.makeSource ($ id) (clj->js endpoint-options))))
-  (-> js-plumb (.makeSource ($ id) (clj->js endpoint-options))))
+;(defn make-source [id]
+;  (ju/log "make-source, js-plumb is: " js-plumb)
+;  (-> js-plumb (.makeSource ($ id) (clj->js endpoint-options))))
 
 (defn make-source-alt []
   (-> js-plumb (.makeSource ($ :.ep) (clj->js success-endpoint-options)))
@@ -121,7 +107,7 @@
   (-> js-plumb (.makeSource ($ selector) (clj->js options))))
 
 (defn make-failure-source [selector]
-  (make-source-1 :.ep-fail failure-endpoint-options))
+  (make-source-1 selector failure-endpoint-options))
   ;(-> js-plumb (.makeSource ($ :.ep-fail) (clj->js failure-endpoint-options))))
 
 (defn make-success-source [selector]

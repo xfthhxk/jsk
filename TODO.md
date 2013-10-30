@@ -8,12 +8,13 @@
 
     Should be able to use sql's with recursive to get the whole tree?
 
-  job_plan_execution
-    job_plan_execution_id
+  workflow_execution
+    workflow_execution_id
+    workflow_id
     job_id
     job_id_exit_status_id
     next_job_id
-    executed
+    has_executed
 
 
 

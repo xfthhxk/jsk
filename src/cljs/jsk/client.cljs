@@ -4,10 +4,12 @@
               [enfocus.events :as events]
               [clojure.browser.repl :as repl]
               [cljs.core.async :as async :refer [<!]]
+              [jsk.plumb :as plumb]
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
               [jsk.executions :as executions]
+              [jsk.workflow :as w]
               [jsk.schedule :as s])
     (:require-macros [cljs.core.async.macros :refer [go]])
     (:use-macros [enfocus.macros :only [deftemplate defsnippet defaction]]))
@@ -38,6 +40,7 @@
   "#show-dashboard-action" (events/listen :click #(ju/display-dashboard))
   "#job-list-action"       (events/listen :click #(j/show-jobs))
   "#job-add-action"        (events/listen :click #(j/show-add-job))
+  "#workflow-test-action"  (events/listen :click #(w/show-test))
   "#schedule-list-action"  (events/listen :click #(s/show-schedules))
   "#schedule-add-action"   (events/listen :click #(s/show-add-schedule)))
 
@@ -57,12 +60,19 @@
 (defn- init []
   (ju/log "Begin initializing JSK UI.")
   (init-events)
+
+  (ju/log "Initializing jsplumb.")
+  (plumb/init)
+
   (ju/log "Adding default XHR error handler.")
   (reset! rpc/error-handler rpc-error-handler)
+
   (ju/log "Begin initializing websocket.")
   (ws-connect)
+
   (ju/display-dashboard)
   (ju/log "Initialization complete.")
+
   (repl-connect))
 
 

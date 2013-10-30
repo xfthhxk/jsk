@@ -25,7 +25,8 @@
                   :exclusions [javax.activation/activation]]
                  ;[javax.mail/javax.mail-api "1.5.0"
                  ; :exclusions [javax.activation/activation]]
-                 [enfocus "2.0.0-SNAPSHOT"]]         ; cljs enlive like lib
+                 [enfocus "2.0.0"]
+                 [jayq "2.4.0"]]         ; cljs enlive like lib
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}
              :dev {:ring {:port 8080 :nrepl {:start? true :port 8081}}

@@ -1,17 +1,24 @@
-(ns modern-cljs.modern
+(ns jsk.workflow
   (:require [jsk.plumb :as plumb]
-            [jayq.util :as ju]
+            [jsk.util :as ju]
             [enfocus.core :as ef]
             [enfocus.events :as events])
-  (:use [jayq.core :only [$ delegate toggle]]))
+  (:use [jayq.core :only [$ delegate toggle]])
+  (:require-macros [enfocus.macros :as em]
+                   [cljs.core.async.macros :refer [go]]))
 
 
-(defn init []
-  (ju/log "Init called")
-  (plumb/init)
+(em/defsnippet test-snippet :compiled "public/templates/workflow.html" "#workflow-designer" []
+  "#j1" (ef/content "From enfocus job 1")
+  "#j2" (ef/content "From enfocus job 2")
+  "#j3" (ef/content "From enfocus job 3"))
 
-  (plumb/default-container :#container)
 
+(defn show-test []
+  (ju/log "in workflow show test")
+  (ju/showcase (test-snippet))
+
+  (plumb/default-container :#workflow-designer)
   (plumb/draggable :.w)
 
   (plumb/make-success-source :#ep1)
@@ -27,5 +34,3 @@
 
   (plumb/repaint!))
 
-
-(set! (.-onload js/window) init)

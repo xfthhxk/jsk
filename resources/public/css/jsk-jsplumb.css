@@ -1,3 +1,34 @@
+/* BEGIN JSPLUMB */
+
+/** DISABLE TEXT SELECTION (SET ON BODY WHEN DRAGGING IS OCCURRING) **/
+._jsPlumb_drag_select * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: -moz-none;
+    -ms-user-select: none;
+    user-select: none
+}
+
+/** Z-INDEX **/
+
+._jsPlumb_connector { z-index:18; }
+._jsPlumb_endpoint { z-index:19; }
+._jsPlumb_overlay { z-index:20; }
+._jsPlumb_connector._jsPlumb_hover {
+    z-index:21 !important;
+}
+._jsPlumb_endpoint._jsPlumb_hover {
+    z-index:22 !important;
+}
+._jsPlumb_overlay._jsPlumb_hover {
+    z-index:23 !important;
+}
+
+
+
+
+
 .w {
 	width:5em;
 	padding:1em;
@@ -6,7 +37,7 @@
 	z-index:4;
 	border-radius:1em;
 	border:1px solid #2e6f9a;
-	box-shadow: 2px 2px 19px #e0e0e0;
+	/* box-shadow: 2px 2px 19px #e0e0e0; */
 	-o-box-shadow: 2px 2px 19px #e0e0e0;
 	-webkit-box-shadow: 2px 2px 19px #e0e0e0;
 	-moz-box-shadow: 2px 2px 19px #e0e0e0;
@@ -111,3 +142,7 @@
 .dragHover { border:2px solid orange; }
 
 path { cursor:pointer; }
+
+path, ._jsPlumb_endpoint { cursor:pointer; }
+
+/* END JSPLUMB */

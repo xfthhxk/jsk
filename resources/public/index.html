@@ -3,13 +3,33 @@
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <link href="css/lib/bootstrap/bootstrap-slate.css" rel="stylesheet">
     <script src="js/lib/bootstrap/bootstrap.min.js"></script>
-    <!-- <link href="css/lib/bootstrap/bootstrap-switch.css" rel="stylesheet">
-<script src="js/lib/bootstrap/bootstrap-switch.js"></script> -->
+
+    <script src="js/lib/jquery/jquery-ui-1.9.2-min.js" type="text/javascript"> </script>
+      <script src="js/lib/jquery/jquery.ui.touch-punch.min.js" type="text/javascript"> </script>
+
+      <script src="js/lib/jsplumb/jsBezier-0.6.js"></script>
+      <script src="js/lib/jsplumb/jsplumb-geom-0.1.js"></script>
+      <script src="js/lib/jsplumb/util.js"></script>
+      <script src="js/lib/jsplumb/dom-adapter.js"></script>
+      <script src="js/lib/jsplumb/jsPlumb.js"></script> <!-- main jsplumb engine -->
+      <script src="js/lib/jsplumb/endpoint.js"></script>
+      <script src="js/lib/jsplumb/connection.js"></script>
+      <script src="js/lib/jsplumb/anchors.js"></script>
+      <script src="js/lib/jsplumb/defaults.js"></script><!-- connectors, endpoint and overlays  -->
+      <script src="js/lib/jsplumb/connectors-bezier.js"></script>
+      <script src="js/lib/jsplumb/connectors-statemachine.js"></script>
+      <script src="js/lib/jsplumb/connectors-flowchart.js"></script>
+      <script src="js/lib/jsplumb/renderers-svg.js"></script>
+      <script src="js/lib/jsplumb/renderers-canvas.js"></script>
+      <script src="js/lib/jsplumb/renderers-vml.js"></script>
+      <script src="js/lib/jsplumb/jquery.jsPlumb.js"></script><!-- jquery jsPlumb adapter -->
+
+    <link href="css/jsk-jsplumb.css" rel="stylesheet">
     <link href="css/jsk.css" rel="stylesheet">
     <link rel="icon" type="image/png" href="/images/favicon.png" />
     <script language="javascript" src="js/main.js"></script>
   </head>
-  <body>
+  <body data-library="jquery"> <!-- data-library is for jsplumb -->
     <nav class="navbar navbar-default" role="navigation">
       <!-- Brand and toggle get grouped for better mobile display -->
       <div class="navbar-header">
@@ -45,7 +65,7 @@
             <ul class="dropdown-menu">
               <li><a id="workflow-list-action" href="#">List</a></li>
               <li><a id="workflow-add-action"  href="#">Add</a></li>
-              <li><a id="workflow-test-action"  href="/test.html">Test</a></li>
+              <li><a id="workflow-test-action" href="#">Test</a></li>
             </ul>
           </li>
         </ul>
