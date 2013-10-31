@@ -25,7 +25,7 @@
 ;-----------------------------------------------------------------------
 (def success-endpoint-options
   {:anchor :Continuous
-   :connector [:StateMachine {:curviness 20}]
+   :connector [:Straight]
    :connectorStyle {:strokeStyle :green :lineWidth 2 :outlineColor "transparent" :outlineWidth 4}})
 
 ;-----------------------------------------------------------------------
@@ -34,7 +34,7 @@
 ;-----------------------------------------------------------------------
 (def failure-endpoint-options
   {:anchor :Continuous
-   :connector [:StateMachine {:curviness 20}]
+   :connector [:Straight]
    :connectorStyle {:strokeStyle :red :lineWidth 2 :dashstyle "2 2" :outlineColor "transparent" :outlineWidth 4}})
 
 (defn import-defaults [jsp]
@@ -123,8 +123,10 @@
   (-> js-plumb (.makeTarget ($ :.workflow-node) (clj->js {:dropOptions {:hoverClass :dragHover}
                                              :anchor :Continuous}))))
 
-(defn draggable [selector]
-  (-> js-plumb (.draggable ($ selector))))
+(defn draggable
+  ([selector] (draggable selector {}))
+  ([selector opt-map]
+    (-> js-plumb (.draggable ($ selector) (clj->js opt-map)))))
 
 (defn repaint! []
   (-> js-plumb .repaintEverything))
