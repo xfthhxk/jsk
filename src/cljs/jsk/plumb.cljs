@@ -7,25 +7,13 @@
 ; an arbitarily large number
 (def max-connections 999)
 
-(defn import-defaults1 [jsp]
-  (let [data {:Anchors        [:LeftCenter :RightCenter]
-              :ConnectionOverlays [[:Arrow {:location 1 :id :arrow :length 14 :foldback 0.7}]]
-              :DragOptions    {:cursor :pointer :zIndex 2000}
-              :Endpoint       [:Dot {:radius 2}]
-              :HoverPaintStyle {:strokeStyle "#1e8151" :lineWidth 2}
-              :EndpointStyle  {:width 20 :height 16 :strokeStyle "#666"}
-              :MaxConnections max-connections
-              :PaintStyle     {:strokeStyle "#666" :lineWidth 2}}]
-    (ju/log "defaults: " (clj->js data))
-    (-> jsp (.importDefaults (clj->js data)))))
-
 ;-----------------------------------------------------------------------
 ; Definitions governing success endpoints
 ; Lines are green and solid indicating succcess job link.
 ;-----------------------------------------------------------------------
 (def success-endpoint-options
   {:anchor :Continuous
-   :connector [:Straight]
+   :connector [:StateMachine {:curviness 20}]
    :connectorStyle {:strokeStyle :green :lineWidth 2 :outlineColor "transparent" :outlineWidth 4}})
 
 ;-----------------------------------------------------------------------
@@ -34,7 +22,7 @@
 ;-----------------------------------------------------------------------
 (def failure-endpoint-options
   {:anchor :Continuous
-   :connector [:Straight]
+   :connector [:StateMachine {:curviness 20}]
    :connectorStyle {:strokeStyle :red :lineWidth 2 :dashstyle "2 2" :outlineColor "transparent" :outlineWidth 4}})
 
 (defn import-defaults [jsp]
@@ -48,8 +36,43 @@
 
 (defn init[]
   (def js-plumb (-> js/window .-jsPlumb))
-  (ju/log "init, js-plumb is: " js-plumb)
   (import-defaults js-plumb))
+
+
+(defn- register-event-handler [event cb]
+  (-> js-plumb (.bind event cb)))
+
+;----------------------------------------------------------------------
+; Register connection click listener. The callback function
+; receives the connection.
+;----------------------------------------------------------------------
+(defn register-connection-click-handler [cb]
+  (register-event-handler "click" cb))
+
+;----------------------------------------------------------------------
+; Register connection created listener. The callback function
+; receives the connection info and the original event.
+;----------------------------------------------------------------------
+(defn register-connection-created-handler [cb]
+  (register-event-handler "connection" cb))
+
+(defn detach-connection [cn]
+  (-> js-plumb (.detach cn)))
+
+;----------------------------------------------------------------------
+; Lookup the element specified by the element-id
+; and detach all connections.
+;----------------------------------------------------------------------
+(defn detach-endpoint-connections [element-id]
+  (-> js-plumb (.detachAllConnections element-id)))
+
+;----------------------------------------------------------------------
+; Lookup the element specified by the element-id
+; and deletes it including all connections.
+;----------------------------------------------------------------------
+(defn rm-endpoint [element-id]
+  (detach-endpoint-connections element-id)
+  (-> js-plumb (.deleteEndpoint element-id)))
 
 (defn default-container
   ([]
@@ -87,6 +110,31 @@
 (defn connect
   [data]
   (-> js-plumb (.connect (clj->js data))))
+
+
+;-----------------------------------------------------------------------
+; Answers with all connections.
+;-----------------------------------------------------------------------
+(defn connections []
+  (-> js-plumb .getAllConnections))
+
+(defn inbound-connections [element-id]
+  (-> js-plumb (.getConnections (clj->js {:target element-id}))))
+
+(defn rm-inbound-connections [element-id]
+  (doseq [cn (inbound-connections element-id)]
+    (detach-connection cn)))
+
+
+;-----------------------------------------------------------------------
+; Answers with a seq of all connections. Each connection is represented
+; as a map with a :src and :tgt keys.
+;-----------------------------------------------------------------------
+(defn connections->map []
+  (map (fn[c]
+         {:src (-> c .-sourceId) :tgt (-> c .-targetId)})
+       (connections)))
+
 
 
 ;-----------------------------------------------------------------------

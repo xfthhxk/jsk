@@ -17,8 +17,6 @@
   (let [source (ju/event-source e)
         job-id (ef/from source (ef/get-attr :data-job-id))]
     (rfn/trigger-job-now job-id)))
-;        url (str "/jobs/" job-id "/trigger-now")]
-;    (rpc/GET url)))
 
 
 

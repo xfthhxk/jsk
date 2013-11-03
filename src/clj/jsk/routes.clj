@@ -97,6 +97,21 @@
 
 
 ;-----------------------------------------------------------------------
+; Routes realted to workflows
+;-----------------------------------------------------------------------
+(defroutes workflow-routes
+  (GET "/workflows" []
+       (edn-response (s/ls-schedules)))
+
+  (GET "/workflows/:id" [id]
+       (-> id s/get-schedule edn-response))
+
+  (POST "/workflows/save" [_ :as request]
+       (info "workflow save: " (:params request))
+       (-> (:params request) (s/save-schedule! (uid request)) edn-response)))
+
+
+;-----------------------------------------------------------------------
 ; Collection of all routes.
 ;-----------------------------------------------------------------------
-(def all-routes (cc/routes schedule-routes job-routes app-routes))
+(def all-routes (cc/routes schedule-routes job-routes workflow-routes app-routes))

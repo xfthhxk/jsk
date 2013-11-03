@@ -37,16 +37,12 @@
 	z-index:4;
 	border-radius:1em;
 	border:1px solid #2e6f9a;
-	/* box-shadow: 2px 2px 19px #e0e0e0; */
-	-o-box-shadow: 2px 2px 19px #e0e0e0;
-	-webkit-box-shadow: 2px 2px 19px #e0e0e0;
-	-moz-box-shadow: 2px 2px 19px #e0e0e0;
 	-moz-border-radius:0.5em;
 	border-radius:0.5em;
 	opacity:0.8;
 	filter:alpha(opacity=80);
 	cursor:move;
-	background-color:white;
+	background-color: #32383e;
 	font-size:11px;
 	-webkit-transition:background-color 0.25s ease-in;
 	-moz-transition:background-color 0.25s ease-in;

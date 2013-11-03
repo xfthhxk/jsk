@@ -19,10 +19,15 @@ div.visible {
   visibility: visible;
 }
 
+#workflow-toolbar {
+
+}
+
+/*
 #workflow-designer-job-explorer {
-;  position: absolute;
-;  left: 0;
-  width: 20%;
+  position: absolute;
+  left: 0;
+  width: 295px;
 }
 
 #workflow-design-area {
@@ -34,7 +39,21 @@ div.visible {
   border-color: white;
 }
 
+*/
+
+#workflow-design-area {
+  border-style: solid;
+  border-color: white;
+  height: 100%;
+}
 
 .available-job {
  cursor: move;
+}
+
+
+button.rm-node-btn {
+  position: absolute;
+  top: 0%;
+  right: 0%;
 }

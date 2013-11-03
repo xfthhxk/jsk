@@ -50,7 +50,6 @@
 
 
 
-
 (em/deftemplate error-display-template :compiled "public/templates/error-list.html" [errors]
   "ul > :not(li:first-child)" (ef/remove-node)
   "ul > li" (em/clone-for [e errors]
