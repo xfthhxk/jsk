@@ -12,16 +12,33 @@
   (:use [korma core db]
         [swiss-arrows core]))
 
+(def job-type-id 1)
+(def workflow-type-id 2)
+
+(defentity node
+  (pk :node-id)
+  (entity-fields :node-id :node-name :node-type-id :node-desc :is-enabled :created-at :create-user-id :updated-at :update-user-id))
 
 (defentity job
   (pk :job-id)
-  (entity-fields :job-id :job-name :job-desc :execution-directory :command-line :is-enabled))
-  ;(many-to-many s/schedule :job-schedule))
+  (entity-fields :job-id :execution-directory :command-line))
 
 (defentity job-schedule
   (pk :job-schedule-id)
   (entity-fields :job-schedule-id :job-id :schedule-id))
 
+(def base-job-query
+  (-> (select* job)
+      (fields :job-id
+              :execution-directory
+              :command-line
+              :node.is-enabled
+              :node.created_at
+              :node.create-user-id
+              :node.updated-at
+              :node.update-user-id
+              [:node.node-name :job-name] [:node.node-desc :job-desc])
+      (join :inner :node (= :job-id :node.node-id))))
 
 
 
@@ -31,18 +48,18 @@
 (defn ls-jobs
   "Lists all jobs"
   []
-  (select job))
+  (select base-job-query))
 
 (defn enabled-jobs
   "Gets all active jobs."
   []
-  (select job (where {:is-enabled true})))
+  (select base-job-query
+    (where {:node.is-enabled true})))
 
 (defn get-job
   "Gets a job for the id specified"
   [id]
-  (first (select job
-           (where {:job-id id}))))
+  (first (select base-job-query (where {:job-id id}))))
 
 (defn get-job-name
   "Answers with the job name for the job id, otherwise nil if no such job."
@@ -53,7 +70,7 @@
 (defn get-job-by-name
   "Gets a job by name if one exists otherwise returns nil"
   [nm]
-  (first (select job (where {:job-name nm}))))
+  (first (select base-job-query (where {:node.node-name nm}))))
 
 (defn job-name-exists?
   "Answers true if job name exists"
@@ -78,27 +95,63 @@
          :job-name [v/required [(partial unique-name? job-id) :message "Job name must be unique."]])
       first))
 
+
+;-----------------------------------------------------------------------
+; Insert a node. Answer with the inserted node's row id
+;-----------------------------------------------------------------------
+(defn- insert-node! [type-id node-nm node-desc enabled? user-id]
+  (let [data {:node-name node-nm
+              :node-desc node-desc
+              :node-type-id type-id
+              :is-enabled   enabled?
+              :create-user-id user-id
+              :update-user-id user-id}]
+    (info "Creating new node with values: " data)
+    (-> (insert node (values data))
+        jdb/extract-identity)))
+
+(defn- update-node! [node-id node-nm node-desc enabled? user-id]
+  (let [data {:node-name node-nm
+              :node-desc node-desc
+              :is-enabled enabled?
+              :update-user-id user-id
+              :updated-at (jdb/now)}]
+    (info "Updating node with id: " node-id " to: " data)
+    (update node (set-fields data)
+      (where {:node-id node-id}))
+    node-id))
+
+
+(def insert-job-node! (partial insert-node! job-type-id))
+(def insert-workflow-node! (partial insert-node! workflow-type-id))
+
+
 ;-----------------------------------------------------------------------
 ; Insert a job. Answers with the inserted job's row id.
 ;-----------------------------------------------------------------------
 (defn- insert-job! [m user-id]
-  (let [merged-map (merge (dissoc m :job-id) {:create-user-id user-id :update-user-id user-id})]
-    (info "Creating new job with values: " merged-map)
-    (-> (insert job (values merged-map))
-        jdb/extract-identity)))
+  (let [{:keys [job-name job-desc is-enabled execution-directory command-line]} m
+        node-id (insert-job-node! job-name job-desc is-enabled user-id)
+        data {:execution-directory execution-directory
+              :command-line command-line
+              :job-id node-id}]
+    (info "Creating new job with values: " data)
+    (insert job (values data))
+    node-id))
 
 
 ;-----------------------------------------------------------------------
 ; Update an existing job.
 ; Answers with the job-id if update is successful.
 ;-----------------------------------------------------------------------
-(defn- update-job! [{:keys [job-id] :as m} user-id]
-  (let [merged-map (merge m {:update-user-id user-id :update-at (jdb/now)})]
-    (info "Updating job: " m)
-    (update job (set-fields (dissoc m :job-id))
-      (where {:job-id job-id})))
-  job-id)
-
+(defn- update-job! [m user-id]
+  (let [{:keys [job-id job-name job-desc is-enabled execution-directory command-line]} m
+        data {:execution-directory execution-directory
+              :command-line command-line}]
+    (update-node! job-id job-name job-desc is-enabled user-id)
+    (update job (set-fields data)
+      (where {:job-id job-id}))
+    job-id))
 
 (defn- save-job-db [{:keys [job-id] :as j} user-id]
   (if (jdb/id? job-id)

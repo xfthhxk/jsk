@@ -43,8 +43,11 @@
 (defn- current-user [request]
   (get-in request [:session :jsk-user]))
 
-(defn- uid [request]
-  (-> request current-user :app-user-id))
+;(defn- uid [request]
+;  (-> request current-user :app-user-id))
+
+(defn- uid [request] 1)
+
 
 ;-----------------------------------------------------------------------
 ; Default app routes.

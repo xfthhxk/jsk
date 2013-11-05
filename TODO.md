@@ -6,6 +6,10 @@ Top Priority
 * Implement actual logic on server to do the deps at job runtime.
 
 
+* What about a workflow with 3 starting nodes that must finish before going on?
+  ie job 1, 2, 3 can be run in parallel, when all 3 finish do job 4.
+  SystemNode? It's like a Countdown lock.
+
 
 jquery slide left code: http://jsfiddle.net/adeneo/VN8es/1/
 for the job list panel

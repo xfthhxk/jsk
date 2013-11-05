@@ -135,5 +135,7 @@
                   on js.schedule_id = s.schedule_id
                 join job          j
                   on js.job_id = j.job_id
-               where j.is_enabled = 1"]
+                join node         n
+                  on j.job_id = n.node_id
+               where n.is_enabled = 1"]
             :results))
