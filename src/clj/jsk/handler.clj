@@ -9,6 +9,7 @@
             [jsk.util :as ju]
             [jsk.user :as juser]
             [jsk.job :as job]
+            [jsk.execution :as execution]
             [jsk.schedule :as schedule]
             [jsk.notification :as n]
             [cemerick.friend :as friend]
@@ -50,7 +51,7 @@
 
 (defn- setup-job-execution-recorder []
   (let [job-event-ch (chan)
-        job-recorder (job/make-job-recorder "JSK-Job-Execution-Listener" job-event-ch)]
+        job-recorder (execution/make-job-recorder "JSK-Job-Execution-Listener" job-event-ch)]
 
     (q/register-job-execution-recorder! job-recorder)
 
@@ -125,7 +126,7 @@
 
   (init-logging)
   (conf/init "conf/jsk-conf.clj")
-  (db/init (conf/db-spec))
+  (conf/init-db)
 
   (info "Ensuring log directory exists at: " (conf/exec-log-dir))
   (ju/ensure-directory (conf/exec-log-dir))

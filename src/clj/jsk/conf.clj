@@ -1,5 +1,8 @@
 (ns jsk.conf
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [korma.db :as k]
+            [korma.config :as kc ]))
 
 (def config (atom {}))
 
@@ -26,6 +29,14 @@
 
 (defn db-spec []
   (@config :db-spec))
+
+(defn init-db []
+  (k/defdb jsk-db (db-spec)) ; TODO: better way than in a fn?
+  (kc/set-delimiters "")
+  ; lower case keywords for result sets
+  (kc/set-naming {:keys #(-> % (str/lower-case) (str/replace "_" "-"))
+                  :fields #(-> % (str/lower-case) (str/replace "-" "_"))}))
+
 
 ; read the configuration
 ;(init "conf/jsk-config.clj")

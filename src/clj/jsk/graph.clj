@@ -1,13 +1,5 @@
-(ns jsk.graph
-  :require [clojure.set :as set])
+(ns jsk.graph)
 
-(defn- add-vertex
-  "Adds vertex to the graph if it doesn't already exist.
-   Returns the update graph."
-  [g v]
-  (if (g v)
-    g
-    (assoc g v {:in  #{} :out #{}})))
 
 
 (defprotocol IDigraph
@@ -39,10 +31,35 @@
   (roots [g]
     "Vertices which have no inbound entries."))
 
-;  (component-count [g]
-;    "Returns the count of components in the graph g.
-;     If g has vertices #{A B C D}, and edges #{A->B C->D}
-;     then the graph has 2 components."))
+
+(defn- add-vertex
+  "Adds vertex to the graph if it doesn't already exist.
+   Returns the update graph."
+  [g v]
+  (if (g v)
+    g
+    (assoc g v {:in  #{} :out #{}})))
+
+
+(defn- acyclic-internal*? [g]
+  (loop [unexplored (-> g roots) visited #{} path () ]
+    (if (empty? unexplored)
+      true
+      (let [v (first unexplored)
+            visited' (conj visited v)
+            path' (conj path v)
+            [w & vv :as outs] (seq (outbound g v))
+            unexplored' (concat outs (rest unexplored))]
+        (cond
+          (some #{w} path') false
+          (nil? w) true
+          (not (visited' w)) (recur unexplored' visited' path'))))))
+
+(defn- acyclic-internal? [g]
+  (cond
+   (empty? g) true
+   (empty? (roots g)) false
+   :default (acyclic-internal*? g)))
 
 
 (extend-protocol IDigraph
@@ -79,7 +96,7 @@
 
 
   (acyclic? [g]
-    true))
+    (acyclic-internal? g)))
 
 
 ; acyclic
