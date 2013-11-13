@@ -92,8 +92,8 @@
 (defn- save-workflow* [{:keys[workflow-id connections] :as w} layout user-id]
   (transaction
     (db/rm-workflow-graph workflow-id) ; rm existing and add new
-    (let [workflow-id (db/save-workflow w user-id)]
-      (save-graph w layout)
+    (let [workflow-id* (db/save-workflow w user-id)]
+      (save-graph (assoc w :workflow-id workflow-id*) layout)
       {:success? true :workflow-id workflow-id})))
 
 (defn save-workflow!

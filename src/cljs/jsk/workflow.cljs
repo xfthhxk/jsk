@@ -302,6 +302,7 @@
             graph (<! (rfn/fetch-workflow-graph workflow-id))]
 
         (reset! job-store (reduce #(conj %1 ((juxt :job-id :job-name) %2)) {} jobs))
+        (plumb/reset) ; clear any state it may have had
         (u/showcase (workflow-designer jobs workflow-id workflow-name workflow-desc is-enabled))
 
         (plumb/register-connection-click-handler connection-click-listener)

@@ -1,8 +1,6 @@
 Top Priority
 -------------
-* Save graph to server
 * Validations, make sure it is an acyclic digraph
-* Save layout of workflow nodes to reconstruct for display.
 * Implement actual logic on server to do the deps at job runtime.
 
 
@@ -53,3 +51,6 @@ for the job list panel
     a. Executing
     b. Finished Successfully
     c. Errored
+
+* Save layout of workflow nodes to reconstruct for display.
+* Save graph to server

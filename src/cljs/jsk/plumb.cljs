@@ -59,6 +59,8 @@
 (defn detach-connection [cn]
   (-> js-plumb (.detach cn)))
 
+
+
 ;----------------------------------------------------------------------
 ; Lookup the element specified by the element-id
 ; and detach all connections.
@@ -127,6 +129,10 @@
   (doseq [cn (inbound-connections element-id)]
     (detach-connection cn)))
 
+(defn detach-all-connections []
+  (doseq [cn (connections)]
+    (detach-connection cn)))
+
 
 ;-----------------------------------------------------------------------
 ; Answers with a seq of all connections. Each connection is represented
@@ -180,3 +186,7 @@
 
 (defn repaint! []
   (-> js-plumb .repaintEverything))
+
+
+(defn reset []
+  (-> js-plumb .reset))
