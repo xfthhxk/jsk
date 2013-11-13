@@ -1,6 +1,8 @@
 (ns jsk.db
   "Database access"
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [taoensso.timbre :as timbre
+             :refer (trace debug info warn error fatal spy with-log-level)])
   (:use [korma core db]))
 
 ; current date time
@@ -35,6 +37,18 @@
   (pk :job-id)
   (entity-fields :job-id :execution-directory :command-line))
 
+(defentity workflow
+  (pk :workflow-id)
+  (entity-fields :workflow-id))
+
+(defentity workflow-vertex
+  (pk :workflow-vertex-id)
+  (entity-fields :workflow-vertex-id :workflow-id :node-id :layout))
+
+(defentity workflow-edge
+  (pk :workflow-edge-id)
+  (entity-fields :workflow-edge-id :vertex-id :next-vertex-id :success))
+
 (defentity job-schedule
   (pk :job-schedule-id)
   (entity-fields :job-schedule-id :job-id :schedule-id))
@@ -51,6 +65,17 @@
               :node.update-user-id
               [:node.node-name :job-name] [:node.node-desc :job-desc])
       (join :inner :node (= :job-id :node.node-id))))
+
+(def base-workflow-query
+  (-> (select* workflow)
+      (fields :workflow-id
+              :node.is-enabled
+              :node.created_at
+              :node.create-user-id
+              :node.updated_at
+              :node.update-user-id
+              [:node.node-name :workflow-name] [:node.node-desc :workflow-desc])
+      (join :inner :node (= :workflow-id :node.node-id))))
 
 ;-----------------------------------------------------------------------
 ; Job lookups
@@ -92,6 +117,43 @@
   "Answers true if job name exists"
   [nm]
   (-> nm get-job-by-name nil? not))
+
+
+;-----------------------------------------------------------------------
+; Workflow lookups
+;-----------------------------------------------------------------------
+(defn ls-workflows
+  "Lists all workflows"
+  []
+  (select base-workflow-query))
+
+(defn enabled-workflows
+  "Gets all active workflows."
+  []
+  (select base-workflow-query
+    (where {:node.is-enabled true})))
+
+(defn get-workflow
+  "Gets a workflow for the id specified"
+  [id]
+  (first (select base-workflow-query (where {:workflow-id id}))))
+
+(defn get-workflow-name
+  "Answers with the workflow name for the job id, otherwise nil if no such job."
+  [id]
+  (if-let [j (get-workflow id)]
+    (:workflow-name j)))
+
+(defn get-workflow-by-name
+  "Gets a job by name if one exists otherwise returns nil"
+  [nm]
+  (first (select base-workflow-query (where {:node.node-name nm}))))
+
+(defn workflow-name-exists?
+  "Answers true if workflow name exists"
+  [nm]
+  (-> nm get-workflow-by-name nil? not))
+
 
 
 ;-----------------------------------------------------------------------
@@ -152,6 +214,23 @@
   (if (id? job-id)
       (update-job! j user-id)
       (insert-job! j user-id)))
+
+;-----------------------------------------------------------------------
+; Workflow save
+;-----------------------------------------------------------------------
+(defn- insert-workflow! [m user-id]
+  (let [{:keys [workflow-name workflow-desc is-enabled]} m
+        node-id (insert-workflow-node! workflow-name workflow-desc is-enabled user-id)]
+    (insert workflow (values {:workflow-id node-id}))
+    node-id))
+
+(defn- update-workflow! [{:keys [workflow-id] :as m} user-id]
+  workflow-id)
+
+(defn save-workflow [{:keys [workflow-id] :as w} user-id]
+  (if (id? workflow-id)
+    (update-workflow! w user-id)
+    (insert-workflow! w user-id)))
 
 
 ;-----------------------------------------------------------------------
@@ -222,9 +301,79 @@
               :schedule-id [in schedule-ids]}))))
 
 
+;-----------------------------------------------------------------------
+; Workflow vertices and edges
+;-----------------------------------------------------------------------
+(defn- rm-workflow-edge [workflow-id]
+  "Deletes workflow edges for the workflow id"
+  (exec-raw ["delete
+                from workflow_edge e
+               where exists (select 1
+                               from workflow_vertex v
+                              where v.workflow_id = ?
+                                and e.vertex_id = v.workflow_vertex_id)"
+               [workflow-id]]))
+
+(defn- rm-workflow-vertex
+  "Deletes workflow vertices for the workflow id"
+  [workflow-id]
+  (delete workflow-vertex (where {:workflow-id workflow-id})))
+
+(defn rm-workflow-graph
+  "Deletes from the database the edges and vertices
+   associated with the specified workflow-id."
+  [workflow-id]
+  (rm-workflow-edge workflow-id)
+  (rm-workflow-vertex workflow-id))
+
+(defn save-workflow-edge
+  "Creates a row in the workflow_edge table.
+   vertex-id and next-vertex-id are ids from the workflow_vertex
+   table. success? is a boolean."
+  [vertex-id next-vertex-id success?]
+  (let [m {:vertex-id vertex-id
+           :next-vertex-id next-vertex-id
+           :success success?}]
+    (-> (insert workflow-edge (values m))
+         extract-identity)))
+
+(defn save-workflow-vertex [workflow-id node-id layout]
+  "Creates a row in the workflow_vertex table.
+   workflow-id is an int. node-id is a key from the node
+   table. layout is a string describing the layout of the
+   vertex on the front end (css positions perhaps)."
+  (let [m {:workflow-id workflow-id
+           :node-id node-id
+           :layout layout}]
+    (-> (insert workflow-vertex (values m))
+         extract-identity)))
 
 
-
+(defn get-workflow-graph
+  "Gets the edges for the workflow specified."
+  [id]
+  (exec-raw
+   ["select
+            fv.node_id      as from_node_id
+          , tv.node_id      as to_node_id
+          , e.success
+          , fn.node_name    as from_node_name
+          , fn.node_type_id as from_node_type_id
+          , tn.node_name    as to_node_name
+          , tn.node_type_id as to_node_type_id
+          , fv.layout       as from_node_layout
+          , tv.layout       as to_node_layout
+       from workflow_vertex fv
+       join workflow_edge  e
+         on fv.workflow_vertex_id = e.vertex_id
+       join workflow_vertex tv
+         on e.next_vertex_id = tv.workflow_vertex_id
+       join node fn
+         on fv.node_id = fn.node_id
+       join node tn
+         on tv.node_id = tn.node_id
+      where fv.workflow_id = tv.workflow_id
+        and fv.workflow_id = ?" [id]] :results))
 
 
 ;-----------------------------------------------------------------------

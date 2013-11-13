@@ -5,10 +5,13 @@
         <div id="workflow-designer">
 
           <form id="workflow-save-form" role="form" class="form-inline">
-            <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
+                  <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
 
                   <label for="workflow-name" class="control-label">Name</label>
-            <input id="workflow-name" type="text" placeholder="workflow name"/>
+                  <input id="workflow-name" name="workflow-name" type="text" placeholder="workflow name"/>
+
+                  <label for="workflow-desc" class="control-label">Desc</label>
+            <input id="workflow-desc" name="workflow-desc" type="text" placeholder="workflow desc"/>
 
                     <div class="checkbox">
                         <label>
@@ -61,6 +64,40 @@
              </p>
         </div>
       </div>
+
+
+        <!-- workflow list -->
+      <div id="workflow-list">
+        <table class="table table-condensed table-hover table-striped">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Enabled</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-workflow-id="1" class="workflow-row">
+              <td class="workflow-id">ID for workflow 1</td>
+              <td class="workflow-name">Workflow Name 1</td>
+              <td class="workflow-is-enabled">true</td>
+              <td class="workflow-trigger-now">
+                <button type="button" class="btn btn-default btn-sm">Trigger</button>
+              </td>
+            </tr>
+            <tr data-workflow-id="2" class="workflow-row">
+              <td class="workflow-id">ID for workflow 2</td>
+              <td class="workflow-name">Workflow Name 2</td>
+              <td class="workflow-is-enabled">true</td>
+              <td class="workflow-trigger-now">
+                <button type="button" class="btn btn-default btn-sm">Trigger</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+    </div>
+
 
 
     </body>

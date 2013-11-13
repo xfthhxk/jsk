@@ -6,6 +6,10 @@ tr.job-row {
   cursor: pointer;
 }
 
+tr.workflow-row {
+  cursor: pointer;
+}
+
 div.bottom-justify {
   position: absolute;
   bottom: 0;

@@ -108,8 +108,10 @@
 ; Connections
 ;-----------------------------------------------------------------------
 (defn connect
-  [data]
-  (-> js-plumb (.connect (clj->js data))))
+  ([src tgt]
+   (connect {:source src :target tgt}))
+  ([data]
+   (-> js-plumb (.connect (clj->js data)))))
 
 
 ;-----------------------------------------------------------------------

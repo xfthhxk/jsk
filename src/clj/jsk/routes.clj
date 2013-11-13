@@ -6,6 +6,7 @@
             [cemerick.friend :as friend]
             [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
+            [jsk.workflow :as w]
             [jsk.quartz :as q]
             [jsk.schedule :as s]))
 
@@ -104,14 +105,18 @@
 ;-----------------------------------------------------------------------
 (defroutes workflow-routes
   (GET "/workflows" []
-       (edn-response (s/ls-schedules)))
+       (edn-response (w/ls-workflows)))
 
   (GET "/workflows/:id" [id]
-       (-> id s/get-schedule edn-response))
+       (-> id w/get-workflow edn-response))
+
+  (GET "/workflows/graph/:id" [id]
+       (-> id w/workflow-graph edn-response))
+
 
   (POST "/workflows/save" [_ :as request]
        (info "workflow save: " (:params request))
-       (-> (:params request) (s/save-schedule! (uid request)) edn-response)))
+       (-> (:params request) (w/save-workflow! (uid request)) edn-response)))
 
 
 ;-----------------------------------------------------------------------

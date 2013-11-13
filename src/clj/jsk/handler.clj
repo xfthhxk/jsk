@@ -247,9 +247,9 @@
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
-             wrap-jsk-user-in-session
-             make-friend-auth
-             wrap-api-unauthenticated
+             ; wrap-jsk-user-in-session
+             ; make-friend-auth
+             ; wrap-api-unauthenticated
              ch/site
              wrap-dir-index
              (wrap-resource "public")

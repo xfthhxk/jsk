@@ -11,6 +11,11 @@
 (defn element-by-id [id]
   (.getElementById js/document id))
 
+(defn element-exists? [id]
+  (if (element-by-id id) true false))
+
+(def element-not-exists? (complement element-exists?))
+
 ; extract the element that raised the event
 (defn event-source [event]
   (.-currentTarget event))

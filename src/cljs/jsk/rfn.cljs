@@ -52,5 +52,15 @@
 ;----------------------------------------------------------------------
 ; Workflow functions
 ;----------------------------------------------------------------------
+(defn fetch-all-workflows []
+  (rpc/GET "/workflows"))
+
+(defn fetch-workflow-details [id]
+  (rpc/GET (str "/workflows/" id)))
+
+(defn fetch-workflow-graph [id]
+  (rpc/GET (str "/workflows/graph/" id)))
+
 (defn save-workflow [data]
   (rpc/POST "/workflows/save" data))
+
