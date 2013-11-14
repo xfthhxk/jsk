@@ -156,10 +156,21 @@
 ;-----------------------------------------------------------------------
 ; Schedule job to be triggered now.
 ;-----------------------------------------------------------------------
-(defn trigger-now [job-id]
-  (info "Triggering job " job-id " right now.")
-  (run-job-now (make-job-key job-id))
-  true)
+(defn trigger-job-now [job-id]
+  (run-job-now (make-job-key job-id)))
+
+;-----------------------------------------------------------------------
+; Input map is something like:
+;
+; {:roots #{2}, :table {2 {true #{1 3}}}}
+;
+; This is a workflow made of 3 jobs and terminates
+; with the execution of 1 and 3.
+;-----------------------------------------------------------------------
+(defn trigger-workflow-now
+  [wf-id {:keys [roots table]}]
+  (info "workflow id " wf-id " has roots " roots)
+  (info "workflow id " wf-id " table " table))
 
 
 

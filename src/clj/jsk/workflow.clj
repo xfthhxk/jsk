@@ -1,7 +1,8 @@
 (ns jsk.workflow
-  (:require [taoensso.timbre :as timbre :refer (info warn error)]
+  (:require [taoensso.timbre :as timbre :refer (debug info warn error)]
             [bouncer [core :as b] [validators :as v]]
             [clojure.stacktrace :as st]
+            [jsk.graph :as g]
             [jsk.quartz :as q]
             [jsk.schedule :as s]
             [jsk.util :as ju]
@@ -49,8 +50,8 @@
     true))
 
 
-(defn workflow-graph
-  "Answers with an IDigraph for the workflow id specified."
+(defn workflow-nodes
+  "Returns a seq of maps."
   [id]
   (db/get-workflow-graph id))
 
@@ -102,4 +103,75 @@
   (if-let [errors (validate-save workflow)]
     (ju/make-error-response errors)
     (save-workflow* workflow layout user-id)))
+
+;-----------------------------------------------------------------------
+; Produce the graph and make usable for quartz.
+;-----------------------------------------------------------------------
+(defn- data->digraph
+  "Generates a digraph."
+  [data]
+  (reduce (fn[graph {:keys[from-node-id to-node-id]}]
+            (g/add-edge graph from-node-id to-node-id))
+            {} data))
+
+(defn- data->node-table
+  "Generates a map keyed by node ids. The value is another map
+   with two keys :success and :fail each which points to a set
+   of nodes to execute when the job succeeds or fails.
+   e.g. {1 {true #{2 3} false #{4}}}
+
+   input: {:from-node-id 1 :to-node-id 2 :success true}
+   output: {1 {true #{2}}}
+
+  NB. Only jobs that kick off other jobs will be keys."
+  [data]
+  (reduce (fn[ans {:keys[from-node-id to-node-id success]}]
+            (update-in ans
+                       [from-node-id success]
+                       (fn [s id] (if s (conj s id) #{id})) to-node-id)) ; s is a set or nil
+          {}
+          data))
+
+
+
+(defn workflow-data
+  "For the given workflow id, answers with a map with the keys
+   :roots and :table.  :roots is a set of node ids which represent
+   the start of the workflow.  :table is a map keyed by node ids.
+   example table {1 {true #{2 3} false #{4}}} where 1 is the node-id,
+   the set #{2 3} are the next nodes to execute when node 1 finishes
+   successfully. #{4} is to be executed when 1 errors.
+   Asserts the workflow is an acyclic digraph; otherwise, it may
+   never terminate."
+  [id]
+  (let [data (workflow-nodes id)
+        digraph (data->digraph data)
+        tbl (data->node-table data)]
+
+    (if (-> digraph g/acyclic? not)
+      (throw (IllegalStateException. "Cyclic graphs disallowed")))
+
+    {:roots (g/roots digraph) :table tbl}))
+
+
+;-----------------------------------------------------------------------
+; Trigger now
+;-----------------------------------------------------------------------
+(defn trigger-now [wf-id]
+  (info "Triggering workflow right now with id " wf-id)
+  (try
+    (let [wf-data (workflow-data wf-id)]
+      (q/trigger-workflow-now wf-id wf-data)
+      true)
+    (catch Exception e
+      (error e)
+      false)))
+
+
+
+
+
+
+
+
 

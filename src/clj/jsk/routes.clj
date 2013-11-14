@@ -70,11 +70,11 @@
   (GET "/jobs/:id" [id]
        (-> id j/get-job edn-response))
 
-  (GET "/jobs/:id/sched-assoc" [id]
+  (GET "/jobs/sched-assoc/:id" [id]
        (-> id j/schedules-for-job edn-response))
 
-  (GET "/jobs/:id/trigger-now" [id]
-       (-> id q/trigger-now edn-response))
+  (GET "/jobs/trigger-now/:id" [id]
+       (-> id j/trigger-now edn-response))
 
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) (j/save-job! (uid request)) edn-response))
@@ -111,8 +111,10 @@
        (-> id w/get-workflow edn-response))
 
   (GET "/workflows/graph/:id" [id]
-       (-> id w/workflow-graph edn-response))
+       (-> id w/workflow-nodes edn-response))
 
+  (GET "/workflows/trigger-now/:id" [id]
+       (-> id w/trigger-now edn-response))
 
   (POST "/workflows/save" [_ :as request]
        (info "workflow save: " (:params request))

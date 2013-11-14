@@ -94,7 +94,11 @@
        (show-save-success)
        (u/display-errors (-> errors vals flatten))))))
 
-(defn trigger-workflow-now [event])
+(defn trigger-workflow-now [e]
+  (.stopPropagation e)
+  (let [source (u/event-source e)
+        wf-id (ef/from source (ef/get-attr :data-workflow-id))]
+    (rfn/trigger-workflow-now wf-id)))
 
 
 (defn show-workflow-edit [w])

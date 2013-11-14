@@ -11,7 +11,7 @@
 ; Job functions
 ;----------------------------------------------------------------------
 (defn trigger-job-now [job-id]
-  (let [url (str "/jobs/" job-id "/trigger-now")]
+  (let [url (str "/jobs/trigger-now/" job-id)]
     (rpc/GET url)))
 
 
@@ -32,7 +32,7 @@
 
 
 (defn fetch-schedule-associations [job-id]
-  (rpc/GET (str "/jobs/" job-id "/sched-assoc")))
+  (rpc/GET (str "/jobs/sched-assoc/" job-id)))
 
 (defn save-job-schedule-associations [data]
   (rpc/POST "/jobs/assoc" data))
@@ -64,3 +64,6 @@
 (defn save-workflow [data]
   (rpc/POST "/workflows/save" data))
 
+(defn trigger-workflow-now [wf-id]
+  (let [url (str "/workflows/trigger-now/" wf-id)]
+    (rpc/GET url)))

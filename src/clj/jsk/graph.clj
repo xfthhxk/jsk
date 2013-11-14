@@ -92,7 +92,7 @@
 
 
   (roots [g]
-    (filter #(->> %1 (inbound g) empty?) (vertices g)))
+    (into #{} (filter #(->> %1 (inbound g) empty?) (vertices g))))
 
 
   (acyclic? [g]

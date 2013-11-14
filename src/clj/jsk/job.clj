@@ -139,3 +139,9 @@
     (db/dissoc-schedules! job-id schedule-ids user-id)
     (info "job schedule dissociations complete for job-id: " job-id)
     true))
+
+
+(defn trigger-now [job-id]
+  (info "Triggering job " job-id " right now.")
+  (q/trigger-job-now job-id)
+  true)
