@@ -3,6 +3,7 @@
     <legend>Job Definition</legend>
 
     <input type="hidden" name="job-id" id="job-id" value=""/>
+    <input type="hidden" name="agent-id" id="agent-id" value="1"/>
 
     <div class="form-group">
       <label for="job-id-lbl" class="col-lg-2 control-label">ID</label>
@@ -49,6 +50,21 @@
         </div>
       </div>
     </div>
+
+    <div class="form-group">
+      <label for="max-concurrent" class="col-lg-2 control-label">Max Concurrent (int)</label>
+      <div class="col-lg-10">
+        <input type="text" class="form-control" name="max-concurrent" id="max-concurrent"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="max-retries" class="col-lg-2 control-label">Max Retries (int)</label>
+      <div class="col-lg-10">
+        <input type="text" class="form-control" name="max-retries" id="max-retries"/>
+      </div>
+    </div>
+
 
   </fieldset>
 </form>

@@ -6,7 +6,8 @@
             [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as db]
-            [clojure.core.async :refer [put!]])
+            [clojure.core.async :refer [put!]]
+            [korma.db :as k])
   (:use [swiss-arrows core]))
 
 ;-----------------------------------------------------------------------
@@ -82,23 +83,6 @@
   (db/schedules-for-job job-id))
 
 
-;-----------------------------------------------------------------------
-; Deletes from job-schedule all rows matching job-schedule-ids
-; Also removes from quartz all jobs matching the job-schedule-id
-; ie the triggers IDd by job-scheduler-id
-;-----------------------------------------------------------------------
-(defn- rm-job-schedules! [job-schedule-ids]
-  (info "Removing job-schedule associations for the following PK: " job-schedule-ids)
-  (q/rm-triggers! job-schedule-ids)
-  (db/rm-job-schedules! job-schedule-ids))
-
-;-----------------------------------------------------------------------
-; Deletes from quartz and job-schedule table.
-;-----------------------------------------------------------------------
-(defn rm-schedules-for-job! [job-id]
-  (info "Removing job-schedule associations for job id: " job-id)
-  (-> job-id db/job-schedules-for-job rm-job-schedules!))
-
 (defn- get-job-schedule-info [job-id]
   (db/get-job-schedule-info job-id))
 
@@ -107,7 +91,6 @@
   (info "Creating triggers for job " job-id)
   (let [schedules (get-job-schedule-info job-id)]
     (q/schedule-cron-job! job-id schedules)))
-
 
 ;-----------------------------------------------------------------------
 ; Associates a job to a set of schedule-ids.
@@ -118,30 +101,15 @@
     (assoc-schedules! job-id schedule-ids user-id))
 
   ([job-id schedule-ids user-id]
-     (info "user-id " user-id " requests job-id " job-id " be associated with schedules " schedule-ids)
+     (let [job-schedule-ids (db/job-schedules-for-job job-id)]
+       (info "user-id " user-id " requests job-id " job-id " be associated with schedules " schedule-ids)
 
-     (db/assoc-schedules! job-id schedule-ids user-id)
-     (create-triggers job-id)
+       (k/transaction
+         (db/rm-job-schedules! job-schedule-ids)
+         (db/assoc-schedules! job-id schedule-ids user-id))
 
-     (info "job schedule associations made for job-id: " job-id)
-     true))
+       (q/rm-triggers! job-schedule-ids)
+       (create-triggers job-id)          ; add new schedules if any
 
-;-----------------------------------------------------------------------
-; Disassociates schedule-ids from a job.
-; schedule-ids is a set of integer ids
-;-----------------------------------------------------------------------
-(defn dissoc-schedules!
-  ([{:keys [job-id schedule-ids]} user-id]
-   (dissoc-schedules! job-id schedule-ids user-id))
-
-  ([job-id schedule-ids user-id]
-    (info "user-id " user-id " requests job-id " job-id " be dissociated from schedules " schedule-ids)
-    (db/dissoc-schedules! job-id schedule-ids user-id)
-    (info "job schedule dissociations complete for job-id: " job-id)
-    true))
-
-
-(defn trigger-now [job-id]
-  (info "Triggering job " job-id " right now.")
-  (q/trigger-job-now job-id)
-  true)
+       (info "job schedule associations made for job-id: " job-id)
+       true)))

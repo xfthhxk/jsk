@@ -273,20 +273,20 @@
 ;  :success true
 ;  :to-node-id 2
 ;  :from-node-id 1}
-(defn- add-one-edge [{:keys[from-node-id to-node-id from-node-layout to-node-layout success]}]
-  (let [from-div-id (job-id->div-id from-node-id)
-        to-div-id   (job-id->div-id to-node-id)]
+(defn- add-one-edge [{:keys[src-id dest-id src-layout dest-layout success]}]
+  (let [src-div-id (job-id->div-id src-id)
+        dest-div-id   (job-id->div-id dest-id)]
 
-    (when (u/element-not-exists? from-div-id)
-      (designer-add-job* from-node-id from-node-layout))
+    (when (u/element-not-exists? src-div-id)
+      (designer-add-job* src-id src-layout))
 
-    (when (u/element-not-exists? to-div-id)
-      (designer-add-job* to-node-id to-node-layout))
+    (when (u/element-not-exists? dest-div-id)
+      (designer-add-job* dest-id dest-layout))
 
   (let [id-mkr (if success job-id->success-ep-id job-id->fail-ep-id)
-        from-ep-id (id-mkr from-node-id)]
-    (u/log (str "making connection from: " from-ep-id ", to: " to-div-id))
-    (plumb/connect from-ep-id to-div-id))))
+        src-ep-id (id-mkr src-id)]
+    (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
+    (plumb/connect src-ep-id dest-div-id))))
 
 (defn- reconstruct-ui [data]
   (doseq [m data]

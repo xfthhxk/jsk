@@ -6,6 +6,7 @@
             [cemerick.friend :as friend]
             [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
+            [jsk.conductor :as conductor]
             [jsk.workflow :as w]
             [jsk.quartz :as q]
             [jsk.schedule :as s]))
@@ -74,17 +75,15 @@
        (-> id j/schedules-for-job edn-response))
 
   (GET "/jobs/trigger-now/:id" [id]
-       (-> id j/trigger-now edn-response))
+       (-> id conductor/trigger-job-now edn-response))
 
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) (j/save-job! (uid request)) edn-response))
 
   (POST "/jobs/assoc" [_ :as request]
         (info "request is: " request)
-        (-> (:edn-params request) (j/assoc-schedules! (uid request)) edn-response))
+        (-> (:edn-params request) (j/assoc-schedules! (uid request)) edn-response)))
 
-  (DELETE "/jobs/dissoc" [_ :as request]
-        (-> (:params request) (j/dissoc-schedules! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to schedules
@@ -114,7 +113,7 @@
        (-> id w/workflow-nodes edn-response))
 
   (GET "/workflows/trigger-now/:id" [id]
-       (-> id w/trigger-now edn-response))
+       (-> id conductor/trigger-workflow-now edn-response))
 
   (POST "/workflows/save" [_ :as request]
        (info "workflow save: " (:params request))

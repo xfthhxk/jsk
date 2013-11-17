@@ -110,29 +110,53 @@
 (defn- data->digraph
   "Generates a digraph."
   [data]
-  (reduce (fn[graph {:keys[from-node-id to-node-id]}]
-            (g/add-edge graph from-node-id to-node-id))
+  (reduce (fn[graph {:keys[src-id dest-id]}]
+            (g/add-edge graph src-id dest-id))
             {} data))
+
+(defn- data->base-node-table
+  "Answers with a map keyed by node ids. Value for each
+   is a map with keys :on-success and :on-fail both initailized
+   to empty sets."
+  [data]
+  (let [nn (reduce (fn [ans {:keys[src-id dest-id]}]
+                     (into ans [src-id dest-id]))  #{} data)]
+    (reduce (fn[ans id]
+              (assoc ans id {:on-success #{} :on-fail #{}})) {} nn)))
 
 (defn- data->node-table
   "Generates a map keyed by node ids. The value is another map
-   with two keys :success and :fail each which points to a set
-   of nodes to execute when the job succeeds or fails.
-   e.g. {1 {true #{2 3} false #{4}}}
+   with two keys true and false each which points to a set
+   of nodes to execute when the job succeeds or fails respectively.
+   e.g. {1 {:on-success #{2 3} :on-fail #{4}}}
 
-   input: {:from-node-id 1 :to-node-id 2 :success true}
-   output: {1 {true #{2}}}
+   input: {:src-id 1 :dest-id 2 :success true}
+   output: {1 {:on-success #{2} :on-fail #{}}}"
 
-  NB. Only jobs that kick off other jobs will be keys."
   [data]
-  (reduce (fn[ans {:keys[from-node-id to-node-id success]}]
-            (update-in ans
-                       [from-node-id success]
-                       (fn [s id] (if s (conj s id) #{id})) to-node-id)) ; s is a set or nil
-          {}
+  (reduce (fn[ans {:keys[src-id dest-id success]}]
+            (let [kw (if success :on-success :on-fail)]
+              (update-in ans [src-id kw] conj dest-id)))
+          (data->base-node-table data)
           data))
 
+(defn- execution-data->node-table
+  "Reads from the snapshot execution data that has execution information
+   also.  Extra data can be used to recover from a crash/rerun only failed
+   or not yet run jobs etc."
+  [data]
+  (reduce (fn[ans {:keys[src-id  src-type  src-status-id  src-exec-vertex-id
+                         dest-id dest-type dest-status-id dest-exec-vertex-id]}]
 
+            (-> ans (update-in [src-id]  merge {:node-type src-type
+                                                :status src-status-id
+                                                :exec-vertex-id src-exec-vertex-id})
+
+                    (update-in [dest-id] merge {:node-type dest-type
+                                                :status dest-status-id
+                                                :exec-vertex-id dest-exec-vertex-id})))
+        (data->node-table data)
+        data))
 
 (defn workflow-data
   "For the given workflow id, answers with a map with the keys
@@ -153,21 +177,21 @@
 
     {:roots (g/roots digraph) :table tbl}))
 
+(defn workflow-execution-data [exec-id]
+  (let [data (db/get-execution-graph exec-id)
+        digraph (data->digraph data)
+        tbl (execution-data->node-table data)]
 
-;-----------------------------------------------------------------------
-; Trigger now
-;-----------------------------------------------------------------------
-(defn trigger-now [wf-id]
-  (info "Triggering workflow right now with id " wf-id)
-  (try
-    (let [wf-data (workflow-data wf-id)]
-      (q/trigger-workflow-now wf-id wf-data)
-      true)
-    (catch Exception e
-      (error e)
-      false)))
+    (if (-> digraph g/acyclic? not)
+      (throw (IllegalStateException. "Cyclic graphs disallowed")))
+
+    {:roots (g/roots digraph) :table tbl :execution-id exec-id}))
 
 
+
+(defn setup-execution [wf-id]
+  (let [{:keys [execution-id]} (db/workflow-started wf-id)]
+    (workflow-execution-data execution-id)))
 
 
 

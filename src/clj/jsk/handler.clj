@@ -2,6 +2,7 @@
   "JSK handler"
   (:require
             [jsk.conf :as conf]
+            [jsk.conductor :as conductor]
             [jsk.db :as db]
             [jsk.routes :as routes]
             [jsk.ps :as ps]
@@ -36,6 +37,9 @@
 ; how do we know when they disconnect.
 (def ws-connect-channel (chan))
 
+; Channel used to communicate with the conductor.
+(def conductor-channel (chan))
+
 (defn notify-error [{:keys [job-name execution-id error]}]
   (if error
     (let [to (conf/error-email-to)
@@ -50,10 +54,11 @@
 
 
 (defn- setup-job-execution-recorder []
-  (let [job-event-ch (chan)
-        job-recorder (execution/make-job-recorder "JSK-Job-Execution-Listener" job-event-ch)]
+  (let [job-event-ch (chan)]
 
-    (q/register-job-execution-recorder! job-recorder)
+    (execution/register-event-channel! job-event-ch)
+    (q/register-job-execution-recorder!
+      (execution/make-job-recorder "JSK-Job-Execution-Listener"))
 
     (go-loop [exec-map (<! job-event-ch)]
       ;(info "Read from execution event channel: " exec-map)
@@ -135,7 +140,9 @@
   (n/init)
   (info "Notifications initialized.")
 
-  (q/init)
+  (conductor/init conductor-channel)
+
+  (q/init conductor-channel)
   (info "Quartz initialized.")
 
   (setup-job-execution-recorder)

@@ -50,6 +50,9 @@
   "#job-desc"                (ef/content (:job-desc j))
   "#execution-directory"     (ef/set-attr :value (:execution-directory j))
   "#command-line"            (ef/content (:command-line j))
+  "#agent-id"                (ef/set-attr :value "1") ; FIXME: hardcoded
+  "#max-concurrent"          (ef/set-attr :value "1") ; FIXME: hardcoded
+  "#max-retries"             (ef/set-attr :value "1") ; FIXME: hardcoded
   "#is-enabled"              (ef/do->
                                (ef/set-prop "checked" (:is-enabled j)
                                (ef/set-attr :value (str (:is-enabled j)))))
@@ -79,7 +82,8 @@
     (let [form (ef/from "#job-save-form" (ef/read-form))
           data (ju/update-str->int form :job-id)
           data1 (assoc data :is-enabled (ju/element-checked? "is-enabled"))
-          job-id (<! (rfn/save-job data1))]
+          data2 (merge data1 {:max-concurrent 1 :max-retries 1 :agent-id 1})
+          job-id (<! (rfn/save-job data2))]
       (ju/log (str "Job saved with id " job-id))
       (show-jobs))))
 

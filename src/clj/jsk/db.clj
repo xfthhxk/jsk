@@ -35,7 +35,7 @@
 
 (defentity job
   (pk :job-id)
-  (entity-fields :job-id :execution-directory :command-line))
+  (entity-fields :job-id :execution-directory :command-line :agent-id :max-concurrent :max-retries))
 
 (defentity workflow
   (pk :workflow-id)
@@ -58,6 +58,9 @@
       (fields :job-id
               :execution-directory
               :command-line
+              :agent-id
+              :max-concurrent
+              :max-retries
               :node.is-enabled
               :node.created_at
               :node.create-user-id
@@ -70,6 +73,7 @@
   (-> (select* workflow)
       (fields :workflow-id
               :node.is-enabled
+              :node.is-system
               :node.created_at
               :node.create-user-id
               :node.updated_at
@@ -164,6 +168,7 @@
               :node-desc node-desc
               :node-type-id type-id
               :is-enabled   enabled?
+              :is-system false           ; system nodes should just be added via sql
               :create-user-id user-id
               :update-user-id user-id}]
     (-> (insert node (values data))
@@ -188,13 +193,17 @@
 ; Insert a job. Answers with the inserted job's row id.
 ;-----------------------------------------------------------------------
 (defn- insert-job! [m user-id]
-  (let [{:keys [job-name job-desc is-enabled execution-directory command-line]} m
-        node-id (insert-job-node! job-name job-desc is-enabled user-id)
-        data {:execution-directory execution-directory
-              :command-line command-line
-              :job-id node-id}]
-    (insert job (values data))
-    node-id))
+  (transaction
+    (let [{:keys [job-name job-desc is-enabled execution-directory command-line max-concurrent max-retries agent-id]} m
+          node-id (insert-job-node! job-name job-desc is-enabled user-id)
+          data {:execution-directory execution-directory
+                :command-line command-line
+                :job-id node-id
+                :agent-id agent-id
+                :max-concurrent max-concurrent
+                :max-retries max-retries}]
+      (insert job (values data))
+      node-id)))
 
 
 ;-----------------------------------------------------------------------
@@ -202,12 +211,15 @@
 ; Answers with the job-id if update is successful.
 ;-----------------------------------------------------------------------
 (defn- update-job! [m user-id]
-  (let [{:keys [job-id job-name job-desc is-enabled execution-directory command-line]} m
+  (let [{:keys [job-id job-name job-desc is-enabled execution-directory command-line max-concurrent max-retries]} m
         data {:execution-directory execution-directory
-              :command-line command-line}]
-    (update-node! job-id job-name job-desc is-enabled user-id)
-    (update job (set-fields data)
-      (where {:job-id job-id}))
+              :command-line command-line
+              :max-concurrent max-concurrent
+              :max-retries max-retries}]
+    (transaction
+      (update-node! job-id job-name job-desc is-enabled user-id)
+      (update job (set-fields data)
+        (where {:job-id job-id})))
     job-id))
 
 (defn save-job [{:keys [job-id] :as j} user-id]
@@ -281,24 +293,8 @@
     (let [schedule-id-set (set schedule-ids)
           data {:job-id job-id :create-user-id user-id}
           insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) schedule-id-set)]
-
-      (transaction
-        (rm-schedules-for-job! job-id) ; delete all existing entries for the job
-        (if (not (empty? insert-maps))
-          (insert job-schedule (values insert-maps)))))))
-
-;-----------------------------------------------------------------------
-; Disassociates schedule-ids from a job.
-; schedule-ids is a set of integer ids
-;-----------------------------------------------------------------------
-(defn dissoc-schedules!
-  ([{:keys [job-id schedule-ids]} user-id]
-   (dissoc-schedules! job-id schedule-ids user-id))
-
-  ([job-id schedule-ids user-id]
-    (delete job-schedule
-      (where {:job-id job-id
-              :schedule-id [in schedule-ids]}))))
+      (if (not (empty? insert-maps))
+        (insert job-schedule (values insert-maps))))))
 
 
 ;-----------------------------------------------------------------------
@@ -354,15 +350,15 @@
   [id]
   (exec-raw
    ["select
-            fv.node_id      as from_node_id
-          , tv.node_id      as to_node_id
+            fv.node_id      as src_id
+          , tv.node_id      as dest_id
           , e.success
-          , fn.node_name    as from_node_name
-          , fn.node_type_id as from_node_type_id
-          , tn.node_name    as to_node_name
-          , tn.node_type_id as to_node_type_id
-          , fv.layout       as from_node_layout
-          , tv.layout       as to_node_layout
+          , fn.node_name    as src_name
+          , fn.node_type_id as src_type
+          , tn.node_name    as dest_name
+          , tn.node_type_id as dest_type
+          , fv.layout       as src_layout
+          , tv.layout       as dest_layout
        from workflow_vertex fv
        join workflow_edge  e
          on fv.workflow_vertex_id = e.vertex_id
@@ -381,41 +377,157 @@
 ; schedule-ids is a set of integer ids
 ;-----------------------------------------------------------------------
 ; These are tied to what is in the job_execution_status table
-(def started-status 1)
-(def finished-success 2)
-(def finished-error 3)
+(def unexecuted-status 1)
+(def started-status 2)
+(def finished-success 3)
+(def finished-error 4)
+(def aborted-status 5)
 
-(defentity job-execution
-  (pk :job-execution-id)
-  (entity-fields :job-id :execution-status-id :started-at :finished-at))
+(defentity execution
+  (pk :execution-id)
+  (entity-fields :workflow-id :status-id :started-at :finished-at))
 
-(defn- job-started*
-  "Creates a row in the job_execution table and returns the id
+(defentity execution-vertex
+  (pk :execution-vertex-id)
+  (entity-fields :execution-id :node-id :status-id :started-at :finished-at))
+
+(defn- snapshot-workflow
+  "Creates a snapshot of the workflow vertices and edges to allow tracking
+   for a particular execution."
+  [execution-id wf-id]
+
+  (exec-raw
+   ["insert into execution_vertex (execution_id, node_id, status_id, layout)
+       select ?, wv.node_id, ?, wv.layout
+         from workflow_vertex wv
+        where wv.workflow_id = ?" [execution-id unexecuted-status wf-id]])
+
+  (exec-raw
+   ["insert into execution_edge (execution_id, vertex_id, next_vertex_id, success)
+       select
+              ef.execution_id
+            , ef.execution_vertex_id
+            , et.execution_vertex_id
+            , e.success
+         from workflow_vertex f
+         join workflow_edge   e
+           on f.workflow_vertex_id = e.vertex_id
+         join workflow_vertex t
+           on e.next_vertex_id = t.workflow_vertex_id
+         join execution_vertex ef
+           on f.node_id = ef.node_id
+         join execution_vertex et
+           on t.node_id = et.node_id
+       where f.workflow_id = t.workflow_id
+         and f.workflow_id = ?
+         and ef.execution_id = et.execution_id
+         and ef.execution_id = ? " [wf-id execution-id]]))
+
+(defn- workflow-started*
+  "Creates a row in the execution table and returns the id
    of the newly created row."
-  [job-id started-at]
-  (-> (insert job-execution
-        (values {:job-id job-id
-                 :execution-status-id started-status
+  [wf-id started-at]
+  (-> (insert execution
+        (values {:workflow-id wf-id
+                 :status-id started-status
                  :started-at started-at}))
       extract-identity))
 
-
-(defn job-started
+(defn workflow-started
   "Returns a map with keys: :event, :execution-id and :ts"
-  [job-id]
+  [wf-id]
   (let [ts (now)
-        execution-id (job-started* job-id ts)
-        job-name (get-job-name job-id)]
+        execution-id (workflow-started* wf-id ts)
+        wf-name (get-workflow-name wf-id)]
+
+    (snapshot-workflow execution-id wf-id)
+
     {:event :start
      :execution-id execution-id
      :start-ts ts
-     :job-id job-id
-     :job-name job-name}))
+     :workflow-id wf-id
+     :workflow-name wf-name}))
 
-(defn job-finished [job-execution-id success? finished-ts]
-  "Marks the job as finished and sets the status."
+(defn execution-vertices
+  "Answers with all rows which represent vertices for this execution graph."
+  [exec-id]
+  (select execution-vertices (where {:execution-id exec-id})))
+
+(defn get-execution-graph
+  "Gets the edges for the workflow execution specified."
+  [id]
+  (exec-raw
+   ["select
+            fv.node_id             as src_id
+          , fv.status_id           as src_status_id
+          , fv.started_at          as src_started_at
+          , fv.finished_at         as src_finished_at
+          , fv.execution_vertex_id as src_exec_vertex_id
+          , tv.node_id             as dest_id
+          , tv.status_id           as dest_status_id
+          , tv.started_at          as dest_started_at
+          , tv.finished_at         as dest_finished_at
+          , tv.execution_vertex_id as dest_exec_vertex_id
+          , e.success
+          , fn.node_name           as src_name
+          , fn.node_type_id        as src_type
+          , tn.node_name           as dest_name
+          , tn.node_type_id        as dest_type
+          , fv.layout              as src_layout
+          , tv.layout              as dest_layout
+       from execution ex
+       join execution_vertex fv
+         on ex.execution_id = fv.execution_id
+       join execution_edge  e
+         on fv.execution_vertex_id = e.vertex_id
+       join execution_vertex tv
+         on e.next_vertex_id = tv.execution_vertex_id
+       join node fn
+         on fv.node_id = fn.node_id
+       join node tn
+         on tv.node_id = tn.node_id
+      where
+            ex.execution_id = ?" [id]] :results))
+
+
+(defn workflow-finished [execution-id success? finished-ts]
+  "Marks the workflow as finished and sets the status."
 
   (let [status (if success? finished-success finished-error)]
-    (update job-execution
-      (set-fields {:execution-status-id status :finished-at finished-ts})
-      (where {:job-execution-id job-execution-id}))))
+    (update execution
+      (set-fields {:status-id status :finished-at finished-ts})
+      (where {:execution-id execution-id}))))
+
+
+(defn execution-vertex-started [exec-vertex-id]
+  (update execution-vertex
+    (set-fields {:status-id started-status :started-at (now)})
+    (where {:execution-vertex-id exec-vertex-id})))
+
+(defn execution-vertex-finished [exec-vertex-id status-id]
+  (update execution-vertex
+    (set-fields {:status-id status-id :finished-at (now)})
+    (where {:execution-vertex-id exec-vertex-id})))
+
+
+
+
+(def counter (atom 1))
+
+(defn job-started [job-id]
+  (info "job-started with id: " job-id)
+  {:execution-id (swap! counter inc)})
+
+(defn job-finished [exec-id success? finish-ts]
+  (info "job finished. exec-id: " exec-id))
+
+
+
+
+
+
+
+
+
+
+

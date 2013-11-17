@@ -2,6 +2,7 @@
   "JSK quartz"
   (:require [jsk.ps :as ps]
             [jsk.conf :as conf]
+            [clojure.core.async :refer [put!]]
             [taoensso.timbre :as timbre
              :refer (trace debug info warn error fatal spy with-log-level)]
             [clojurewerkz.quartzite.scheduler :as qs]
@@ -33,14 +34,13 @@
   [^TriggerBuilder tb ^JobKey job-key]
   (.forJob tb job-key))
 
-(defn- run-job-now [^JobKey job-key]
-  (.triggerJob ^Scheduler @qs/*scheduler* job-key))
-
-
-(defn- make-job-key [id]
+(defn make-job-key [id]
   (j/key (str id) "jsk-job"))
 
-(defn- make-trigger-key [id]
+(defn make-trigger-job-key [id]
+  (j/key (str id) "jsk-trigger-job"))
+
+(defn make-trigger-key [id]
   (t/key (str id) "jsk-trigger"))
 
 ;-----------------------------------------------------------------------
@@ -55,7 +55,10 @@
 (defn register-job-execution-recorder! [job-execution-recorder]
   (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener job-execution-recorder (EverythingMatcher/allJobs))))
 
-(defn init []
+(def conductor-channel (atom nil))
+
+(defn init [conductor-ch]
+  (reset! conductor-channel conductor-ch)
   (qs/initialize))
 
 (defn start []
@@ -65,6 +68,15 @@
   (qs/shutdown))
 
 
+(defn ignore-execution?
+  "Answers if the execution should be ignored. Quartz triggers are used
+   to put msgs on the conductor-channel.  Quartz triggered jobs will
+   have this property set to true. Not a 'real' job being executed."
+  [^JobExecutionContext ctx]
+  (let [{:strs [ignore-execution?]} (qc/from-job-data ctx)]
+    (if ignore-execution?
+      true
+      false)))
 
 
 ;-----------------------------------------------------------------------
@@ -81,21 +93,40 @@
 
 
 ;-----------------------------------------------------------------------
+; This is what actually gets registered with quartz.  This job
+; puts a message on the conductor's queue which then actually
+; triggers the job.
+;-----------------------------------------------------------------------
+(j/defjob JskTriggerJob
+  [ctx]
+  (let [{:strs [job-id]} (qc/from-job-data ctx)]
+    (put! @conductor-channel {:event :trigger-job :job-id job-id})))
+
+
+;-----------------------------------------------------------------------
 ; Creates a ShellJob instance by specifying JobData
 ; ie the arguments and the key
 ;
 ; Returns a job instance
 ;-----------------------------------------------------------------------
 (defn- make-shell-job
-  ([job-id cmd-line exec-dir]
-   (let [job-map {"cmd-line" cmd-line "exec-dir" exec-dir} ; have to use string keys for quartz
-         job-key (make-job-key job-id)]
+  [job-id cmd-line exec-dir]
+    (let [job-map {"cmd-line" cmd-line "exec-dir" exec-dir} ; have to use string keys for quartz
+          job-key (make-job-key job-id)]
 
-     ; NB. j/build is a macro which creates and passes a job builder in using ->
-     (j/build (j/of-type ShellJob)
-              (j/using-job-data job-map)
-              (j/with-identity job-key)
-              (j/store-durably)))))
+      ; NB. j/build is a macro which creates and passes a job builder in using ->
+      (j/build (j/of-type ShellJob)
+               (j/using-job-data job-map)
+               (j/with-identity job-key)
+               (j/store-durably))))
+
+(defn- make-triggerable-job [job-id]
+  (j/build (j/of-type JskTriggerJob)
+           (j/using-job-data {"job-id" job-id "ignore-execution?" true}) ; string keys for quartz
+           (j/with-identity (make-trigger-job-key job-id))
+           (j/store-durably)))
+
+
 
 
 ;-----------------------------------------------------------------------
@@ -118,7 +149,10 @@
 
   (let [cron-sched (cron/schedule (cron/cron-schedule cron-expr))
         trigger-key (make-trigger-key trigger-id)
-        job-key (make-job-key job-id)]
+        job-key (make-trigger-job-key job-id)]
+
+    (add-job (make-triggerable-job job-id))
+
     (t/build
      (t/with-identity trigger-key)
      (trigger-for-job-key job-key)
@@ -152,25 +186,19 @@
 
 
 
+;-----------------------------------------------------------------------
+; WORKFLOW
+;-----------------------------------------------------------------------
+(defn register-workflow
+  "Registers the workflow with jsk/quartz."
+  [wf-id]
 
-;-----------------------------------------------------------------------
-; Schedule job to be triggered now.
-;-----------------------------------------------------------------------
-(defn trigger-job-now [job-id]
-  (run-job-now (make-job-key job-id)))
 
-;-----------------------------------------------------------------------
-; Input map is something like:
-;
-; {:roots #{2}, :table {2 {true #{1 3}}}}
-;
-; This is a workflow made of 3 jobs and terminates
-; with the execution of 1 and 3.
-;-----------------------------------------------------------------------
-(defn trigger-workflow-now
-  [wf-id {:keys [roots table]}]
-  (info "workflow id " wf-id " has roots " roots)
-  (info "workflow id " wf-id " table " table))
+  )
+
+
+
+
 
 
 
