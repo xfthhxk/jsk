@@ -84,9 +84,8 @@
 ;-----------------------------------------------------------------------
 (j/defjob ShellJob
   [ctx]
-  (let [{:strs [cmd-line exec-dir]} (qc/from-job-data ctx)
-        {:keys [execution-id] :as exec-info} (.get ctx :jsk-job-execution-info)
-        log-file-name (str (conf/exec-log-dir) "/" execution-id ".log")]
+  (let [{:strs [cmd-line exec-dir exec-vertex-id]} (qc/from-job-data ctx)
+        log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")]
 
     (info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
     (ps/exec cmd-line exec-dir log-file-name)))
@@ -100,7 +99,7 @@
 (j/defjob JskTriggerJob
   [ctx]
   (let [{:strs [job-id]} (qc/from-job-data ctx)]
-    (put! @conductor-channel {:event :trigger-job :job-id job-id})))
+    (put! @conductor-channel {:event :trigger-job :job-id job-id :trigger-src :quartz})))
 
 
 ;-----------------------------------------------------------------------

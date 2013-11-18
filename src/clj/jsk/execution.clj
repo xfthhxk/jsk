@@ -2,18 +2,24 @@
   (:require [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.quartz :as q]
             [jsk.db :as db]
+            [clojurewerkz.quartzite.conversion :as qc]
             [clojure.core.async :refer [put!]])
   (:import (org.quartz CronExpression JobDetail JobExecutionContext
                        JobKey Scheduler Trigger TriggerBuilder TriggerKey))
   (:use [swiss-arrows core]))
 
-(def job-event-channel (atom nil))
+(def info-channel (atom nil))
+(def conductor-channel (atom nil))
 
-(defn register-event-channel! [job-event-ch]
-  (reset! job-event-channel job-event-ch))
+(defn register-event-channels! [info-ch conductor-ch]
+  (reset! info-channel info-ch)
+  (reset! conductor-channel conductor-ch))
 
 (defn- job-ctx->job-id [^JobExecutionContext ctx]
   (-> ctx .getJobDetail .getKey .getName Integer/parseInt))
+
+(defn- job-ctx->jsk-data [^JobExecutionContext ctx]
+  (-> ctx qc/from-job-data))
 
 (defn- exception->msg [^Throwable t]
   (when t
@@ -21,15 +27,29 @@
 
 ;----------------------------------------------
 ; Record job about to start
+;
+; look for :exec-vertex-id in JobDataMap that is the
+; db row to update for marking job started
+; Also notify conductor of job starting via
+; conductor channel
+;
 ;----------------------------------------------
 (defn- record-pre-job-execution [job-ctx _]
-  (let [job-id (job-ctx->job-id job-ctx)
-        {:keys [execution-id] :as exec-info} (db/job-started job-id)]
+  (let [{:strs[execution-id job-id trigger-src exec-vertex-id]} (job-ctx->jsk-data job-ctx)
+        ts (db/now)
+        msg {:event :job-started
+             :execution-id execution-id
+             :job-id job-id
+             :exec-vertex-id exec-vertex-id
+             :status db/started-status
+             :start-ts ts}]
 
-    (info "Job id " job-id "is to be executed with execution-id " execution-id)
+    (db/execution-vertex-started exec-vertex-id ts)
 
-    (.put job-ctx :jsk-job-execution-info exec-info) ; stow for reading later
-    (put! @job-event-channel exec-info)))
+    (info "Job id " job-id "is to be executed with exec-vertex-id " exec-vertex-id)
+
+    (put! @conductor-channel msg)
+    (put! @info-channel msg)))
 
 ;----------------------------------------------
 ; Record job finished
@@ -37,19 +57,28 @@
 (defn- record-post-job-execution
   "Records that a job has finished."
   [job-ctx job-exception]
-  (let [finish-ts (db/now)
-        {:keys[execution-id] :as exec-info} (.get job-ctx :jsk-job-execution-info)
-         success? (nil? job-exception)
-         error-msg (exception->msg job-exception)
-         merged-info (merge exec-info {:event :finish :finish-ts finish-ts :success? success? :error error-msg})]
+  (let [{:strs[execution-id job-id trigger-src exec-vertex-id]} (job-ctx->jsk-data job-ctx)
+        ts (db/now)
+        success? (nil? job-exception)
+        status (if success? db/finished-success db/finished-error)
+        error-msg (exception->msg job-exception)
+        msg {:event :job-finished
+             :execution-id execution-id
+             :job-id job-id
+             :exec-vertex-id exec-vertex-id
+             :finish-ts ts
+             :success? success?
+             :status status
+             :error error-msg}]
 
-     (db/job-finished execution-id success? finish-ts)
-     (info "Job execution with id " execution-id " has finished. Success? " success?)
+     (db/execution-vertex-finished exec-vertex-id status ts)
+     (info "Execution vertex id " exec-vertex-id " for job " job-id " has finished. Success? " success?)
 
      (if error-msg
-       (info "Job execution-id " execution-id " exception: " error-msg))
+       (info "Execution vertex id " exec-vertex-id " exception: " error-msg))
 
-     (put! @job-event-channel merged-info)))
+     (put! @conductor-channel msg)
+     (put! @info-channel msg)))
 
 
 

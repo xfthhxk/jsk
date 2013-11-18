@@ -48,7 +48,7 @@
 ;(defn- uid [request]
 ;  (-> request current-user :app-user-id))
 
-(defn- uid [request] 1)
+(defn- uid [request] 2)
 
 
 ;-----------------------------------------------------------------------

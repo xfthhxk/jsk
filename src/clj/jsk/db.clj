@@ -5,6 +5,10 @@
              :refer (trace debug info warn error fatal spy with-log-level)])
   (:use [korma core db]))
 
+
+(def synthetic-workflow-id 1)
+
+
 ; current date time
 (defn now [] (java.util.Date.))
 
@@ -448,6 +452,29 @@
      :workflow-id wf-id
      :workflow-name wf-name}))
 
+
+(defn- snapshot-synthetic-workflow
+  "Creates a snapshot for the synthetic workflow which consists of 1 job.
+   Answers with the execution-vertex-id."
+  [execution-id job-id status-id]
+
+  (-> (insert execution-vertex
+        (values {:execution-id execution-id :node-id job-id
+                 :status-id    status-id    :layout ""}))
+      extract-identity))
+
+
+(defn synthetic-workflow-started
+  "Sets up an synthetic workflow for the job specified."
+  [job-id]
+  (let [execution-id   (workflow-started* synthetic-workflow-id (now))
+        exec-vertex-id (snapshot-synthetic-workflow execution-id job-id unexecuted-status)]
+    {:execution-id execution-id
+     :exec-vertex-id exec-vertex-id
+     :status unexecuted-status
+     :node-type job-type-id}))
+
+
 (defn execution-vertices
   "Answers with all rows which represent vertices for this execution graph."
   [exec-id]
@@ -499,35 +526,13 @@
       (where {:execution-id execution-id}))))
 
 
-(defn execution-vertex-started [exec-vertex-id]
+(defn execution-vertex-started [exec-vertex-id ts]
   (update execution-vertex
-    (set-fields {:status-id started-status :started-at (now)})
+    (set-fields {:status-id started-status :started-at ts})
     (where {:execution-vertex-id exec-vertex-id})))
 
-(defn execution-vertex-finished [exec-vertex-id status-id]
+(defn execution-vertex-finished [exec-vertex-id status-id ts]
   (update execution-vertex
-    (set-fields {:status-id status-id :finished-at (now)})
+    (set-fields {:status-id status-id :finished-at ts})
     (where {:execution-vertex-id exec-vertex-id})))
-
-
-
-
-(def counter (atom 1))
-
-(defn job-started [job-id]
-  (info "job-started with id: " job-id)
-  {:execution-id (swap! counter inc)})
-
-(defn job-finished [exec-id success? finish-ts]
-  (info "job finished. exec-id: " exec-id))
-
-
-
-
-
-
-
-
-
-
 

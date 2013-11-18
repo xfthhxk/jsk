@@ -40,6 +40,9 @@
 ; Channel used to communicate with the conductor.
 (def conductor-channel (chan))
 
+; Channel used to communicate events for clients (users etc.)
+(def info-channel (chan))
+
 (defn notify-error [{:keys [job-name execution-id error]}]
   (if error
     (let [to (conf/error-email-to)
@@ -54,17 +57,17 @@
 
 
 (defn- setup-job-execution-recorder []
-  (let [job-event-ch (chan)]
 
-    (execution/register-event-channel! job-event-ch)
-    (q/register-job-execution-recorder!
-      (execution/make-job-recorder "JSK-Job-Execution-Listener"))
+  (execution/register-event-channels! info-channel conductor-channel)
 
-    (go-loop [exec-map (<! job-event-ch)]
-      ;(info "Read from execution event channel: " exec-map)
-      (broadcast-execution exec-map)
-      (notify-error exec-map)
-      (recur (<! job-event-ch)))))
+  (q/register-job-execution-recorder!
+    (execution/make-job-recorder "JSK-Job-Execution-Listener"))
+
+  (go-loop [exec-map (<! info-channel)]
+    (debug "Read from execution event channel: " exec-map)
+    (broadcast-execution exec-map)
+    (notify-error exec-map)
+    (recur (<! info-channel))))
 
 
 (def ws-configurator
@@ -102,7 +105,7 @@
 ; Read jobs from database and creates them in quartz.
 ;-----------------------------------------------------------------------
 (defn- populate-quartz-jobs []
-  (let [jj (job/enabled-jobs)]
+  (let [jj (job/ls-jobs)]
     (info "Setting up " (count jj) " jobs in Quartz.")
     (doseq [j jj]
       (q/save-job! j))))
@@ -140,7 +143,7 @@
   (n/init)
   (info "Notifications initialized.")
 
-  (conductor/init conductor-channel)
+  (conductor/init conductor-channel info-channel)
 
   (q/init conductor-channel)
   (info "Quartz initialized.")

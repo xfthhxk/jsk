@@ -193,6 +193,14 @@
   (let [{:keys [execution-id]} (db/workflow-started wf-id)]
     (workflow-execution-data execution-id)))
 
+(defn setup-synthetic-execution [job-id]
+  (let [{:keys [execution-id exec-vertex-id status node-type]} (db/synthetic-workflow-started job-id)]
+    {:roots #{job-id}
+     :leaves #{}
+     :table {job-id {:exec-vertex-id exec-vertex-id
+                     :node-type node-type :status status
+                     :on-success #{} :on-fail #{}}}
+     :execution-id execution-id }))
 
 
 
