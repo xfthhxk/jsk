@@ -159,7 +159,7 @@ alter table workflow_edge add constraint unq_workflow_edge unique(vertex_id, nex
    -------------------------------------------------------------------------------------- */
 
 insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, create_user_id, update_user_id)
-          values(1, '_JSK_Implict_Workflow_', 2, 'Implicit workflow', true, true, 1, 1);
+          values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1);
 
 insert into workflow(workflow_id) values (1);
 

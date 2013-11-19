@@ -6,6 +6,7 @@
             [cemerick.friend :as friend]
             [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
+            [jsk.util :as u]
             [jsk.conductor :as conductor]
             [jsk.workflow :as w]
             [jsk.quartz :as q]
@@ -69,13 +70,13 @@
        (edn-response (j/ls-jobs)))
 
   (GET "/jobs/:id" [id]
-       (-> id j/get-job edn-response))
+       (-> id u/str->int j/get-job edn-response))
 
   (GET "/jobs/sched-assoc/:id" [id]
-       (-> id j/schedules-for-job edn-response))
+       (-> id u/str->int j/schedules-for-job edn-response))
 
   (GET "/jobs/trigger-now/:id" [id]
-       (-> id conductor/trigger-job-now edn-response))
+       (-> id u/str->int conductor/trigger-job-now edn-response))
 
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) (j/save-job! (uid request)) edn-response))
@@ -93,7 +94,7 @@
        (edn-response (s/ls-schedules)))
 
   (GET "/schedules/:id" [id]
-       (-> id s/get-schedule edn-response))
+       (-> id u/str->int s/get-schedule edn-response))
 
   (POST "/schedules/save" [_ :as request]
        (-> (:params request) (s/save-schedule! (uid request)) edn-response)))
@@ -107,13 +108,13 @@
        (edn-response (w/ls-workflows)))
 
   (GET "/workflows/:id" [id]
-       (-> id w/get-workflow edn-response))
+       (-> id u/str->int w/get-workflow edn-response))
 
   (GET "/workflows/graph/:id" [id]
-       (-> id w/workflow-nodes edn-response))
+       (-> id u/str->int w/workflow-nodes edn-response))
 
   (GET "/workflows/trigger-now/:id" [id]
-       (-> id conductor/trigger-workflow-now edn-response))
+       (-> id u/str->int conductor/trigger-workflow-now edn-response))
 
   (POST "/workflows/save" [_ :as request]
        (info "workflow save: " (:params request))

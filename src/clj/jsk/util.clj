@@ -30,3 +30,7 @@
 
 (defn ensure-directory [dir]
   (-> dir io/file .mkdirs))
+
+
+(defn str->int [s]
+  (Integer/parseInt s))
