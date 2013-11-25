@@ -26,7 +26,7 @@
                  "td.schedule-name" (ef/content (:schedule-name s))
                  "td.schedule-desc" (ef/content (:schedule-desc s))
                  "td.cron-expr" (ef/content (:cron-expression s))
-                 "td.created-at" (ef/content (str (:created-at s)))))
+                 "td.create-ts" (ef/content (str (:create-ts s)))))
 
 ;-----------------------------------------------------------------------
 ; Edit Schedule

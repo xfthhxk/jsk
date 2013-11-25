@@ -35,7 +35,7 @@
 
 (defentity node
   (pk :node-id)
-  (entity-fields :node-id :node-name :node-type-id :node-desc :is-enabled :created-at :create-user-id :updated-at :update-user-id))
+  (entity-fields :node-id :node-name :node-type-id :node-desc :is-enabled :create-ts :creator-id :update-ts :updater-id))
 
 (defentity job
   (pk :job-id)
@@ -66,10 +66,10 @@
               :max-concurrent
               :max-retries
               :node.is-enabled
-              :node.created_at
-              :node.create-user-id
-              :node.updated-at
-              :node.update-user-id
+              :node.create-ts
+              :node.creator-id
+              :node.update-ts
+              :node.updater-id
               [:node.node-name :job-name] [:node.node-desc :job-desc])
       (join :inner :node (= :job-id :node.node-id))))
 
@@ -78,10 +78,10 @@
       (fields :workflow-id
               :node.is-enabled
               :node.is-system
-              :node.created_at
-              :node.create-user-id
-              :node.updated_at
-              :node.update-user-id
+              :node.create-ts
+              :node.creator-id
+              :node.update-ts
+              :node.updater-id
               [:node.node-name :workflow-name] [:node.node-desc :workflow-desc])
       (join :inner :node (= :workflow-id :node.node-id))))
 
@@ -173,8 +173,8 @@
               :node-type-id type-id
               :is-enabled   enabled?
               :is-system false           ; system nodes should just be added via sql
-              :create-user-id user-id
-              :update-user-id user-id}]
+              :creator-id user-id
+              :updater-id user-id}]
     (-> (insert node (values data))
         extract-identity)))
 
@@ -182,8 +182,8 @@
   (let [data {:node-name node-nm
               :node-desc node-desc
               :is-enabled enabled?
-              :update-user-id user-id
-              :updated-at (now)}]
+              :updater-id user-id
+              :update-ts (now)}]
     (update node (set-fields data)
       (where {:node-id node-id}))
     node-id))
@@ -281,7 +281,12 @@
   (-> job-id job-schedules-for-job rm-job-schedules!))
 
 (defn get-job-schedule-info [job-id]
-  (exec-raw ["select js.job_schedule_id, s.* from job_schedule js join schedule s on js.schedule_id = s.schedule_id where job_id = ?" [job-id]] :results))
+  (exec-raw ["select   js.job_schedule_id
+                     , s.*
+                from   job_schedule js
+                join   schedule s
+                  on   js.schedule_id = s.schedule_id
+               where   job_id = ?" [job-id]] :results))
 
 
 
@@ -295,7 +300,7 @@
 
   ([job-id schedule-ids user-id]
     (let [schedule-id-set (set schedule-ids)
-          data {:job-id job-id :create-user-id user-id}
+          data {:job-id job-id :creator-id user-id}
           insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) schedule-id-set)]
       (if (not (empty? insert-maps))
         (insert job-schedule (values insert-maps))))))
@@ -389,77 +394,126 @@
 
 (defentity execution
   (pk :execution-id)
-  (entity-fields :workflow-id :status-id :started-at :finished-at))
+  (entity-fields :status-id :start-ts :finish-ts))
+
+(defentity execution-workflow
+  (pk :execution-workflow-id)
+  (entity-fields :execution-id :workflow-id :status-id :start-ts :finish-ts))
 
 (defentity execution-vertex
   (pk :execution-vertex-id)
-  (entity-fields :execution-id :node-id :status-id :started-at :finished-at))
+  (entity-fields :execution-id :node-id :status-id :start-ts :finish-ts))
 
-(defn- snapshot-workflow
+
+(defn- children-workflows
+  "For the wf-id specified recursively get all workflows it uses.
+   Answers with a seq of ints."
+  [wf-id]
+  (->> (exec-raw
+         [" with wf(workflow_id) as
+           (
+             select
+                    w.workflow_id
+               from workflow_vertex wv
+               join workflow w
+                 on wv.node_id = w.workflow_id
+              where wv.workflow_id = ?
+
+            union all
+
+            select
+                   w.workflow_id
+              from wf
+              join workflow_vertex wv
+                on wf.workflow_id = wv.workflow_id
+              join workflow w
+                on wv.node_id = w.workflow_id
+           )
+           select wf.workflow_id
+             from wf " [wf-id]] :results)
+      (map :workflow-id) doall))
+
+(defn- insert-execution-workflows
+  "Creates rows in execution-workflows table and returns a map of
+   wf-id to execution-workflow-id."
+  [exec-id wf-ids]
+  (debug "inserting execution-workflows with wf-ids: " wf-ids ", for exec-id: " exec-id)
+  (reduce (fn [ans id]
+            (->> (insert execution-workflow
+                   (values {:execution-id exec-id
+                            :workflow-id id
+                            :status-id unexecuted-status}))
+                extract-identity (assoc ans id)))
+          {}
+          wf-ids))
+
+(defn- snapshot-execution
   "Creates a snapshot of the workflow vertices and edges to allow tracking
    for a particular execution."
-  [execution-id wf-id]
+  [exec-id wf-id]
+
+  ; determine all children workflows recursively and
+  ; create records in the execution_workflow table for all child workflows and the parent
+  (let [wf-ids (-> wf-id children-workflows (conj wf-id))]
+    (insert-execution-workflows exec-id wf-ids))
 
   (exec-raw
-   ["insert into execution_vertex (execution_id, node_id, status_id, layout)
-       select ?, wv.node_id, ?, wv.layout
-         from workflow_vertex wv
-        where wv.workflow_id = ?" [execution-id unexecuted-status wf-id]])
+   ["insert into execution_vertex (execution_workflow_id, node_id, status_id, layout)
+       select ew.execution_workflow_id
+            , wv.node_id
+            , ?
+            , wv.layout
+         from execution_workflow ew
+         join workflow_vertex    wv
+           on ew.workflow_id  = wv.workflow_id
+        where ew.execution_id = ? " [unexecuted-status exec-id]])
 
   (exec-raw
    ["insert into execution_edge (execution_id, vertex_id, next_vertex_id, success)
-       select
-              ef.execution_id
-            , ef.execution_vertex_id
-            , et.execution_vertex_id
-            , e.success
-         from workflow_vertex f
-         join workflow_edge   e
-           on f.workflow_vertex_id = e.vertex_id
-         join workflow_vertex t
-           on e.next_vertex_id = t.workflow_vertex_id
-         join execution_vertex ef
-           on f.node_id = ef.node_id
-         join execution_vertex et
-           on t.node_id = et.node_id
-       where f.workflow_id = t.workflow_id
-         and f.workflow_id = ?
-         and ef.execution_id = et.execution_id
-         and ef.execution_id = ? " [wf-id execution-id]]))
+            select
+                   ew.execution_id
+                 , ef.execution_vertex_id
+                 , et.execution_vertex_id
+                 , e.success
+              from workflow_edge e
+              join workflow_vertex f
+                on e.vertex_id = f.workflow_vertex_id
+              join workflow_vertex t
+                on e.next_vertex_id = t.workflow_vertex_id
+              join execution_workflow ew
+                on ew.workflow_id = f.workflow_id
+               and ew.workflow_id = t.workflow_id
+              join execution_vertex ef
+                on ew.execution_workflow_id = ef.execution_workflow_id
+               and ef.node_id = f.node_id
+              join execution_vertex et
+                on ew.execution_workflow_id = et.execution_workflow_id
+               and et.node_id = t.node_id
+             where ew.execution_id = ?  " [exec-id]]))
 
-(defn- workflow-started*
-  "Creates a row in the execution table and returns the id
-   of the newly created row."
-  [wf-id started-at]
+(defn- new-execution*
+  "Sets up a new execution returning the newly created execution-id."
+  []
   (-> (insert execution
-        (values {:workflow-id wf-id
-                 :status-id started-status
-                 :started-at started-at}))
+        (values {:status-id started-status
+                 :start-ts  (now)}))
       extract-identity))
 
-(defn workflow-started
-  "Returns a map with keys: :event, :execution-id and :ts"
+(defn new-execution!
+  "Sets up a new execution returning the newly created execution-id."
   [wf-id]
-  (let [ts (now)
-        execution-id (workflow-started* wf-id ts)
-        wf-name (get-workflow-name wf-id)]
-
-    (snapshot-workflow execution-id wf-id)
-
-    {:event :start
-     :execution-id execution-id
-     :start-ts ts
-     :workflow-id wf-id
-     :workflow-name wf-name}))
+  (let [exec-id (new-execution*)]
+    (snapshot-execution exec-id wf-id)
+    exec-id))
 
 
 (defn- snapshot-synthetic-workflow
   "Creates a snapshot for the synthetic workflow which consists of 1 job.
    Answers with the execution-vertex-id."
-  [execution-id job-id status-id]
+  [exec-wf-id job-id status-id]
 
   (-> (insert execution-vertex
-        (values {:execution-id execution-id :node-id job-id
+        (values {:execution-workflow-id exec-wf-id :node-id job-id
                  :status-id    status-id    :layout ""}))
       extract-identity))
 
@@ -467,9 +521,11 @@
 (defn synthetic-workflow-started
   "Sets up an synthetic workflow for the job specified."
   [job-id]
-  (let [execution-id   (workflow-started* synthetic-workflow-id (now))
-        exec-vertex-id (snapshot-synthetic-workflow execution-id job-id unexecuted-status)]
-    {:execution-id execution-id
+  (let [exec-id (new-execution*)
+        id-map  (insert-execution-workflows exec-id [synthetic-workflow-id])
+        exec-wf-id (id-map synthetic-workflow-id)
+        exec-vertex-id (snapshot-synthetic-workflow exec-wf-id job-id unexecuted-status)]
+    {:execution-id exec-id
      :exec-vertex-id exec-vertex-id
      :status unexecuted-status
      :node-type job-type-id}))
@@ -481,58 +537,65 @@
   (select execution-vertices (where {:execution-id exec-id})))
 
 (defn get-execution-graph
-  "Gets the edges for the workflow execution specified."
+  "Recursively gets the edges for the workflow execution specified.
+   Gets all data for all nested workflows."
   [id]
   (exec-raw
-   ["select
-            fv.node_id             as src_id
-          , fv.status_id           as src_status_id
-          , fv.started_at          as src_started_at
-          , fv.finished_at         as src_finished_at
-          , fv.execution_vertex_id as src_exec_vertex_id
-          , tv.node_id             as dest_id
-          , tv.status_id           as dest_status_id
-          , tv.started_at          as dest_started_at
-          , tv.finished_at         as dest_finished_at
-          , tv.execution_vertex_id as dest_exec_vertex_id
-          , e.success
-          , fn.node_name           as src_name
-          , fn.node_type_id        as src_type
-          , tn.node_name           as dest_name
-          , tn.node_type_id        as dest_type
-          , fv.layout              as src_layout
-          , tv.layout              as dest_layout
-       from execution ex
-       join execution_vertex fv
-         on ex.execution_id = fv.execution_id
-       join execution_edge  e
-         on fv.execution_vertex_id = e.vertex_id
-       join execution_vertex tv
-         on e.next_vertex_id = tv.execution_vertex_id
-       join node fn
-         on fv.node_id = fn.node_id
-       join node tn
-         on tv.node_id = tn.node_id
-      where
-            ex.execution_id = ?" [id]] :results))
+    ["select
+             f.node_id             as src_id
+           , f.status_id           as src_status_id
+           , f.start_ts            as src_start_ts
+           , f.finish_ts           as src_finish_ts
+           , f.execution_vertex_id as src_exec_vertex_id
+           , t.node_id             as dest_id
+           , t.status_id           as dest_status_id
+           , t.start_ts            as dest_start_ts
+           , t.finish_ts           as dest_finish_ts
+           , t.execution_vertex_id as dest_exec_vertex_id
+           , e.success
+           , fn.node_name          as src_name
+           , fn.node_type_id       as src_type
+           , tn.node_name          as dest_name
+           , tn.node_type_id       as dest_type
+           , f.layout              as src_layout
+           , t.layout              as dest_layout
+        from execution_workflow ew
+        join execution_vertex   f
+          on ew.execution_workflow_id = f.execution_workflow_id
+        join execution_edge     e
+          on f.execution_vertex_id = e.vertex_id
+        join execution_vertex t
+          on e.next_vertex_id = t.execution_vertex_id
+        join node fn
+          on f.node_id = fn.node_id
+        join node tn
+          on t.node_id = tn.node_id
+       where e.execution_id = ? " [id]] :results))
 
-
-(defn workflow-finished [execution-id success? finished-ts]
+(defn workflow-finished
   "Marks the workflow as finished and sets the status."
+  [exec-id wf-id success? finish-ts]
+  (let [status (if success? finished-success finished-error)]
+    (update execution-workflow
+      (set-fields {:status-id status :finish-ts finish-ts})
+      (where {:execution-id exec-id :workflow-id wf-id}))))
 
+(defn execution-finished
+  "Marks the execution as finished and sets the status."
+  [execution-id success? finish-ts]
   (let [status (if success? finished-success finished-error)]
     (update execution
-      (set-fields {:status-id status :finished-at finished-ts})
+      (set-fields {:status-id status :finish-ts finish-ts})
       (where {:execution-id execution-id}))))
 
 
 (defn execution-vertex-started [exec-vertex-id ts]
   (update execution-vertex
-    (set-fields {:status-id started-status :started-at ts})
+    (set-fields {:status-id started-status :start-ts ts})
     (where {:execution-vertex-id exec-vertex-id})))
 
 (defn execution-vertex-finished [exec-vertex-id status-id ts]
   (update execution-vertex
-    (set-fields {:status-id status-id :finished-at ts})
+    (set-fields {:status-id status-id :finish-ts ts})
     (where {:execution-vertex-id exec-vertex-id})))
 

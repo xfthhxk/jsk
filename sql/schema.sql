@@ -1,6 +1,7 @@
 drop table if exists execution_edge;
 drop table if exists execution_vertex;
 drop table if exists execution;
+drop table if exists execution_workflow;
 drop table if exists execution_status;
 drop table if exists job_schedule;
 drop table if exists schedule;
@@ -19,8 +20,8 @@ create table app_user ( app_user_id int         auto_increment primary key
                       , first_name  varchar(50) not null
                       , last_name   varchar(50) not null
                       , email       varchar(50) not null
-                      , created_at  timestamp   not null default current_timestamp()
-                      , updated_at  timestamp   not null default current_timestamp());
+                      , create_ts   timestamp   not null default current_timestamp()
+                      , update_ts   timestamp   not null default current_timestamp());
 
 alter table app_user add constraint unq_app_user_email unique(email);
 
@@ -62,15 +63,15 @@ create table node ( node_id                 int           auto_increment primary
                   , node_desc               varchar(255)  not null
                   , is_enabled              boolean       not null
                   , is_system               boolean       not null
-                  , created_at              timestamp     not null default current_timestamp()
-                  , create_user_id          int           not null
-                  , updated_at              timestamp     not null default current_timestamp()
-                  , update_user_id          int           not null);
+                  , create_ts               timestamp     not null default current_timestamp()
+                  , creator_id              int           not null
+                  , update_ts               timestamp     not null default current_timestamp()
+                  , updater_id              int           not null);
 
 alter table node add constraint unq_node_name unique(node_name);
 alter table node add constraint fk_node_node_type_id foreign key (node_type_id) references node_type(node_type_id);
-alter table node add constraint fk_node_create_user_id foreign key (create_user_id) references app_user(app_user_id);
-alter table node add constraint fk_node_update_user_id foreign key (update_user_id) references app_user(app_user_id);
+alter table node add constraint fk_node_creator_id foreign key (creator_id) references app_user(app_user_id);
+alter table node add constraint fk_node_updater_id foreign key (updater_id) references app_user(app_user_id);
 
 
 /* ---------------------------- Job ----------------------------------- */
@@ -105,14 +106,14 @@ create table schedule( schedule_id     int            auto_increment primary key
                      , schedule_name   varchar(50)    not null
                      , schedule_desc   varchar(255)   not null
                      , cron_expression varchar(50)    not null
-                     , created_at      timestamp      not null default current_timestamp()
-                     , create_user_id  int            not null
-                     , updated_at      timestamp      not null default current_timestamp()
-                     , update_user_id  varchar(50)    not null);
+                     , create_ts       timestamp      not null default current_timestamp()
+                     , creator_id      int            not null
+                     , update_ts       timestamp      not null default current_timestamp()
+                     , updater_id      varchar(50)    not null);
 
 alter table schedule add constraint unq_schedule_schedule_name unique(schedule_name);
-alter table schedule add constraint fk_schedule_create_user_id foreign key (create_user_id) references app_user(app_user_id);
-alter table schedule add constraint fk_schedule_update_user_id foreign key (update_user_id) references app_user(app_user_id);
+alter table schedule add constraint fk_schedule_creator_id foreign key (creator_id) references app_user(app_user_id);
+alter table schedule add constraint fk_schedule_updater_id foreign key (updater_id) references app_user(app_user_id);
 
 
 /* ---------------------------- Job Schedule ----------------------------------- */
@@ -120,12 +121,12 @@ alter table schedule add constraint fk_schedule_update_user_id foreign key (upda
 create table job_schedule ( job_schedule_id int         auto_increment primary key
                           , job_id          int         not null
                           , schedule_id     int         not null
-                          , created_at      timestamp   not null default current_timestamp()
-                          , create_user_id  varchar(50) not null);
+                          , create_ts       timestamp   not null default current_timestamp()
+                          , creator_id  varchar(50) not null);
 
 alter table job_schedule add constraint fk_job_schedule_job_id foreign key (job_id) references job(job_id);
 alter table job_schedule add constraint fk_job_schedule_schedule_id foreign key (schedule_id) references schedule(schedule_id);
-alter table job_schedule add constraint fk_job_schedule_create_user_id foreign key (create_user_id) references app_user(app_user_id);
+alter table job_schedule add constraint fk_job_schedule_creator_id foreign key (creator_id) references app_user(app_user_id);
 alter table job_schedule add constraint unq_job_schedule_job_id_schedule_id unique(job_id, schedule_id);
 
 
@@ -158,7 +159,7 @@ alter table workflow_edge add constraint unq_workflow_edge unique(vertex_id, nex
    Jobs that are not part of a workflow need a workflow id to save to executions table.
    -------------------------------------------------------------------------------------- */
 
-insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, create_user_id, update_user_id)
+insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, creator_id, updater_id)
           values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1);
 
 insert into workflow(workflow_id) values (1);
@@ -181,26 +182,42 @@ insert into execution_status (execution_status_id, status_code, status_desc)
 
 /* ---------------------------- Execution ----------------------------------- */
 create table execution ( execution_id        int       auto_increment primary key
-                       , workflow_id         int       not null
                        , status_id           int       not null
-                       , started_at          timestamp not null default current_timestamp()
-                       , finished_at         timestamp );
-
-alter table execution add constraint fk_execution_workflow_id foreign key (workflow_id) references workflow(workflow_id);
-alter table execution add constraint fk_execution_status_id foreign key (status_id) references execution_status(execution_status_id);
+                       , start_ts          timestamp not null default current_timestamp()
+                       , finish_ts         timestamp );
 
 
-/* --- This doesn't handle some sort of repeated invocation type thing -----*/
+create table execution_workflow ( execution_workflow_id   int       auto_increment primary key
+                                , execution_id            int       not null
+                                , workflow_id             int       not null
+                                , status_id               int       not null
+                                , start_ts                timestamp
+                                , finish_ts               timestamp );
 
-create table execution_vertex ( execution_vertex_id int       auto_increment primary key
-                              , execution_id        int       not null
-                              , node_id             int       not null
-                              , status_id           int       not null
-                              , started_at          timestamp
-                              , finished_at         timestamp
-                              , layout              varchar(255));
+alter table execution_workflow add constraint fk_execution_workflow_workflow_id foreign key (workflow_id) references workflow(workflow_id);
+alter table execution_workflow add constraint fk_execution_workflow_status_id foreign key (status_id) references execution_status(execution_status_id);
+alter table execution_workflow add constraint fk_execution_workflow_execution_id foreign key (execution_id) references execution(execution_id);
 
-alter table execution_vertex add constraint fk_execution_vertex_execution_id foreign key (execution_id) references execution(execution_id);
+
+/* --- This doesn't handle some sort of repeated invocation type thing.
+       Need execution_vertex_invocation(execution_vertex_invocation_id
+                                      , execution_vertex_id
+                                      , status_id
+                                      , start_ts
+                                      , finish_ts)
+-----*/
+
+create table execution_vertex ( execution_vertex_id   int       auto_increment primary key
+                              , execution_workflow_id int       not null
+                              , node_id               int       not null
+                              , status_id             int       not null
+                              , start_ts              timestamp
+                              , finish_ts             timestamp
+                              , layout                varchar(255));
+
+alter table execution_vertex add constraint fk_execution_vertex_execution_workflow_id
+  foreign key (execution_workflow_id) references execution_workflow(execution_workflow_id);
+
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);
 

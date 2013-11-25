@@ -92,12 +92,11 @@
 ; with the execution of 1 and 3.
 ;-----------------------------------------------------------------------
 (defn- run-wf [wf-id]
-  (put! @info-chan {:event :wf-started :wf-id wf-id})
-
   (try
     (let [{:keys[execution-id roots table] :as m} (w/setup-execution wf-id)]
       (debug "Running workflow with execution-id: " execution-id
              ", roots: " roots ", table: " table)
+      (put! @info-chan {:event :wf-started :wf-id wf-id :execution-id execution-id})
       (add-to-exec-tbl! execution-id table)
       (run-jobs roots execution-id))
     (catch Exception e
@@ -157,7 +156,7 @@
 ; this comes from execution.clj
 ; decrements the running job count for the execution-id
 ; determines next set of jobs to run
-; also determines if the workflow is finished.
+; also determines if the workflow is finished and/or errored.
 (defmethod dispatch :job-finished [{:keys[execution-id job-id success?] :as msg}]
   (let [new-count (update-running-jobs-count! execution-id dec)
         next-jobs (successor-jobs msg)
@@ -167,15 +166,14 @@
     (if wf-fail?
       (swap! all-exec-tbl update-in [execution-id] assoc :failed true))
 
-    (when wf-finished?
+    (if wf-finished?
       (let [wf-success? (not (get-in @all-exec-tbl [execution-id :failed]))
             ts (db/now)]
         (info "workflow with execution-id " execution-id " finished, success? " wf-success?)
         (db/workflow-finished execution-id wf-success? ts)
-        (put! @info-chan {:event :wf-finished :execution-id execution-id :success? wf-success?})))
-
-    (if (not wf-finished?)
+        (put! @info-chan {:event :wf-finished :execution-id execution-id :success? wf-success?}))
       (run-jobs next-jobs execution-id))))
+
 
 
 (defn init

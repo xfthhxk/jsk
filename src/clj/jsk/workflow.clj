@@ -122,7 +122,7 @@
   (let [nn (reduce (fn [ans {:keys[src-id dest-id]}]
                      (into ans [src-id dest-id]))  #{} data)]
     (reduce (fn[ans id]
-              (assoc ans id {:on-success #{} :on-fail #{}})) {} nn)))
+              (assoc ans id {:on-success #{} :on-fail #{} :in-bound #{}})) {} nn)))
 
 (defn- data->node-table
   "Generates a map keyed by node ids. The value is another map
@@ -190,8 +190,8 @@
 
 
 (defn setup-execution [wf-id]
-  (let [{:keys [execution-id]} (db/workflow-started wf-id)]
-    (workflow-execution-data execution-id)))
+  (let [exec-id (db/new-execution! wf-id)]
+    (workflow-execution-data exec-id)))
 
 (defn setup-synthetic-execution [job-id]
   (let [{:keys [execution-id exec-vertex-id status node-type]} (db/synthetic-workflow-started job-id)]

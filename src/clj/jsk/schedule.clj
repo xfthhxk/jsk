@@ -64,7 +64,7 @@
 ; Insert a schedule
 ;-----------------------------------------------------------------------
 (defn- insert-schedule! [m user-id]
-  (let [merged-map (merge (dissoc m :schedule-id) {:create-user-id user-id :update-user-id user-id})]
+  (let [merged-map (merge (dissoc m :schedule-id) {:creator-id user-id :updater-id user-id})]
     (info "Creating new schedule: " merged-map)
     (-> (insert schedule (values merged-map))
          jdb/extract-identity)))
@@ -74,7 +74,7 @@
 ; Answers with the schedule-id if update is successful.
 ;-----------------------------------------------------------------------
 (defn- update-schedule-db! [{:keys [schedule-id] :as m} user-id]
-  (let [merged-map (merge m {:update-user-id user-id :updated-at (jdb/now)})]
+  (let [merged-map (merge m {:updater-id user-id :update-ts (jdb/now)})]
     (info "Updating schedule: " m)
     (update schedule (set-fields (dissoc m :schedule-id))
       (where {:schedule-id schedule-id})))
