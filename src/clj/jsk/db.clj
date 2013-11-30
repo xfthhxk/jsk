@@ -398,7 +398,7 @@
 
 (defentity execution-workflow
   (pk :execution-workflow-id)
-  (entity-fields :execution-id :workflow-id :status-id :start-ts :finish-ts))
+  (entity-fields :execution-id :workflow-id :root :status-id :start-ts :finish-ts))
 
 (defentity execution-vertex
   (pk :execution-vertex-id)
@@ -436,16 +436,19 @@
 (defn- insert-execution-workflows
   "Creates rows in execution-workflows table and returns a map of
    wf-id to execution-workflow-id."
-  [exec-id wf-ids]
-  (debug "inserting execution-workflows with wf-ids: " wf-ids ", for exec-id: " exec-id)
+  [exec-id wf child-wfs]
+  (debug "insert execution-workflows: exec-id: " exec-id
+         ", wf: " wf ", child-wfs: " child-wfs)
+
   (reduce (fn [ans id]
             (->> (insert execution-workflow
                    (values {:execution-id exec-id
                             :workflow-id id
+                            :root (= id wf)
                             :status-id unexecuted-status}))
                 extract-identity (assoc ans id)))
           {}
-          wf-ids))
+          (conj child-wfs wf)))
 
 (defn- snapshot-execution
   "Creates a snapshot of the workflow vertices and edges to allow tracking
@@ -454,8 +457,8 @@
 
   ; determine all children workflows recursively and
   ; create records in the execution_workflow table for all child workflows and the parent
-  (let [wf-ids (-> wf-id children-workflows (conj wf-id))]
-    (insert-execution-workflows exec-id wf-ids))
+  (let [child-wfs (children-workflows wf-id)]
+    (insert-execution-workflows exec-id wf-id child-wfs))
 
   (exec-raw
    ["insert into execution_vertex (execution_workflow_id, node_id, status_id, layout)
@@ -542,7 +545,10 @@
   [id]
   (exec-raw
     ["select
-             f.node_id             as src_id
+             ew.execution_workflow_id
+           , ew.workflow_id
+           , ew.root               as is_root_wf
+           , f.node_id             as src_id
            , f.status_id           as src_status_id
            , f.start_ts            as src_start_ts
            , f.finish_ts           as src_finish_ts

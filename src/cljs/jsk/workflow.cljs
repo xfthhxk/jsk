@@ -6,6 +6,8 @@
             [enfocus.events :as events]
             [enfocus.effects :as effects]
             [clojure.string :as string]
+            [goog.string :as gstring]
+            [goog.string.format]
             [jayq.core :as jq])
   (:use [jayq.core :only [$]])
   (:require-macros [enfocus.macros :as em]
@@ -244,7 +246,7 @@
   (def the-event event)
   (let [job-id (-> ui .-helper (.data "job-id") u/str->int)
         pos (-> ui .-position)
-        layout (format "top: %spx; left: %spx" (.-top pos) (.-left pos))]
+        layout (gstring/format "top: %spx; left: %spx" (.-top pos) (.-left pos))]
     (u/log (str "layout in add-job-via-ui: " layout))
     (designer-add-job* job-id layout)))
 

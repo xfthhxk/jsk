@@ -190,6 +190,7 @@ create table execution ( execution_id        int       auto_increment primary ke
 create table execution_workflow ( execution_workflow_id   int       auto_increment primary key
                                 , execution_id            int       not null
                                 , workflow_id             int       not null
+                                , root                    boolean   not null
                                 , status_id               int       not null
                                 , start_ts                timestamp
                                 , finish_ts               timestamp );
@@ -220,6 +221,7 @@ alter table execution_vertex add constraint fk_execution_vertex_execution_workfl
 
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);
+alter table execution_vertex add constraint unq_execution_vertex unique(execution_workflow_id, node_id);
 
 
 create table execution_edge ( execution_edge_id int     auto_increment primary key

@@ -3,6 +3,7 @@
             [bouncer [core :as b] [validators :as v]]
             [clojure.stacktrace :as st]
             [jsk.graph :as g]
+            [jsk.ds :as ds]
             [jsk.quartz :as q]
             [jsk.schedule :as s]
             [jsk.util :as ju]
@@ -107,56 +108,77 @@
 ;-----------------------------------------------------------------------
 ; Produce the graph and make usable for quartz.
 ;-----------------------------------------------------------------------
+(defn- parse-root-exec-wf [data]
+  (->> data
+       (filter :is-root-wf)
+       (map :execution-workflow-id)
+       distinct))
+
+
+(defn- populate-exec-wfs [tbl data]
+  (let [root-wfs (parse-root-exec-wf data)
+        root-wf (first root-wfs)]
+
+    (debug "root-wfs: " root-wfs)
+
+    (assert (= 1 (count root-wfs)) (str "Only 1 wf can be the root wf. Got: " root-wfs))
+
+    (-> tbl
+        (ds/set-root-workflow root-wf)
+        (ds/add-workflows (map :execution-workflow-id data)))))
+
+(defn- populate-wf-mappings [tbl data]
+  (reduce (fn[ans {:keys[workflow-id execution-workflow-id]}]
+            (ds/add-workflow-mapping ans execution-workflow-id workflow-id))
+          tbl
+          data))
+
+(defn- populate-vertices
+  "Populates the execution info tbl by supplying it with vertices
+   pulled from data. data is a seq of maps."
+  [tbl data]
+  (let [v-fn (juxt :src-exec-vertex-id :dest-exec-vertex-id)
+        vv (into #{} (mapcat v-fn data))]
+  (ds/add-vertices tbl vv)))
+
+(defn- add-deps
+  "Adds in dependency information in tbl pulled from data."
+  [tbl data]
+  (reduce (fn [ans {:keys[execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success]}]
+            (ds/add-dependency ans execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success))
+          tbl
+          data))
+
+(defn- set-vertex-attrs
+  "Sets the vertex attributes in tbl from data."
+  [tbl data]
+  (reduce (fn[ans {:keys[src-id src-exec-vertex-id src-name src-type
+                         dest-id dest-exec-vertex-id dest-name dest-type
+                         workflow-id execution-workflow-id]}]
+            (-> ans
+               (ds/set-vertex-attrs src-exec-vertex-id src-id src-name src-type workflow-id execution-workflow-id)
+               (ds/set-vertex-attrs dest-exec-vertex-id dest-id dest-name dest-type workflow-id execution-workflow-id)))
+          tbl
+          data))
+
+(defn- data->exec-tbl
+  "data is a seq of maps which is turned into an execution info table."
+  [data]
+  (-> (ds/new-execution-table)
+      (populate-wf-mappings data)
+      (populate-exec-wfs data)
+      (populate-vertices data)
+      (add-deps data)
+      (set-vertex-attrs data)
+      (ds/finalize)))
+
+
 (defn- data->digraph
   "Generates a digraph."
   [data]
-  (reduce (fn[graph {:keys[src-id dest-id]}]
-            (g/add-edge graph src-id dest-id))
+  (reduce (fn[graph {:keys[src-exec-vertex-id dest-exec-vertex-id]}]
+            (g/add-edge graph src-exec-vertex-id dest-exec-vertex-id))
             {} data))
-
-(defn- data->base-node-table
-  "Answers with a map keyed by node ids. Value for each
-   is a map with keys :on-success and :on-fail both initailized
-   to empty sets."
-  [data]
-  (let [nn (reduce (fn [ans {:keys[src-id dest-id]}]
-                     (into ans [src-id dest-id]))  #{} data)]
-    (reduce (fn[ans id]
-              (assoc ans id {:on-success #{} :on-fail #{} :in-bound #{}})) {} nn)))
-
-(defn- data->node-table
-  "Generates a map keyed by node ids. The value is another map
-   with two keys true and false each which points to a set
-   of nodes to execute when the job succeeds or fails respectively.
-   e.g. {1 {:on-success #{2 3} :on-fail #{4}}}
-
-   input: {:src-id 1 :dest-id 2 :success true}
-   output: {1 {:on-success #{2} :on-fail #{}}}"
-
-  [data]
-  (reduce (fn[ans {:keys[src-id dest-id success]}]
-            (let [kw (if success :on-success :on-fail)]
-              (update-in ans [src-id kw] conj dest-id)))
-          (data->base-node-table data)
-          data))
-
-(defn- execution-data->node-table
-  "Reads from the snapshot execution data that has execution information
-   also.  Extra data can be used to recover from a crash/rerun only failed
-   or not yet run jobs etc."
-  [data]
-  (reduce (fn[ans {:keys[src-id  src-type  src-status-id  src-exec-vertex-id
-                         dest-id dest-type dest-status-id dest-exec-vertex-id]}]
-
-            (-> ans (update-in [src-id]  merge {:node-type src-type
-                                                :status src-status-id
-                                                :exec-vertex-id src-exec-vertex-id})
-
-                    (update-in [dest-id] merge {:node-type dest-type
-                                                :status dest-status-id
-                                                :exec-vertex-id dest-exec-vertex-id})))
-        (data->node-table data)
-        data))
 
 (defn workflow-data
   "For the given workflow id, answers with a map with the keys
@@ -170,22 +192,22 @@
   [id]
   (let [data (workflow-nodes id)
         digraph (data->digraph data)
-        tbl (data->node-table data)]
+        tbl (data->exec-tbl data)]
 
     (if (-> digraph g/acyclic? not)
       (throw (IllegalStateException. "Cyclic graphs disallowed")))
 
     {:roots (g/roots digraph) :table tbl}))
 
-(defn workflow-execution-data [exec-id]
+(defn workflow-execution-data
+  "Fetches a map with keys :execution-id :info. :info is the workflow
+   execution data and returns it as a data structure which conforms
+   to the IExecutionTable protocol."
+  [exec-id]
   (let [data (db/get-execution-graph exec-id)
-        digraph (data->digraph data)
-        tbl (execution-data->node-table data)]
-
-    (if (-> digraph g/acyclic? not)
-      (throw (IllegalStateException. "Cyclic graphs disallowed")))
-
-    {:roots (g/roots digraph) :table tbl :execution-id exec-id}))
+        tbl (data->exec-tbl data)]
+    (debug "tbl is " tbl)
+    {:execution-id exec-id :info tbl}))
 
 
 

@@ -99,6 +99,8 @@
     (acyclic-internal? g)))
 
 
+(defn new-graph [] {})
+
 ; acyclic
 ; dfs from all roots
 ;
