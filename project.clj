@@ -4,8 +4,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 ;[org.clojure/clojurescript "0.0-1878"]
-                 [org.clojure/clojurescript "0.0-2030"]
+                 [org.clojure/clojurescript "0.0-2030"] ; needed for lein-light-nrepl
+                 ;[org.clojure/clojurescript "0.0-2080"]
                  [org.clojure/core.async "0.1.242.0-44b1e3-alpha"]
                  ; [org.clojure/core.typed "0.2.3"]    ; static type checking
                  [clojurewerkz/quartzite "1.1.0"]    ; clojure wrapper around quartz scheduling
@@ -26,7 +26,7 @@
                   :exclusions [javax.activation/activation]]
                  ;[javax.mail/javax.mail-api "1.5.0"
                  ; :exclusions [javax.activation/activation]]
-                 [enfocus "2.0.0"]
+                 [enfocus "2.0.2"]
                  [jayq "2.4.0"]
                  ; light table nrepl deps
                  [org.clojure/tools.nrepl "0.2.3"]
