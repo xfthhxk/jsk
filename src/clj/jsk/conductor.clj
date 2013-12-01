@@ -129,6 +129,10 @@
         f (fn[id](->> id (ds/vertex-attrs info) :node-type))
         type-map (group-by f node-ids)]
 
+    (debug "run-nodes: node-ids:" node-ids)
+    (debug "run-nodes: info:" info)
+    (debug "run-nodes: type-map:" type-map)
+
     (assert (nil? others)
             (str "wf-id: " wf-id ", others: " others
                  ". Expected nodes to belong to only one wf."))
@@ -179,9 +183,10 @@
 (defn- run-job-as-synthetic-wf
   "Runs the job in the context of a synthetic workflow."
   [job-id]
-  (let [{:keys[execution-id roots table] :as m} (w/setup-synthetic-execution job-id)]
-    (add-exec-info! execution-id table)
-    (run-jobs #{job-id} execution-id)))
+  (let [{:keys[execution-id info] :as m} (w/setup-synthetic-execution job-id)]
+    (add-exec-info! execution-id info)
+    (run-nodes (ds/vertices (get-exec-info execution-id))
+               execution-id)))
 
 
 ;-----------------------------------------------------------------------
@@ -202,6 +207,15 @@
   true)
 
 
+(defn- execution-finished [exec-id success? last-exec-wf-id]
+  (let [root-wf-id (-> exec-id get-exec-info ds/root-workflow)
+        ts (db/now)]
+    (when (not= last-exec-wf-id root-wf-id) ; when the last node is a workflow in a composite workflow mark the root workflow as finished
+      (db/workflow-finished root-wf-id success? ts)
+      (put! @info-chan {:event :wf-finished :execution-id exec-id :success? success?}))
+    (db/execution-finished exec-id success? ts)
+    (put! @info-chan {:event :execution-finished :execution-id exec-id :success? success?})
+    (rm-exec-info! exec-id)))
 
 
 (defmulti dispatch :event)
@@ -232,11 +246,9 @@
 
     (run-nodes next-nodes execution-id)
 
-    ; if execution finished
-    (when (or exec-failed? exec-success?)
-      (db/execution-finished execution-id exec-success? ts)
-      (put! @info-chan {:event :execution-finished :execution-id execution-id :success? exec-success?})
-      (rm-exec-info! execution-id))))
+    ; execution finished?
+    (if (or exec-failed? exec-success?)
+      (execution-finished execution-id exec-success? exec-wf-id))))
 
 ; this comes from execution.clj
 (defmethod dispatch :job-started [{:keys[execution-id exec-wf-id]}]

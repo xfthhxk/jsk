@@ -529,12 +529,16 @@
   "Sets up an synthetic workflow for the job specified."
   [job-id]
   (let [exec-id (new-execution*)
-        id-map  (insert-execution-workflows exec-id [synthetic-workflow-id])
+        id-map  (insert-execution-workflows exec-id synthetic-workflow-id [])
         exec-wf-id (id-map synthetic-workflow-id)
-        exec-vertex-id (snapshot-synthetic-workflow exec-wf-id job-id unexecuted-status)]
+        exec-vertex-id (snapshot-synthetic-workflow exec-wf-id job-id unexecuted-status)
+        job-name (get-job-name job-id)]
     {:execution-id exec-id
+     :wf-id synthetic-workflow-id
+     :exec-wf-id (id-map synthetic-workflow-id)
      :exec-vertex-id exec-vertex-id
      :status unexecuted-status
+     :job-nm job-name
      :node-type job-type-id}))
 
 
