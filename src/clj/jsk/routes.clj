@@ -6,6 +6,7 @@
             [cemerick.friend :as friend]
             [taoensso.timbre :as timbre :refer (info warn error)]
             [jsk.job :as j]
+            [jsk.db :as db]
             [jsk.util :as u]
             [jsk.conductor :as conductor]
             [jsk.workflow :as w]
@@ -121,7 +122,12 @@
        (-> (:params request) (w/save-workflow! (uid request)) edn-response)))
 
 
+(defroutes node-routes
+  (GET "/nodes" []
+       (edn-response (db/ls-nodes))))
+
+
 ;-----------------------------------------------------------------------
 ; Collection of all routes.
 ;-----------------------------------------------------------------------
-(def all-routes (cc/routes schedule-routes job-routes workflow-routes app-routes))
+(def all-routes (cc/routes schedule-routes node-routes job-routes workflow-routes app-routes))

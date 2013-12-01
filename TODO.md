@@ -16,15 +16,12 @@ for the job list panel
 
 
 ## TODO
-* Job Workflow
-  workflow
-    workflow_id
-    job_id
-    job_id_exit_status_id (success/fail for job_id)
-    next_workflow_id
+* Sometimes the execution-workflow's finish-ts is not set thought it completes
+  Seems to occur with nested workflows
 
 * Execution-vertex for workflow nodes doesn't record the start/finish ts
   see db/workflow-finished and db/workflow-started
+
 
 
 

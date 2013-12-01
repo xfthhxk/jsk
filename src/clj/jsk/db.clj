@@ -35,7 +35,7 @@
 
 (defentity node
   (pk :node-id)
-  (entity-fields :node-id :node-name :node-type-id :node-desc :is-enabled :create-ts :creator-id :update-ts :updater-id))
+  (entity-fields :node-id :node-name :node-type-id :node-desc :is-system :is-enabled :create-ts :creator-id :update-ts :updater-id))
 
 (defentity job
   (pk :job-id)
@@ -86,6 +86,15 @@
       (join :inner :node (= :workflow-id :node.node-id))))
 
 ;-----------------------------------------------------------------------
+; Node lookups
+;-----------------------------------------------------------------------
+(defn ls-nodes
+  "Gets node id, nm, and type for all non-system workflows."
+  []
+  (select node
+          (where {:is-system false})))
+
+;-----------------------------------------------------------------------
 ; Job lookups
 ;-----------------------------------------------------------------------
 (defn ls-jobs
@@ -133,7 +142,8 @@
 (defn ls-workflows
   "Lists all workflows"
   []
-  (select base-workflow-query))
+  (select base-workflow-query
+          (where {:node.is-system false})))
 
 (defn enabled-workflows
   "Gets all active workflows."
@@ -304,6 +314,26 @@
           insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) schedule-id-set)]
       (if (not (empty? insert-maps))
         (insert job-schedule (values insert-maps))))))
+
+;-----------------------------------------------------------------------
+; Gets all enabled jobs with schedules.
+;-----------------------------------------------------------------------
+(defn enabled-jobs-schedule-info []
+  (exec-raw ["select
+                     js.job_schedule_id
+                   , js.job_id
+                   , s.cron_expression
+                from
+                     job_schedule js
+                join schedule     s
+                  on js.schedule_id = s.schedule_id
+                join job          j
+                  on js.job_id = j.job_id
+                join node         n
+                  on j.job_id = n.node_id
+               where n.is_enabled = 1"]
+            :results))
+
 
 
 ;-----------------------------------------------------------------------

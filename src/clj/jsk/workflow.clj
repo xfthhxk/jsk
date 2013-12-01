@@ -69,7 +69,7 @@
 ;-----------------------------------------------------------------------
 (defn- key-layout-by-id [layout]
   (reduce (fn [ans m]
-            (assoc ans (:job-id m) (:css-text m)))
+            (assoc ans (:node-id m) (:css-text m)))
           {}
           layout))
 
@@ -101,6 +101,8 @@
 (defn save-workflow!
   "Saves the workflow to the database and the scheduler."
   [{:keys [layout workflow]} user-id]
+  (debug "layout: " layout)
+  (debug "wf: " workflow)
   (if-let [errors (validate-save workflow)]
     (ju/make-error-response errors)
     (save-workflow* workflow layout user-id)))

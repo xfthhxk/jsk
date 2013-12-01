@@ -24,8 +24,8 @@
           </form>
 
           <div class="row">
-            <!-- This is the jobs list on the left -->
-                <div id="workflow-designer-job-explorer" class="col-md-3"> </div>
+            <!-- This is the job/workflow list on the left -->
+            <div id="workflow-designer-node-explorer" class="col-md-3"> </div>
 
                 <div id="workflow-design-area" class="col-md-9">
                   <!--
@@ -40,27 +40,28 @@
 
 
         <!-- workflow explorer displayed on left -->
-        <div id="workflow-designer-job-tree" class="panel panel-info">
+        <div id="workflow-designer-node-tree" class="panel panel-info">
             <div class="panel-heading">
-                <h3 class="panel-title">Available Jobs</h3>
+              <h3 class="panel-title">Available Job/WFs</h3>
             </div>
             <div class="panel-body">
-                <ul id="workflow-designer-jobs-list" class="list-group">
-                    <li data-job-id="123" id="123" class="list-group-item available-job">Job 1</li>
-                    <li data-job-id="34" id="34" class="list-group-item available-job">Job 2</li>
+                <ul id="workflow-designer-nodes-list" class="list-group">
+                  <li data-node-id="123" id="123" class="list-group-item available-node">Job 1</li>
+                  <li data-node-id="34" id="34" class="list-group-item available-node">Job 2</li>
                 </ul>
             </div>
-        </div>
+      </div>
+
 
 
         <!-- workflow node -->
       <div class="workflow-node" id="workflow-node">
-        <button id="delete-job-id-1" type="button" class="close rm-node-btn">&times;</button>
+        <button id="delete-node-id-1" type="button" class="close rm-node-btn">&times;</button>
         <p/>
-        <div class="workflow-node-job-name">Job 1</div>
+        <div class="workflow-node-item-name">Job 1</div>
             <p>
-                <div class="ep-fail" id="ep-fail-job-id-1" data-job-id="123" data-job-exit="fail"></div>
-                <div class="ep-success" id="ep-success-job-id-1" data-job-id="123" data-job-exit="success"></div>
+                <div class="ep-fail" id="ep-fail-node-id-1" data-node-id="123" data-node-exit="fail"></div>
+        <div class="ep-success" id="ep-success-node-id-1" data-node-id="123" data-node-exit="success"></div>
              </p>
         </div>
       </div>

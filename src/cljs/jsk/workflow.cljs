@@ -14,7 +14,7 @@
                    [cljs.core.async.macros :refer [go]]))
 (declare show-designer)
 
-(def job-store (atom {}))
+(def node-store (atom {}))
 
 (defn- show-element [sel]
   (-> sel $ .show))
@@ -23,9 +23,9 @@
   (-> sel $ .hide))
 
 (defn- node->layout-info [n]
-  (let [job-id (ef/from n (ef/get-attr :data-job-id))
+  (let [node-id (ef/from n (ef/get-attr :data-node-id))
         css-text (-> n .-style .-cssText)]
-    {:job-id (u/str->int job-id) :css-text css-text}))
+    {:node-id (u/str->int node-id) :css-text css-text}))
 
 
 (defn- collect-workflow-layout-info []
@@ -36,6 +36,7 @@
 (defn- show-save-success []
   (show-element "#workflow-save-success")
   (ef/at "#workflow-save-success"  (effects/fade-out 1000)))
+
 
 
 
@@ -51,8 +52,8 @@
 
 
 ;----------------------------------------------------------------------
-; src is a string like "ep-fail-job-id-1"
-; tgt is a string like "job-id-2"
+; src is a string like "ep-fail-node-id-1"
+; tgt is a string like "node-id-2"
 ; Returns {:success? false :src-node-id 1 :tgt-node-id 2}
 ;----------------------------------------------------------------------
 (defn- parse-connection-info [{:keys [src tgt]}]
@@ -83,7 +84,7 @@
 
 
 ;----------------------------------------------------------------------
-; Saving a workflow requires a workflow name, and all jobs
+; Saving a workflow requires a workflow name, and all nodes
 ; and connections from jsPlumb.
 ;----------------------------------------------------------------------
 (defn save-workflow [event]
@@ -130,20 +131,20 @@
 
 
 ;----------------------------------------------------------------------
-; For list available jobs with their names
+; For list available nodes with their names
 ;----------------------------------------------------------------------
-(em/defsnippet job-list-snippet :compiled "public/templates/workflow.html" "#workflow-designer-job-tree" [jobs]
+(em/defsnippet node-list-snippet :compiled "public/templates/workflow.html" "#workflow-designer-node-tree" [nodes]
   "ul > :not(li:first-child)" (ef/remove-node)
-  "li"  (em/clone-for [j jobs]
+  "li"  (em/clone-for [n nodes]
           (ef/do->
-            (ef/set-attr :id (str (:job-id j)) :data-job-id (str (:job-id j)))
-            (ef/content (:job-name j)))))
+            (ef/set-attr :id (str (:node-id n)) :data-node-id (str (:node-id n)))
+            (ef/content (:node-name n)))))
 
 ;----------------------------------------------------------------------
 ; Layout of the entire designer screen.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-designer :compiled "public/templates/workflow.html" "#workflow-designer" [jobs workflow-id workflow-name workflow-desc enabled?]
-  "#workflow-designer-job-explorer" (ef/content (job-list-snippet jobs))
+(em/defsnippet workflow-designer :compiled "public/templates/workflow.html" "#workflow-designer" [nodes workflow-id workflow-name workflow-desc enabled?]
+  "#workflow-designer-node-explorer" (ef/content (node-list-snippet nodes))
   "#workflow-id" (ef/set-attr :value (str workflow-id))
   "#workflow-name" (ef/set-attr :value workflow-name)
   "#workflow-desc" (ef/set-attr :value workflow-desc)
@@ -153,16 +154,16 @@
   "#workflow-save-action" (events/listen :click save-workflow))
 
 ;----------------------------------------------------------------------
-; Adding a new workflow node (job) on the designer.
+; Adding a new workflow node on the designer.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id job-id job-name success-div-id fail-div-id rm-btn-id]
-  "div.workflow-node"          (ef/set-attr :id div-id :data-job-id job-id)
+(em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id node-id node-name success-div-id fail-div-id rm-btn-id]
+  "div.workflow-node"          (ef/set-attr :id div-id :data-node-id node-id)
   "button"                     (ef/do->
-                                 (ef/set-attr :id rm-btn-id :data-job-id job-id)
+                                 (ef/set-attr :id rm-btn-id :data-node-id node-id)
                                  (events/listen :click (fn[e] (delete-workflow-node div-id fail-div-id success-div-id))))
-  "div.workflow-node-job-name" (ef/content job-name)
-  "div.ep-fail"                (ef/set-attr :data-job-id job-id :id fail-div-id)
-  "div.ep-success"             (ef/set-attr :data-job-id job-id :id success-div-id))
+  "div.workflow-node-item-name" (ef/content node-name)
+  "div.ep-fail"                (ef/set-attr :data-node-id node-id :id fail-div-id)
+  "div.ep-success"             (ef/set-attr :data-node-id node-id :id success-div-id))
 
 
 ;----------------------------------------------------------------------
@@ -173,34 +174,34 @@
 
 
 ;----------------------------------------------------------------------
-; Answers if a job is being dropped.
+; Answers if a node is being dropped.
 ;----------------------------------------------------------------------
-(defn- job-drop? [event ui]
-  (if (-> ui .-helper (.data "job-id"))
+(defn- node-drop? [event ui]
+  (if (-> ui .-helper (.data "node-id"))
     true
     false))
 
 
-(defn- job-id->div-id
-  "Constructs the div id for the whole job node."
-  [job-id]
-  (str "job-id-" job-id))
+(defn- node-id->div-id
+  "Constructs the div id for the whole node node."
+  [node-id]
+  (str "node-id-" node-id))
 
 
-(defn- job-id->success-ep-id
+(defn- node-id->success-ep-id
   "Constructs the success endpoint div id"
-  [job-id]
-  (str "ep-success-" (job-id->div-id job-id)))
+  [node-id]
+  (str "ep-success-" (node-id->div-id node-id)))
 
-(defn- job-id->fail-ep-id
+(defn- node-id->fail-ep-id
   "Constructs the fail endpoint div id"
-  [job-id]
-  (str "ep-fail-" (job-id->div-id job-id)))
+  [node-id]
+  (str "ep-fail-" (node-id->div-id node-id)))
 
 
 
 ;----------------------------------------------------------------------
-; Make the delete button visible for the node (job).
+; Make the delete button visible for the node (node).
 ;----------------------------------------------------------------------
 (defn- node-hover-handler [node-sel rm-btn-sel]
   (-> node-sel $ (.mouseenter #(show-element rm-btn-sel))
@@ -211,22 +212,22 @@
 ; Creates a visible node in the designer.
 ; layout is the csstext property to apply to the node
 ;----------------------------------------------------------------------
-(defn- designer-add-job*
-  [job-id layout]
-  (let [job-id-str     (str job-id)
-        div-id         (job-id->div-id job-id)
+(defn- designer-add-node*
+  [node-id layout]
+  (let [node-id-str     (str node-id)
+        div-id         (node-id->div-id node-id)
         div-sel        (str "#" div-id)
-        job-name       (get @job-store job-id)
-        success-div-id (job-id->success-ep-id job-id)
-        fail-div-id    (job-id->fail-ep-id job-id)
-        rm-btn-id      (str "rm-job-id-" job-id-str)
+        node-name       (get @node-store node-id)
+        success-div-id (node-id->success-ep-id node-id)
+        fail-div-id    (node-id->fail-ep-id node-id)
+        rm-btn-id      (str "rm-node-id-" node-id-str)
         rm-btn-sel     (str "#" rm-btn-id)]
 
-    ; right now we're only supporting adding one instance of a job in the workflow
+    ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
 
       (ef/at "#workflow-design-area"
-        (ef/append (workflow-node div-id job-id-str job-name success-div-id fail-div-id rm-btn-id)))
+        (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id)))
 
       (set! (-> div-sel $ first .-style .-cssText) layout)
       (node-hover-handler div-sel rm-btn-sel)
@@ -239,30 +240,30 @@
 
 
 ;----------------------------------------------------------------------
-; Fixme: This is not dropping the job where the mouse is.
+; Fixme: This is not dropping the node where the mouse is.
 ;----------------------------------------------------------------------
-(defn- designer-add-job-via-ui [event ui]
+(defn- designer-add-node-via-ui [event ui]
   (def the-ui ui)
   (def the-event event)
-  (let [job-id (-> ui .-helper (.data "job-id") u/str->int)
+  (let [node-id (-> ui .-helper (.data "node-id") u/str->int)
         pos (-> ui .-position)
         layout (gstring/format "top: %spx; left: %spx" (.-top pos) (.-left pos))]
-    (u/log (str "layout in add-job-via-ui: " layout))
-    (designer-add-job* job-id layout)))
+    (u/log (str "layout in add-node-via-ui: " layout))
+    (designer-add-node* node-id layout)))
 
 
 
 ;----------------------------------------------------------------------
-; Calls handler only if the dropped object is a job.
+; Calls handler only if the dropped object is a node.
 ; When using jsPlumb to draw connections, objects are also dropped.
-; This middleware ensures we create workflow nodes for jobs.
+; This middleware ensures we create workflow nodes for node.
 ;----------------------------------------------------------------------
-(defn- with-job-drop [handler]
+(defn- with-node-drop [handler]
   (fn [event ui]
-    (if (job-drop? event ui)
+    (if (node-drop? event ui)
       (handler event ui))))
 
-(def designer-add-job (with-job-drop designer-add-job-via-ui))
+(def designer-add-node (with-node-drop designer-add-node-via-ui))
 
 
 ; The data in the input map is like:
@@ -271,21 +272,21 @@
 ;  :to-node-type-id 1
 ;  :to-node-name "run ls"
 ;  :from-node-type-id 1
-;  :from-node-name "cal job"
+;  :from-node-name "cal node"
 ;  :success true
 ;  :to-node-id 2
 ;  :from-node-id 1}
 (defn- add-one-edge [{:keys[src-id dest-id src-layout dest-layout success]}]
-  (let [src-div-id (job-id->div-id src-id)
-        dest-div-id   (job-id->div-id dest-id)]
+  (let [src-div-id (node-id->div-id src-id)
+        dest-div-id   (node-id->div-id dest-id)]
 
     (when (u/element-not-exists? src-div-id)
-      (designer-add-job* src-id src-layout))
+      (designer-add-node* src-id src-layout))
 
     (when (u/element-not-exists? dest-div-id)
-      (designer-add-job* dest-id dest-layout))
+      (designer-add-node* dest-id dest-layout))
 
-  (let [id-mkr (if success job-id->success-ep-id job-id->fail-ep-id)
+  (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
         src-ep-id (id-mkr src-id)]
     (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
     (plumb/connect src-ep-id dest-div-id))))
@@ -298,27 +299,27 @@
 
 ;----------------------------------------------------------------------
 ; Shows a new workflow designer.
-; -- Get and build the ui for all jobs in the system
+; -- Get and build the ui for all node in the system
 ;----------------------------------------------------------------------
 (defn show-designer
   ([] (show-designer {:workflow-id -1 :workflow-name "" :workflow-desc "" :is-enabled true}))
   ([{:keys [workflow-id workflow-name workflow-desc is-enabled] :as w}]
     (go
-      (let [jobs (<! (rfn/fetch-all-jobs))
+      (let [nodes (<! (rfn/fetch-all-nodes))
             graph (<! (rfn/fetch-workflow-graph workflow-id))]
 
-        (reset! job-store (reduce #(conj %1 ((juxt :job-id :job-name) %2)) {} jobs))
+        (reset! node-store (reduce #(conj %1 ((juxt :node-id :node-name) %2)) {} nodes))
         (plumb/reset) ; clear any state it may have had
-        (u/showcase (workflow-designer jobs workflow-id workflow-name workflow-desc is-enabled))
+        (u/showcase (workflow-designer nodes workflow-id workflow-name workflow-desc is-enabled))
 
         (plumb/register-connection-click-handler connection-click-listener)
 
         ; these things can happen only after the workflow designer is displayed
         (hide-element "#workflow-save-success")
         (plumb/default-container :#workflow-design-area)
-        (-> :#workflow-design-area $ (.droppable (clj->js {:accept ".available-job" :activeClass :ui-state-highlight})))
-        (-> :#workflow-design-area $ (.on "drop" designer-add-job))
-        (-> ".available-job" $ (.draggable (clj->js {:revert true :helper :clone :opacity 0.35})))
+        (-> :#workflow-design-area $ (.droppable (clj->js {:accept ".available-node" :activeClass :ui-state-highlight})))
+        (-> :#workflow-design-area $ (.on "drop" designer-add-node))
+        (-> ".available-node" $ (.draggable (clj->js {:revert true :helper :clone :opacity 0.35})))
         (reconstruct-ui graph)))))
 
 

@@ -78,7 +78,17 @@ Three types are most important:
 ** Cron
 - UI will translate interface to cron expression
 
+** Debug
+(defn do-requires []
+  (require '[jsk.workflow :as w])
+  (require '[jsk.graph :as g])
+  (require '[jsk.conductor :as c])
+  (require '[jsk.ds :as ds])
+  (require '[jsk.db :as db])
+  (require '[clojure.pprint :as p]))
 
+(do-requires)
+(jsk.main/-main)
 
 
 ## License
