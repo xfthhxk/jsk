@@ -45,17 +45,19 @@
   [exec-id]
   (swap! exec-infos dissoc exec-id))
 
-(defn- get-exec-info
+(defn get-exec-info
   "Look up the IExecutionInfo for the exec-id."
   [exec-id]
   (get-in @exec-infos [exec-id :info]))
 
+(defn get-by-exec-id [id] (get @exec-infos id))
 
 (defn- update-running-jobs-count!
   "Updates the running jobs count based on the value of :execution-id.
   'f' is a fn such as inc/dec for updating the count.  Answers with the
   new running job count for the exec-wf-id in execution-id."
   [execution-id exec-wf-id f]
+  (debug "update running jobs count with: execution-id: " execution-id ", exec-wf-id: " exec-wf-id ", f:" f)
   (let [path [execution-id :running-jobs exec-wf-id]]
     (-> (swap! exec-infos update-in path f)
         (get-in path))))
@@ -108,9 +110,8 @@
     (doseq [wf wfs
             :let [data {:event :run-wf
                         :execution-id exec-id
-                        :wf-id (:node-id (ds/vertex-attrs info wf))
-                        :trigger-src :conductor
-                        :exec-vertex-id wf}]]
+                        :exec-wf-id (:exec-wf-to-run (ds/vertex-attrs info wf))
+                        :trigger-src :conductor}]]
       (put! @cond-chan data))))
 
 ;-----------------------------------------------------------------------
@@ -120,17 +121,22 @@
   "Fires off each node in node-ids.  execution-id is required to figure out
    the exec-vertex-id which serves as the unique id for writing log files
    to.  exec-vertex-id is used by the execution.clj ns."
-  [node-ids exec-wf-id exec-id]
+  [node-ids exec-id]
 
   ; group-by node-ids by node-type
   (let [info (get-exec-info exec-id)
+        [wf-id & others] (-> (ds/workflow-context info node-ids) vals distinct)
         f (fn[id](->> id (ds/vertex-attrs info) :node-type))
         type-map (group-by f node-ids)]
+
+    (assert (nil? others)
+            (str "wf-id: " wf-id ", others: " others
+                 ". Expected nodes to belong to only one wf."))
 
     ; FIXME: these could be nil if group by doesn't produce
     ; a value from type-map
 
-    (-> db/job-type-id type-map (run-jobs exec-wf-id exec-id))
+    (-> db/job-type-id type-map (run-jobs wf-id exec-id))
     (-> db/workflow-type-id type-map (run-workflows exec-id))))
 
 ;-----------------------------------------------------------------------
@@ -149,11 +155,12 @@
    (let [info (get-exec-info exec-id)
          roots (-> info (ds/workflow-graph exec-wf-id) g/roots)
          {:keys[node-id node-nm]} (ds/vertex-attrs info exec-wf-id)]
+     (db/workflow-started exec-wf-id (db/now))
      (put! @info-chan {:event :wf-started
                        :wf-id node-id
                        :wf-nm node-nm
                        :execution-id exec-id})
-     (run-nodes roots exec-wf-id exec-id))))
+     (run-nodes roots exec-id))))
 
 ;-----------------------------------------------------------------------
 ; Find which things should execute next
@@ -209,23 +216,26 @@
 (defmethod dispatch :trigger-wf [{:keys [wf-id]}]
   (start-workflow-execution wf-id))
 
-(defmethod dispatch :run-wf [{:keys [exec-vertex-id execution-id]}]
-  (start-workflow-execution exec-vertex-id execution-id))
+(defmethod dispatch :run-wf [{:keys [exec-wf-id execution-id]}]
+  (start-workflow-execution exec-wf-id execution-id))
 
-(defmethod dispatch :wf-finished [{:keys[execution-id exec-wf-id]}]
+(defmethod dispatch :wf-finished [{:keys[execution-id exec-wf-id parent-vertex]}]
   (let [wf-success? (exec-wf-success? execution-id exec-wf-id)
         ts (db/now)
-        next-nodes (successor-nodes execution-id exec-wf-id wf-success?)
-        failed? (and (not wf-success?) (empty? next-nodes))]
+        next-nodes (successor-nodes execution-id parent-vertex wf-success?)
+        exec-failed? (and (not wf-success?) (empty? next-nodes))
+        exec-success? (and wf-success? (empty? next-nodes))]
 
     (info "workflow with exec-wf-id " exec-wf-id " finished, success? " wf-success?)
     (db/workflow-finished exec-wf-id wf-success? ts)
     (put! @info-chan {:event :wf-finished :execution-id execution-id :success? wf-success?})
 
+    (run-nodes next-nodes execution-id)
+
     ; if execution finished
-    (when true
-      (db/execution-finished execution-id true ts)
-      (put! @info-chan {:event :execution-finished :execution-id execution-id :success? true})
+    (when (or exec-failed? exec-success?)
+      (db/execution-finished execution-id exec-success? ts)
+      (put! @info-chan {:event :execution-finished :execution-id execution-id :success? exec-success?})
       (rm-exec-info! execution-id))))
 
 ; this comes from execution.clj
@@ -237,19 +247,23 @@
 ; determines next set of jobs to run
 ; also determines if the workflow is finished and/or errored.
 (defmethod dispatch :job-finished [{:keys[execution-id exec-wf-id exec-vertex-id success?] :as msg}]
+  (debug "job-finished: " msg)
   (let [new-count (update-running-jobs-count! execution-id exec-wf-id dec)
-        next-nodes (successor-nodes msg)
+        next-nodes (successor-nodes execution-id exec-vertex-id success?)
         exec-wf-fail? (and (not success?) (empty? next-nodes))
-        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
+        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))
+        {:keys[parent-vertex]} (-> (get-exec-info execution-id)
+                                   (ds/vertex-attrs exec-vertex-id))]
 
     (if exec-wf-fail?
       (mark-exec-wf-failed! execution-id exec-wf-id))
 
     (if exec-wf-finished?
       (put! @cond-chan {:event :wf-finished
+                        :parent-vertex parent-vertex
                         :execution-id execution-id
                         :exec-wf-id exec-wf-id})
-      (run-nodes next-nodes exec-wf-id execution-id))))
+      (run-nodes next-nodes execution-id))))
 
 
 (defn init
@@ -262,15 +276,10 @@
   (reset! info-chan info-ch)
 
   (go-loop [msg (<! cond-ch)]
-     (dispatch msg)
+     (try
+       (dispatch msg)
+       (catch Exception ex
+         (error ex)))
      (recur (<! cond-ch))))
-
-
-
-
-
-
-
-
 
 

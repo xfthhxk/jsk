@@ -23,16 +23,8 @@ for the job list panel
     job_id_exit_status_id (success/fail for job_id)
     next_workflow_id
 
-    Should be able to use sql's with recursive to get the whole tree?
-
-  workflow_execution
-    workflow_execution_id
-    workflow_id
-    job_id
-    job_id_exit_status_id
-    next_job_id
-    has_executed
-
+* Execution-vertex for workflow nodes doesn't record the start/finish ts
+  see db/workflow-finished and db/workflow-started
 
 
 

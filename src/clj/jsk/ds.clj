@@ -7,8 +7,7 @@
   {:node-id 0
    :node-nm ""
    :node-type 0
-   :owned-by-wf 0
-   :exec-wf-id 0
+   :belongs-to-wf 0
    :status 0
    :on-success #{}
    :on-failure #{}})
@@ -77,6 +76,9 @@
 
   (root-workflow-graph [tbl]
     "Gets the root workflow graph.")
+
+  (workflow-context [tbl vertices]
+    "Answers with a map of vertex -> the workflow which owns the vertex.")
 
   (finalize [tbl]
     "Populates additional data to facilitate processing
@@ -161,7 +163,7 @@
                merge {:node-id node-id
                       :node-nm node-nm
                       :node-type node-type
-                      :owned-by-wf exec-wf-id}))
+                      :belongs-to-wf exec-wf-id}))
 
   (vertex-attrs [tbl v]
     (get-in tbl [:vertices v]))
@@ -181,6 +183,12 @@
 
   (root-workflow-graph [tbl]
     (workflow-graph tbl (root-workflow tbl)))
+
+  (workflow-context [tbl vertices]
+    (reduce (fn[ans v]
+              (assoc ans v (:belongs-to-wf (vertex-attrs tbl v))))
+            {}
+            vertices))
 
   (finalize [tbl]
     (reduce (fn[ans v]

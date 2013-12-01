@@ -1,6 +1,6 @@
 (ns jsk.db
   "Database access"
-  (:require [clojure.string :as str]
+  (:require [clojure.string :as string]
             [taoensso.timbre :as timbre
              :refer (trace debug info warn error fatal spy with-log-level)])
   (:use [korma core db]))
@@ -404,34 +404,38 @@
   (pk :execution-vertex-id)
   (entity-fields :execution-id :node-id :status-id :start-ts :finish-ts))
 
+; some strange issue with substituting params in this query
+(def ^:private child-workflow-sql
+   " with wf(workflow_id) as
+     (
+       select
+              w.workflow_id
+         from workflow_vertex wv
+         join workflow w
+           on wv.node_id = w.workflow_id
+        where wv.workflow_id = <wf-id>
+
+      union all
+
+      select
+             w.workflow_id
+        from wf
+        join workflow_vertex wv
+          on wf.workflow_id = wv.workflow_id
+        join workflow w
+          on wv.node_id = w.workflow_id
+     )
+     select wf.workflow_id
+       from wf ")
 
 (defn- children-workflows
   "For the wf-id specified recursively get all workflows it uses.
    Answers with a seq of ints."
   [wf-id]
-  (->> (exec-raw
-         [" with wf(workflow_id) as
-           (
-             select
-                    w.workflow_id
-               from workflow_vertex wv
-               join workflow w
-                 on wv.node_id = w.workflow_id
-              where wv.workflow_id = ?
-
-            union all
-
-            select
-                   w.workflow_id
-              from wf
-              join workflow_vertex wv
-                on wf.workflow_id = wv.workflow_id
-              join workflow w
-                on wv.node_id = w.workflow_id
-           )
-           select wf.workflow_id
-             from wf " [wf-id]] :results)
-      (map :workflow-id) doall))
+  (let [q (string/replace child-workflow-sql #"<wf-id>" (str wf-id))]
+    (->> (exec-raw [q []] :results)
+         (map :workflow-id)
+         doall)))
 
 (defn- insert-execution-workflows
   "Creates rows in execution-workflows table and returns a map of
@@ -578,13 +582,6 @@
           on t.node_id = tn.node_id
        where e.execution_id = ? " [id]] :results))
 
-(defn workflow-finished
-  "Marks the workflow as finished and sets the status."
-  [exec-id wf-id success? finish-ts]
-  (let [status (if success? finished-success finished-error)]
-    (update execution-workflow
-      (set-fields {:status-id status :finish-ts finish-ts})
-      (where {:execution-id exec-id :workflow-id wf-id}))))
 
 (defn execution-finished
   "Marks the execution as finished and sets the status."
@@ -605,3 +602,24 @@
     (set-fields {:status-id status-id :finish-ts ts})
     (where {:execution-vertex-id exec-vertex-id})))
 
+
+(defn workflow-finished
+  "Marks the workflow as finished and sets the status in both the execution-workflow
+   table and in execution-vertex."
+  [exec-wf-id success? finish-ts]
+  (let [status (if success? finished-success finished-error)]
+    (transaction
+      (update execution-workflow
+        (set-fields {:status-id status :finish-ts finish-ts})
+        (where {:execution-workflow-id exec-wf-id}))
+      #_(execution-vertex-finished exec-vertex-id status finish-ts))))
+
+(defn workflow-started
+  "Marks the workflow as finished and sets the status in both the
+   execution-workflow and execution-vertex tables."
+  [exec-wf-id start-ts]
+  (transaction
+    (update execution-workflow
+      (set-fields {:status-id started-status :start-ts start-ts})
+      (where {:execution-workflow-id exec-wf-id}))
+    #_(execution-vertex-started exec-vertex-id start-ts)))
