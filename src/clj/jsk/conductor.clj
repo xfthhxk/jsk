@@ -96,10 +96,11 @@
     (doseq [v vertices
             :let [data {:execution-id exec-id
                         :exec-wf-id exec-wf-id
-                        :job-id (:node-id (ds/vertex-attrs info v))
+                        :node-id (:node-id (ds/vertex-attrs info v))
                         :trigger-src :conductor
+                        :start-ts (db/now)
                         :exec-vertex-id v}]]
-      (run-job (:job-id data) data))))
+      (run-job (:node-id data) data))))
 
 
 ;-----------------------------------------------------------------------
@@ -149,20 +150,21 @@
 (defn- start-workflow-execution
   ([wf-id]
    (try
-     (let [{:keys[execution-id info]} (w/setup-execution wf-id)]
+     (let [wf-name (w/get-workflow-name wf-id)
+           {:keys[execution-id info]} (w/setup-execution wf-id)]
        (add-exec-info! execution-id info)
+       (put! @info-chan {:event :execution-started
+                         :execution-id execution-id
+                         :wf-name wf-name})
        (start-workflow-execution (ds/root-workflow info) execution-id))
      (catch Exception e
        (error e))))
 
   ([exec-wf-id exec-id]
    (let [info (get-exec-info exec-id)
-         roots (-> info (ds/workflow-graph exec-wf-id) g/roots)
-         {:keys[node-id node-nm]} (ds/vertex-attrs info exec-wf-id)]
+         roots (-> info (ds/workflow-graph exec-wf-id) g/roots)]
      (db/workflow-started exec-wf-id (db/now))
      (put! @info-chan {:event :wf-started
-                       :wf-id node-id
-                       :wf-nm node-nm
                        :execution-id exec-id})
      (run-nodes roots exec-id))))
 
@@ -194,7 +196,7 @@
 ;-----------------------------------------------------------------------
 (defn trigger-job-now [job-id]
   (info "job-id is " job-id)
-  (put! @cond-chan {:event :trigger-job :job-id job-id :trigger-src :user})
+  (put! @cond-chan {:event :trigger-job :node-id job-id :trigger-src :user})
   true)
 
 ;-----------------------------------------------------------------------
@@ -220,11 +222,11 @@
 
 (defmulti dispatch :event)
 
-(defmethod dispatch :trigger-job [{:keys [job-id trigger-src]}]
+(defmethod dispatch :trigger-job [{:keys [node-id trigger-src]}]
   (case trigger-src
-    :quartz (run-job-as-synthetic-wf job-id)
-    :user   (run-job-as-synthetic-wf job-id)
-    :conductor (run-job job-id)))
+    :quartz (run-job-as-synthetic-wf node-id)
+    :user   (run-job-as-synthetic-wf node-id)
+    :conductor (run-job node-id)))
 
 
 (defmethod dispatch :trigger-wf [{:keys [wf-id]}]

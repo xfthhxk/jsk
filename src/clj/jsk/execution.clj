@@ -35,19 +35,18 @@
 ;
 ;----------------------------------------------
 (defn- record-pre-job-execution [job-ctx _]
-  (let [{:strs[execution-id job-id exec-wf-id trigger-src exec-vertex-id]} (job-ctx->jsk-data job-ctx)
-        ts (db/now)
+  (let [{:strs[execution-id node-id exec-wf-id trigger-src exec-vertex-id start-ts]} (job-ctx->jsk-data job-ctx)
         msg {:event :job-started
              :exec-wf-id exec-wf-id
              :execution-id execution-id
-             :job-id job-id
+             :node-id node-id
              :exec-vertex-id exec-vertex-id
              :status db/started-status
-             :start-ts ts}]
+             :start-ts start-ts}]
 
-    (db/execution-vertex-started exec-vertex-id ts)
+    (db/execution-vertex-started exec-vertex-id start-ts)
 
-    (info "Job id " job-id "is to be executed with exec-vertex-id " exec-vertex-id)
+    (info "Job id " node-id "is to be executed with exec-vertex-id " exec-vertex-id)
 
     (put! @conductor-channel msg)
     (put! @info-channel msg)))
@@ -58,16 +57,17 @@
 (defn- record-post-job-execution
   "Records that a job has finished."
   [job-ctx job-exception]
-  (let [{:strs[execution-id job-id exec-wf-id trigger-src exec-vertex-id]} (job-ctx->jsk-data job-ctx)
+  (let [{:strs[execution-id node-id exec-wf-id trigger-src exec-vertex-id start-ts]} (job-ctx->jsk-data job-ctx)
         ts (db/now)
         success? (nil? job-exception)
         status (if success? db/finished-success db/finished-error)
         error-msg (exception->msg job-exception)
         msg {:event :job-finished
              :execution-id execution-id
-             :job-id job-id
+             :node-id node-id
              :exec-wf-id exec-wf-id
              :exec-vertex-id exec-vertex-id
+             :start-ts start-ts
              :finish-ts ts
              :success? success?
              :status status
@@ -76,7 +76,7 @@
     (info "exec-wf-id is " exec-wf-id)
 
      (db/execution-vertex-finished exec-vertex-id status ts)
-     (info "Execution vertex id " exec-vertex-id " for job " job-id " has finished. Success? " success?)
+     (info "Execution vertex id " exec-vertex-id " for job " node-id " has finished. Success? " success?)
 
      (if error-msg
        (info "Execution vertex id " exec-vertex-id " exception: " error-msg))

@@ -22,6 +22,9 @@ for the job list panel
 * Execution-vertex for workflow nodes doesn't record the start/finish ts
   see db/workflow-finished and db/workflow-started
 
+* in the execution info object, need a mapping of exec-wf-id to the execution-vertex-id
+  that workflow corresponds to.  This would facilitate with info notifications to the
+  ui etc.
 
 
 

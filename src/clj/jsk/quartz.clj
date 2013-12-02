@@ -98,8 +98,8 @@
 ;-----------------------------------------------------------------------
 (j/defjob JskTriggerJob
   [ctx]
-  (let [{:strs [job-id]} (qc/from-job-data ctx)]
-    (put! @conductor-channel {:event :trigger-job :job-id job-id :trigger-src :quartz})))
+  (let [{:strs [node-id]} (qc/from-job-data ctx)]
+    (put! @conductor-channel {:event :trigger-job :node-id node-id :trigger-src :quartz})))
 
 
 ;-----------------------------------------------------------------------
@@ -119,10 +119,10 @@
                (j/with-identity job-key)
                (j/store-durably))))
 
-(defn- make-triggerable-job [job-id]
+(defn- make-triggerable-job [node-id]
   (j/build (j/of-type JskTriggerJob)
-           (j/using-job-data {"job-id" job-id "ignore-execution?" true}) ; string keys for quartz
-           (j/with-identity (make-trigger-job-key job-id))
+           (j/using-job-data {"node-id" node-id "ignore-execution?" true}) ; string keys for quartz
+           (j/with-identity (make-trigger-job-key node-id))
            (j/store-durably)))
 
 

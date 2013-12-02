@@ -116,22 +116,23 @@
               <!-- sub panel header -->
               <div class="panel-heading">
                   <h5 class="panel-title">
-                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#currently-executing-accordion" href="#jobs-currently-executing">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#currently-executing-accordion" href="#nodes-currently-executing">
                       Currently Executing
                     </a>
                   </h5>
               </div>
 
-              <div id="jobs-currently-executing" class="panel-collapse collapse in">
+              <div id="nodes-currently-executing" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>Execution ID</th>
+                      <th>Instance ID</th>
                       <th>Name</th>
                       <th>Start</th>
                     </tr>
                   </thead>
-                   <tbody id="jobs-currently-executing-tbody">
+                  <tbody id="nodes-currently-executing-tbody">
                    </tbody>
                 </table>
               </div>
@@ -141,58 +142,60 @@
 
 
           <!-- Finished executing -->
-          <div class="panel-group" id="jobs-errored-accordion">
+          <div class="panel-group" id="nodes-errored-accordion">
             <div class="panel panel-default">
 
               <div class="panel-heading">
                 <h5 class="panel-title">
-                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#jobs-errored-accordion" href="#jobs-errored">
+                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#nodes-errored-accordion" href="#nodes-errored">
                     <span class="text-danger">Errored</span>
                     </a>
                 </h5>
               </div>
 
-              <div id="jobs-errored" class="panel-collapse collapse in">
+              <div id="nodes-errored" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>Execution ID</th>
+                      <th>Instance ID</th>
                       <th>Name</th>
                       <th>Start</th>
                       <th>Finish</th>
                       <th>Error</th>
                     </tr>
                   </thead>
-                  <tbody id="jobs-errored-tbody">
+                  <tbody id="nodes-errored-tbody">
                   </tbody>
                 </table>
               </div> <!-- finished executions table div -->
             </div> <!-- error executions panel -->
           </div> <!-- error executions accordion div -->
 
-          <!-- Jobs executed successfully -->
-          <div class="panel-group" id="jobs-executed-accordion">
+          <!-- nodes executed successfully -->
+          <div class="panel-group" id="nodes-executed-accordion">
             <div class="panel panel-default">
 
               <div class="panel-heading">
                 <h5 class="panel-title">
-                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#jobs-executed-accordion" href="#jobs-executed">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#nodes-executed-accordion" href="#nodes-executed">
                       <span class="text-success">Successful</span>
                     </a>
                 </h5>
               </div>
 
-              <div id="jobs-executed" class="panel-collapse collapse in">
+              <div id="nodes-executed" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>Execution ID</th>
+                      <th>Instance ID</th>
                       <th>Name</th>
                       <th>Start</th>
                       <th>Finish</th>
                     </tr>
                   </thead>
-                  <tbody id="jobs-executed-tbody">
+                  <tbody id="nodes-executed-tbody">
                   </tbody>
                 </table>
               </div> <!-- finished executions table div -->
