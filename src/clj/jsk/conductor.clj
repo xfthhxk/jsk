@@ -94,9 +94,11 @@
   [vertices exec-wf-id exec-id]
   (let [info (get-exec-info exec-id)]
     (doseq [v vertices
-            :let [data {:execution-id exec-id
+            :let [{:keys[node-id node-nm]} (ds/vertex-attrs info v)
+                  data {:execution-id exec-id
                         :exec-wf-id exec-wf-id
-                        :node-id (:node-id (ds/vertex-attrs info v))
+                        :node-id node-id
+                        :node-nm node-nm
                         :trigger-src :conductor
                         :start-ts (db/now)
                         :exec-vertex-id v}]]

@@ -35,11 +35,13 @@
 ;
 ;----------------------------------------------
 (defn- record-pre-job-execution [job-ctx _]
-  (let [{:strs[execution-id node-id exec-wf-id trigger-src exec-vertex-id start-ts]} (job-ctx->jsk-data job-ctx)
+  (let [{:strs[execution-id node-id exec-wf-id trigger-src
+               exec-vertex-id start-ts node-nm]} (job-ctx->jsk-data job-ctx)
         msg {:event :job-started
              :exec-wf-id exec-wf-id
              :execution-id execution-id
              :node-id node-id
+             :node-nm node-nm
              :exec-vertex-id exec-vertex-id
              :status db/started-status
              :start-ts start-ts}]
@@ -57,7 +59,8 @@
 (defn- record-post-job-execution
   "Records that a job has finished."
   [job-ctx job-exception]
-  (let [{:strs[execution-id node-id exec-wf-id trigger-src exec-vertex-id start-ts]} (job-ctx->jsk-data job-ctx)
+  (let [{:strs[execution-id node-id exec-wf-id trigger-src
+               exec-vertex-id start-ts node-nm]} (job-ctx->jsk-data job-ctx)
         ts (db/now)
         success? (nil? job-exception)
         status (if success? db/finished-success db/finished-error)
@@ -65,6 +68,7 @@
         msg {:event :job-finished
              :execution-id execution-id
              :node-id node-id
+             :node-nm node-nm
              :exec-wf-id exec-wf-id
              :exec-vertex-id exec-vertex-id
              :start-ts start-ts

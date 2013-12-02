@@ -219,7 +219,7 @@
 
 (defn setup-synthetic-execution [job-id]
   (let [{:keys [execution-id wf-id exec-wf-id exec-vertex-id
-                status job-name node-type]} (db/synthetic-workflow-started job-id)]
+                status job-nm node-type]} (db/synthetic-workflow-started job-id)]
 
     {:execution-id execution-id
      :info
@@ -228,7 +228,7 @@
           (ds/add-workflow-mapping exec-wf-id wf-id)
           (ds/set-root-workflow exec-wf-id)
           (ds/add-vertices [exec-vertex-id])
-          (ds/set-vertex-attrs exec-vertex-id job-id job-name node-type wf-id exec-wf-id)
+          (ds/set-vertex-attrs exec-vertex-id job-id job-nm node-type wf-id exec-wf-id)
           (ds/finalize))}))
 
 

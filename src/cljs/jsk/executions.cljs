@@ -35,7 +35,7 @@
           (ef/set-attr :data-vertex-id (str (:exec-vertex-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
   "td.vertex-id"    (ef/content (str (:exec-vertex-id e)))
-  "td.node-name"    (ef/content (:node-name e))
+  "td.node-name"    (ef/content (:node-nm e))
   "td.node-start"   (ef/content (str (:start-ts e))))
 
 (em/defsnippet make-execution-successful-row :compiled "public/templates/execution.html"  "#execution-successful-row"  [e]
@@ -44,7 +44,7 @@
           (ef/set-attr :data-vertex-id (str (:exec-vertex-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
   "td.vertex-id"    (ef/content (str (:exec-vertex-id e)))
-  "td.node-name"    (ef/content (:node-name e))
+  "td.node-name"    (ef/content (:node-nm e))
   "td.node-start"   (ef/content (str (:start-ts e)))
   "td.node-finish"  (ef/content (str (:finish-ts e))))
 
@@ -54,7 +54,7 @@
           (ef/set-attr :data-vertex-id (str (:exec-vertex-id e))))
   "td.execution-id"       (ef/content (str (:execution-id e)))
   "td.vertex-id"          (ef/content (str (:exec-vertex-id e)))
-  "td.node-name"          (ef/content (:node-name e))
+  "td.node-name"          (ef/content (:node-nm e))
   "td.node-start"         (ef/content (str (:start-ts e)))
   "td.node-finish"        (ef/content (str (:finish-ts e)))
   "td.node-error-message" (ef/content (str (:error e))))
