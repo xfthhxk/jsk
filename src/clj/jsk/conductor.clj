@@ -62,6 +62,10 @@
     (-> (swap! exec-infos update-in path f)
         (get-in path))))
 
+(defn- running-jobs-count
+  [execution-id exec-wf-id]
+  (get-in @exec-infos [execution-id :running-jobs exec-wf-id]))
+
 (defn- mark-exec-wf-failed!
   "Marks the exec-wf-id in exec-id as failed."
   [exec-id exec-wf-id]
@@ -114,6 +118,7 @@
             :let [data {:event :run-wf
                         :execution-id exec-id
                         :exec-wf-id (:exec-wf-to-run (ds/vertex-attrs info wf))
+                        :exec-vertex-id wf
                         :trigger-src :conductor}]]
       (put! @cond-chan data))))
 
@@ -158,14 +163,22 @@
        (put! @info-chan {:event :execution-started
                          :execution-id execution-id
                          :wf-name wf-name})
-       (start-workflow-execution (ds/root-workflow info) execution-id))
+       ; pass in nil for exec-vertex-id since the actual workflow is represented
+       ; by the execution and is not a vertex in itself
+       (start-workflow-execution nil (ds/root-workflow info) execution-id))
      (catch Exception e
        (error e))))
 
-  ([exec-wf-id exec-id]
+  ([exec-vertex-id exec-wf-id exec-id]
    (let [info (get-exec-info exec-id)
-         roots (-> info (ds/workflow-graph exec-wf-id) g/roots)]
-     (db/workflow-started exec-wf-id (db/now))
+         roots (-> info (ds/workflow-graph exec-wf-id) g/roots)
+         ts (db/now)]
+
+     (db/workflow-started exec-wf-id ts)
+
+     (if exec-vertex-id
+       (db/execution-vertex-started exec-vertex-id ts))
+
      (put! @info-chan {:event :wf-started
                        :execution-id exec-id})
      (run-nodes roots exec-id))))
@@ -214,12 +227,35 @@
 (defn- execution-finished [exec-id success? last-exec-wf-id]
   (let [root-wf-id (-> exec-id get-exec-info ds/root-workflow)
         ts (db/now)]
-    (when (not= last-exec-wf-id root-wf-id) ; when the last node is a workflow in a composite workflow mark the root workflow as finished
-      (db/workflow-finished root-wf-id success? ts)
-      (put! @info-chan {:event :wf-finished :execution-id exec-id :success? success?}))
+    (db/workflow-finished root-wf-id success? ts)
+    (put! @info-chan {:event :wf-finished :execution-id exec-id :success? success?})
     (db/execution-finished exec-id success? ts)
     (put! @info-chan {:event :execution-finished :execution-id exec-id :success? success?})
-    (rm-exec-info! exec-id)))
+    #_(rm-exec-info! exec-id)))
+
+
+(defn- parents-to-upd [vertex-id execution-id success?]
+  (loop [v-id vertex-id ans {}]
+    (let [{:keys[parent-vertex on-success on-failure belongs-to-wf]}
+          (ds/vertex-attrs (get-exec-info execution-id) v-id)
+          deps (if success? on-success on-failure)
+          running-count (running-jobs-count execution-id belongs-to-wf)]
+      (if (and parent-vertex (empty? deps) (zero? running-count))
+        (recur parent-vertex (assoc ans parent-vertex belongs-to-wf))
+        ans))))
+
+(defn- mark-wf-and-parent-wfs-finished
+  "Finds all parent workflows which also need to be marked as completed."
+  [exec-vertex-id exec-wf-id execution-id success?]
+  (let [ts (db/now)
+        vertices-wf-map (parents-to-upd exec-vertex-id execution-id success?)
+        vertices (conj (keys vertices-wf-map) exec-vertex-id)
+        wfs (conj (vals vertices-wf-map) exec-wf-id)]
+    (info "Marking finished: Vertices:" vertices ", wfs:" wfs)
+    (db/workflows-and-vertices-finished vertices wfs success? ts)
+
+    ; FIXME: need to iterate over all the vertices and put on info-chan
+    (put! @info-chan {:event :wf-finished :execution-id execution-id :success? success?})))
 
 
 (defmulti dispatch :event)
@@ -234,19 +270,16 @@
 (defmethod dispatch :trigger-wf [{:keys [wf-id]}]
   (start-workflow-execution wf-id))
 
-(defmethod dispatch :run-wf [{:keys [exec-wf-id execution-id]}]
-  (start-workflow-execution exec-wf-id execution-id))
+(defmethod dispatch :run-wf [{:keys [exec-vertex-id exec-wf-id execution-id]}]
+  (start-workflow-execution exec-vertex-id exec-wf-id execution-id))
 
-(defmethod dispatch :wf-finished [{:keys[execution-id exec-wf-id parent-vertex]}]
+(defmethod dispatch :wf-finished [{:keys[execution-id exec-wf-id exec-vertex-id]}]
   (let [wf-success? (exec-wf-success? execution-id exec-wf-id)
-        ts (db/now)
-        next-nodes (successor-nodes execution-id parent-vertex wf-success?)
+        next-nodes (successor-nodes execution-id exec-vertex-id wf-success?)
         exec-failed? (and (not wf-success?) (empty? next-nodes))
         exec-success? (and wf-success? (empty? next-nodes))]
 
-    (info "workflow with exec-wf-id " exec-wf-id " finished, success? " wf-success?)
-    (db/workflow-finished exec-wf-id wf-success? ts)
-    (put! @info-chan {:event :wf-finished :execution-id execution-id :success? wf-success?})
+    (mark-wf-and-parent-wfs-finished exec-vertex-id exec-wf-id execution-id wf-success?)
 
     (run-nodes next-nodes execution-id)
 
@@ -276,7 +309,7 @@
 
     (if exec-wf-finished?
       (put! @cond-chan {:event :wf-finished
-                        :parent-vertex parent-vertex
+                        :exec-vertex-id parent-vertex
                         :execution-id execution-id
                         :exec-wf-id exec-wf-id})
       (run-nodes next-nodes execution-id))))

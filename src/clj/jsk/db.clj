@@ -642,18 +642,28 @@
    table and in execution-vertex."
   [exec-wf-id success? finish-ts]
   (let [status (if success? finished-success finished-error)]
-    (transaction
-      (update execution-workflow
-        (set-fields {:status-id status :finish-ts finish-ts})
-        (where {:execution-workflow-id exec-wf-id}))
-      #_(execution-vertex-finished exec-vertex-id status finish-ts))))
+    (update execution-workflow
+      (set-fields {:status-id status :finish-ts finish-ts})
+      (where {:execution-workflow-id exec-wf-id}))))
 
 (defn workflow-started
   "Marks the workflow as finished and sets the status in both the
    execution-workflow and execution-vertex tables."
   [exec-wf-id start-ts]
-  (transaction
-    (update execution-workflow
-      (set-fields {:status-id started-status :start-ts start-ts})
-      (where {:execution-workflow-id exec-wf-id}))
-    #_(execution-vertex-started exec-vertex-id start-ts)))
+  (update execution-workflow
+    (set-fields {:status-id started-status :start-ts start-ts})
+    (where {:execution-workflow-id exec-wf-id})))
+
+
+(defn workflows-and-vertices-finished
+  "Marks the workflow and the execution vertex which represents the
+   workflow as finished with the supplied status."
+  [exec-vertex-ids exec-wf-ids success? ts]
+  (let [status-id (if success? finished-success finished-error)]
+    (transaction
+      (update execution-workflow
+        (set-fields {:status-id status-id :finish-ts ts})
+        (where (in :execution-workflow-id exec-wf-ids)))
+      (update execution-vertex
+        (set-fields {:status-id status-id :finish-ts ts})
+        (where (in :execution-vertex-id exec-vertex-ids))))))
