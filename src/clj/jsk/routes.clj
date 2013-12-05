@@ -121,7 +121,20 @@
        (info "workflow save: " (:params request))
        (-> (:params request) (w/save-workflow! (uid request)) edn-response)))
 
+;-----------------------------------------------------------------------
+; Routes realted to execution data
+;-----------------------------------------------------------------------
+(defroutes execution-routes
+  (GET "/executions/:id" [id]
+       (-> id u/str->int db/get-execution-details edn-response))
 
+  (GET "/executions/workflows/:id" [id]
+       (-> id u/str->int db/get-execution-workflow-details edn-response)))
+
+
+;-----------------------------------------------------------------------
+; Routes realted to nodes
+;-----------------------------------------------------------------------
 (defroutes node-routes
   (GET "/nodes" []
        (edn-response (db/ls-nodes))))
@@ -130,4 +143,9 @@
 ;-----------------------------------------------------------------------
 ; Collection of all routes.
 ;-----------------------------------------------------------------------
-(def all-routes (cc/routes schedule-routes node-routes job-routes workflow-routes app-routes))
+(def all-routes (cc/routes schedule-routes
+                           node-routes
+                           job-routes
+                           workflow-routes
+                           execution-routes
+                           app-routes))

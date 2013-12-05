@@ -12,7 +12,8 @@
   (:use [jayq.core :only [$]])
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
-(declare show-designer)
+
+(declare show-visualizer show-execution-workflow-details)
 
 (def node-store (atom {}))
 
@@ -42,7 +43,7 @@
 
 ;----------------------------------------------------------------------
 ; Deletes all connections from the end points and removes the
-; node from the designer.
+; node from the visualizer.
 ;----------------------------------------------------------------------
 (defn delete-workflow-node [node-id ep-fail-id ep-success-id]
   (plumb/rm-endpoint ep-fail-id)
@@ -110,7 +111,7 @@
   (go
    (let [id (ef/from (u/event-source e) (ef/get-attr :data-workflow-id))
          w (<! (rfn/fetch-workflow-details id))]
-     (show-designer w))))
+     (show-visualizer w))))
 
 ;----------------------------------------------------------------------
 ; Lists all workflows.
@@ -133,7 +134,7 @@
 ;----------------------------------------------------------------------
 ; For list available nodes with their names
 ;----------------------------------------------------------------------
-(em/defsnippet node-list-snippet :compiled "public/templates/workflow.html" "#workflow-designer-node-tree" [nodes]
+(em/defsnippet node-list-snippet :compiled "public/templates/workflow.html" "#workflow-visualizer-node-tree" [nodes]
   "ul > :not(li:first-child)" (ef/remove-node)
   "li"  (em/clone-for [n nodes]
           (ef/do->
@@ -141,10 +142,10 @@
             (ef/content (:node-name n)))))
 
 ;----------------------------------------------------------------------
-; Layout of the entire designer screen.
+; Layout of the entire visualizer screen.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-designer :compiled "public/templates/workflow.html" "#workflow-designer" [nodes workflow-id workflow-name workflow-desc enabled?]
-  "#workflow-designer-node-explorer" (ef/content (node-list-snippet nodes))
+(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [nodes workflow-id workflow-name workflow-desc enabled?]
+  "#workflow-visualizer-node-explorer" (ef/content (node-list-snippet nodes))
   "#workflow-id" (ef/set-attr :value (str workflow-id))
   "#workflow-name" (ef/set-attr :value workflow-name)
   "#workflow-desc" (ef/set-attr :value workflow-desc)
@@ -154,7 +155,7 @@
   "#workflow-save-action" (events/listen :click save-workflow))
 
 ;----------------------------------------------------------------------
-; Adding a new workflow node on the designer.
+; Adding a new workflow node on the visualizer.
 ;----------------------------------------------------------------------
 (em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id node-id node-name success-div-id fail-div-id rm-btn-id]
   "div.workflow-node"          (ef/set-attr :id div-id :data-node-id node-id)
@@ -209,10 +210,10 @@
 
 
 ;----------------------------------------------------------------------
-; Creates a visible node in the designer.
+; Creates a visible node in the visualizer.
 ; layout is the csstext property to apply to the node
 ;----------------------------------------------------------------------
-(defn- designer-add-node*
+(defn- visualizer-add-node*
   [node-id layout]
   (let [node-id-str     (str node-id)
         div-id         (node-id->div-id node-id)
@@ -226,7 +227,7 @@
     ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
 
-      (ef/at "#workflow-design-area"
+      (ef/at "#workflow-visualization-area"
         (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id)))
 
       (set! (-> div-sel $ first .-style .-cssText) layout)
@@ -242,14 +243,14 @@
 ;----------------------------------------------------------------------
 ; Fixme: This is not dropping the node where the mouse is.
 ;----------------------------------------------------------------------
-(defn- designer-add-node-via-ui [event ui]
+(defn- visualizer-add-node-via-ui [event ui]
   (def the-ui ui)
   (def the-event event)
   (let [node-id (-> ui .-helper (.data "node-id") u/str->int)
         pos (-> ui .-position)
         layout (gstring/format "top: %spx; left: %spx" (.-top pos) (.-left pos))]
     (u/log (str "layout in add-node-via-ui: " layout))
-    (designer-add-node* node-id layout)))
+    (visualizer-add-node* node-id layout)))
 
 
 
@@ -263,7 +264,7 @@
     (if (node-drop? event ui)
       (handler event ui))))
 
-(def designer-add-node (with-node-drop designer-add-node-via-ui))
+(def visualizer-add-node (with-node-drop visualizer-add-node-via-ui))
 
 
 ; The data in the input map is like:
@@ -281,10 +282,10 @@
         dest-div-id   (node-id->div-id dest-id)]
 
     (when (u/element-not-exists? src-div-id)
-      (designer-add-node* src-id src-layout))
+      (visualizer-add-node* src-id src-layout))
 
     (when (u/element-not-exists? dest-div-id)
-      (designer-add-node* dest-id dest-layout))
+      (visualizer-add-node* dest-id dest-layout))
 
   (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
         src-ep-id (id-mkr src-id)]
@@ -298,11 +299,11 @@
 
 
 ;----------------------------------------------------------------------
-; Shows a new workflow designer.
+; Shows a new workflow visualizer.
 ; -- Get and build the ui for all node in the system
 ;----------------------------------------------------------------------
-(defn show-designer
-  ([] (show-designer {:workflow-id -1 :workflow-name "" :workflow-desc "" :is-enabled true}))
+(defn show-visualizer
+  ([] (show-visualizer {:workflow-id -1 :workflow-name "" :workflow-desc "" :is-enabled true}))
   ([{:keys [workflow-id workflow-name workflow-desc is-enabled] :as w}]
     (go
       (let [nodes (<! (rfn/fetch-all-nodes))
@@ -310,15 +311,15 @@
 
         (reset! node-store (reduce #(conj %1 ((juxt :node-id :node-name) %2)) {} nodes))
         (plumb/reset) ; clear any state it may have had
-        (u/showcase (workflow-designer nodes workflow-id workflow-name workflow-desc is-enabled))
+        (u/showcase (workflow-visualizer nodes workflow-id workflow-name workflow-desc is-enabled))
 
         (plumb/register-connection-click-handler connection-click-listener)
 
-        ; these things can happen only after the workflow designer is displayed
+        ; these things can happen only after the workflow visualizer is displayed
         (hide-element "#workflow-save-success")
-        (plumb/default-container :#workflow-design-area)
-        (-> :#workflow-design-area $ (.droppable (clj->js {:accept ".available-node" :activeClass :ui-state-highlight})))
-        (-> :#workflow-design-area $ (.on "drop" designer-add-node))
+        (plumb/default-container :#workflow-visualization-area)
+        (-> :#workflow-visualization-area $ (.droppable (clj->js {:accept ".available-node" :activeClass :ui-state-highlight})))
+        (-> :#workflow-visualization-area $ (.on "drop" visualizer-add-node))
         (-> ".available-node" $ (.draggable (clj->js {:revert true :helper :clone :opacity 0.35})))
         (reconstruct-ui graph)))))
 
@@ -329,3 +330,125 @@
   (go
    (let [ww (<! (rfn/fetch-all-workflows))]
      (u/showcase (list-workflows ww)))))
+
+
+
+;----------------------------------------------------------------------
+; Layout the readonly visualization area.
+;----------------------------------------------------------------------
+(em/defsnippet execution-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [exec-info]
+  "#workflow-save-success" (ef/remove-node)
+  "#workflow-visualizer-node-explorer" (ef/remove-node)
+  "#workflow-save-form" (ef/remove-node))
+
+
+
+(defn- workflow-node-type? [node-type] (= 2 node-type))
+
+;----------------------------------------------------------------------
+; Creates a visible node in the visualizer.
+; layout is the csstext property to apply to the node
+;----------------------------------------------------------------------
+(defn- execution-visualizer-add-node*
+  [node-id node-name node-type layout]
+  (let [node-id-str     (str node-id)
+        div-id         (node-id->div-id node-id)
+        div-sel        (str "#" div-id)
+        success-div-id (node-id->success-ep-id node-id)
+        fail-div-id    (node-id->fail-ep-id node-id)
+        rm-btn-id      (str "rm-node-id-" node-id-str)
+        rm-btn-sel     (str "#" rm-btn-id)]
+
+    ; right now we're only supporting adding one instance of a node in the workflow
+    ;(when (-> div-sel $ count zero?)
+
+    (ef/at "#workflow-visualization-area"
+      (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id)))
+
+      ; remove rm btn in
+    (ef/at rm-btn-sel (ef/remove-node))
+
+      ; for workflow nodes add a click listener which takes you to the execution workflow
+    (when (workflow-node-type? node-type)
+      (ef/at div-sel (ef/do->
+                        (ef/add-class "drill-down-workflow-node")
+                        (events/listen :click (fn[e] (show-execution-workflow-details node-id))))))
+
+    (set! (-> div-sel $ first .-style .-cssText) layout)
+    (plumb/draggable div-sel {:containment :parent})
+    (plumb/make-success-source (str "#" success-div-id))
+    (plumb/make-failure-source (str "#" fail-div-id))
+    ;(plumb/disable-endpoint-dnd (str "#" success-div-id))
+    ;(plumb/disable-endpoint-dnd (str "#" fail-div-id))
+    (plumb/make-target div-sel)))
+
+
+(defn- add-one-execution-edge [{:keys[src-vertex-id src-node-name src-layout src-node-type
+                            dest-vertex-id dest-node-name dest-layout dest-node-type success]}]
+  (let [src-div-id (node-id->div-id src-vertex-id)
+        dest-div-id   (node-id->div-id dest-vertex-id)]
+
+    (if (u/element-not-exists? src-div-id)
+      (execution-visualizer-add-node* src-vertex-id src-node-name src-node-type src-layout))
+
+    (if (and dest-vertex-id (u/element-not-exists? dest-div-id))
+      (execution-visualizer-add-node* dest-vertex-id dest-node-name dest-node-type dest-layout))
+
+    (if dest-vertex-id
+      (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
+            src-ep-id (id-mkr src-vertex-id)]
+        (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
+        (plumb/connect src-ep-id dest-div-id)))))
+
+
+(defn- construct-execution-ui [{:keys[nodes wf-info]}]
+  (doseq [m nodes]
+    (add-one-execution-edge m)))
+
+
+
+(defn- show-execution-workflow-details [exec-wf-id]
+  (u/log (str"exec-wf-id is:" exec-wf-id))
+  (go
+   (let [exec-wf-info (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
+    (plumb/reset) ; clear any state it may have had
+    (u/showcase (execution-visualizer exec-wf-info))
+    (plumb/default-container :#workflow-visualization-area)
+    (construct-execution-ui exec-wf-info))))
+
+(defn show-execution-visualizer
+  [execution-id]
+  (u/log (str "execution-id is:" execution-id))
+  (go
+   (let [{:keys[root-execution-workflow-id]:as exec-info}
+         (<! (rfn/fetch-execution-details execution-id))]
+     (show-execution-workflow-details root-execution-workflow-id))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

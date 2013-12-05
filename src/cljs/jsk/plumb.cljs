@@ -171,6 +171,13 @@
   ;(-> js-plumb (.makeSource ($ selector) (clj->js success-endpoint-options))))
 
 
+ ; doesn't seem to work
+(defn disable-endpoint-dnd
+  "Disables drag n drop connections from this endpoint."
+  [selector]
+  (-> js-plumb (.setEnabled ($ selector) false)))
+
+
 (defn make-target [id]
   (-> js-plumb (.makeTarget ($ id) (clj->js {:dropOptions {:hoverClass :dragHover}
                                              :anchor :Continuous}))))

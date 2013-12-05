@@ -1,6 +1,7 @@
 (ns jsk.executions
   (:require [jsk.rpc :as rpc]
             [jsk.util :as ju]
+            [jsk.workflow :as w]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
             [enfocus.events :as events])
@@ -40,6 +41,7 @@
 
 (em/defsnippet make-execution-successful-row :compiled "public/templates/execution.html"  "#execution-successful-row"  [e]
   "tr" (ef/do->
+          (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
           (ef/set-attr :data-execution-id (str (:execution-id e)))
           (ef/set-attr :data-vertex-id (str (:exec-vertex-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
@@ -50,6 +52,7 @@
 
 (em/defsnippet make-execution-error-row :compiled "public/templates/execution.html"  "#execution-error-row"  [e]
   "tr" (ef/do->
+          (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
           (ef/set-attr :data-execution-id (str (:execution-id e)))
           (ef/set-attr :data-vertex-id (str (:exec-vertex-id e))))
   "td.execution-id"       (ef/content (str (:execution-id e)))

@@ -2,7 +2,7 @@
     <head></head>
     <body>
 
-        <div id="workflow-designer">
+      <div id="workflow-visualizer">
 
           <form id="workflow-save-form" role="form" class="form-inline">
                   <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
@@ -25,9 +25,9 @@
 
           <div class="row">
             <!-- This is the job/workflow list on the left -->
-            <div id="workflow-designer-node-explorer" class="col-md-3"> </div>
+            <div id="workflow-visualizer-node-explorer" class="col-md-3"> </div>
 
-                <div id="workflow-design-area" class="col-md-9">
+            <div id="workflow-visualization-area" class="col-md-9">
                   <!--
                       workflow visual area
                       workflow-node elements will exist here
@@ -40,12 +40,12 @@
 
 
         <!-- workflow explorer displayed on left -->
-        <div id="workflow-designer-node-tree" class="panel panel-info">
+        <div id="workflow-visualizer-node-tree" class="panel panel-info">
             <div class="panel-heading">
               <h3 class="panel-title">Available Job/WFs</h3>
             </div>
             <div class="panel-body">
-                <ul id="workflow-designer-nodes-list" class="list-group">
+                <ul id="workflow-visualizer-nodes-list" class="list-group">
                   <li data-node-id="123" id="123" class="list-group-item available-node">Job 1</li>
                   <li data-node-id="34" id="34" class="list-group-item available-node">Job 2</li>
                 </ul>

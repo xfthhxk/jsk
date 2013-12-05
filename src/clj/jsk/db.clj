@@ -667,3 +667,83 @@
       (update execution-vertex
         (set-fields {:status-id status-id :finish-ts ts})
         (where (in :execution-vertex-id exec-vertex-ids))))))
+
+
+;-----------------------------------------------------------------------
+; Execution visualization queries
+;-----------------------------------------------------------------------
+(def ^:private root-exec-sql
+  "select
+         e.execution_id
+       , e.status_id
+       , e.start_ts
+       , e.finish_ts
+       , ew.execution_workflow_id as root_execution_workflow_id
+       , ew.workflow_id
+       , n.node_name as workflow_name
+    from execution e
+    join execution_workflow ew
+      on e.execution_id = ew.execution_id
+     and ew.root = true
+    join node n
+      on ew.workflow_id = n.node_id
+   where e.execution_id = ? ")
+
+(defn get-execution-details
+  "Lookup the execution data for visualization purposes."
+  [execution-id]
+  (first (exec-raw [root-exec-sql [execution-id]] :results)))
+
+(def ^:private exec-wf-sql
+ "select
+       ew.execution_workflow_id
+     , ew.workflow_id
+     , ew.status_id
+     , ew.start_ts
+     , ew.finish_ts
+     , n.node_name as workflow_name
+  from execution_workflow ew
+  join node n
+    on ew.workflow_id = n.node_id
+ where ew.execution_workflow_id = ? ")
+
+(def ^:private exec-wf-nodes-sql
+  "  select
+           sv.execution_vertex_id as src_vertex_id
+         , sn.node_id             as src_node_id
+         , sn.node_name           as src_node_name
+         , sn.node_type_id        as src_node_type
+         , sv.status_id           as src_status_id
+         , sv.start_ts            as src_start_ts
+         , sv.finish_ts           as src_finish_ts
+         , sv.layout              as src_layout
+         , dv.execution_vertex_id as dest_vertex_id
+         , dn.node_id             as dest_node_id
+         , dn.node_name           as dest_node_name
+         , dn.node_type_id        as dest_node_type
+         , dv.status_id           as dest_status_id
+         , dv.start_ts            as dest_start_ts
+         , dv.finish_ts           as dest_finish_ts
+         , dv.layout              as dest_layout
+         , e.success
+      from execution_vertex sv
+      join node sn
+        on sv.node_id = sn.node_id
+ left join execution_edge e
+        on sv.execution_vertex_id = e.vertex_id
+ left join execution_vertex dv
+        on sv.execution_workflow_id = dv.execution_workflow_id
+       and e.next_vertex_id = dv.execution_vertex_id
+ left join node dn
+        on dv.node_id = dn.node_id
+     where sv.execution_workflow_id = ? ")
+
+(defn get-execution-workflow-details
+  "Lookup the execution workflow data for visualization purposes."
+  [exec-wf-id]
+  {:wf-info (first (exec-raw [exec-wf-sql [exec-wf-id]] :results))
+   :nodes (exec-raw [exec-wf-nodes-sql [exec-wf-id]] :results)})
+
+
+
+

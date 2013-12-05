@@ -72,3 +72,23 @@
 (defn trigger-workflow-now [wf-id]
   (let [url (str "/workflows/trigger-now/" wf-id)]
     (rpc/GET url)))
+
+
+;----------------------------------------------------------------------
+; Execution functions
+;----------------------------------------------------------------------
+(defn fetch-execution-details [id]
+  (rpc/GET (str "/executions/" id)))
+
+(defn fetch-execution-workflow-details [id]
+  (rpc/GET (str "/executions/workflows/" id)))
+
+
+
+
+
+
+
+
+
+
