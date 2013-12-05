@@ -208,16 +208,20 @@ alter table execution_workflow add constraint fk_execution_workflow_execution_id
                                       , finish_ts)
 -----*/
 
-create table execution_vertex ( execution_vertex_id   int       auto_increment primary key
-                              , execution_workflow_id int       not null
-                              , node_id               int       not null
-                              , status_id             int       not null
-                              , start_ts              timestamp
-                              , finish_ts             timestamp
-                              , layout                varchar(255));
+create table execution_vertex ( execution_vertex_id        int       auto_increment primary key
+                              , execution_workflow_id      int       not null
+                              , node_id                    int       not null
+                              , runs_execution_workflow_id int       null
+                              , status_id                  int       not null
+                              , start_ts                   timestamp
+                              , finish_ts                  timestamp
+                              , layout                     varchar(255));
 
 alter table execution_vertex add constraint fk_execution_vertex_execution_workflow_id
   foreign key (execution_workflow_id) references execution_workflow(execution_workflow_id);
+
+alter table execution_vertex add constraint fk_execution_vertex_runs_execution_workflow_id
+  foreign key (runs_execution_workflow_id) references execution_workflow(execution_workflow_id);
 
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);

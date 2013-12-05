@@ -432,7 +432,7 @@
 
 (defentity execution-vertex
   (pk :execution-vertex-id)
-  (entity-fields :execution-id :node-id :status-id :start-ts :finish-ts))
+  (entity-fields :execution-id :execution-workflow-id :node-id :runs-execution-workflow-id :status-id :start-ts :finish-ts))
 
 ; some strange issue with substituting params in this query
 (def ^:private child-workflow-sql
@@ -669,6 +669,18 @@
         (where (in :execution-vertex-id exec-vertex-ids))))))
 
 
+(defn set-vertex-runs-execution-workflow-mapping
+  "m is a map of execution-vertex-ids to executon-workflow-ids.
+   The mapping represents the vertices which are workflow nodes
+   and the execution workflow each is responsible for running."
+  [m]
+  (transaction
+   (doseq [[vertex-id wf-id] (vec m)]
+     (update execution-vertex
+             (set-fields {:runs-execution-workflow-id wf-id})
+             (where {:execution-vertex-id vertex-id})))))
+
+
 ;-----------------------------------------------------------------------
 ; Execution visualization queries
 ;-----------------------------------------------------------------------
@@ -710,6 +722,7 @@
 (def ^:private exec-wf-nodes-sql
   "  select
            sv.execution_vertex_id as src_vertex_id
+         , sv.runs_execution_workflow_id as src_runs_execution_workflow_id
          , sn.node_id             as src_node_id
          , sn.node_name           as src_node_name
          , sn.node_type_id        as src_node_type
@@ -718,6 +731,7 @@
          , sv.finish_ts           as src_finish_ts
          , sv.layout              as src_layout
          , dv.execution_vertex_id as dest_vertex_id
+         , dv.runs_execution_workflow_id as dest_runs_execution_workflow_id
          , dn.node_id             as dest_node_id
          , dn.node_name           as dest_node_name
          , dn.node_type_id        as dest_node_type

@@ -349,8 +349,8 @@
 ; Creates a visible node in the visualizer.
 ; layout is the csstext property to apply to the node
 ;----------------------------------------------------------------------
-(defn- execution-visualizer-add-node*
-  [node-id node-name node-type layout]
+(defn- execution-visualizer-add-node
+  [node-id node-name node-type exec-wf-id layout]
   (let [node-id-str     (str node-id)
         div-id         (node-id->div-id node-id)
         div-sel        (str "#" div-id)
@@ -369,10 +369,11 @@
     (ef/at rm-btn-sel (ef/remove-node))
 
       ; for workflow nodes add a click listener which takes you to the execution workflow
-    (when (workflow-node-type? node-type)
+    (u/log (str "exec-wf-id: " exec-wf-id))
+    (when exec-wf-id
       (ef/at div-sel (ef/do->
                         (ef/add-class "drill-down-workflow-node")
-                        (events/listen :click (fn[e] (show-execution-workflow-details node-id))))))
+                        (events/listen :click (fn[e] (show-execution-workflow-details exec-wf-id))))))
 
     (set! (-> div-sel $ first .-style .-cssText) layout)
     (plumb/draggable div-sel {:containment :parent})
@@ -383,16 +384,16 @@
     (plumb/make-target div-sel)))
 
 
-(defn- add-one-execution-edge [{:keys[src-vertex-id src-node-name src-layout src-node-type
-                            dest-vertex-id dest-node-name dest-layout dest-node-type success]}]
+(defn- add-one-execution-edge [{:keys[src-vertex-id src-node-name src-layout src-node-type src-runs-execution-workflow-id
+                            dest-vertex-id dest-node-name dest-layout dest-node-type dest-runs-execution-workflow-id success]}]
   (let [src-div-id (node-id->div-id src-vertex-id)
         dest-div-id   (node-id->div-id dest-vertex-id)]
 
     (if (u/element-not-exists? src-div-id)
-      (execution-visualizer-add-node* src-vertex-id src-node-name src-node-type src-layout))
+      (execution-visualizer-add-node src-vertex-id src-node-name src-node-type src-runs-execution-workflow-id src-layout))
 
     (if (and dest-vertex-id (u/element-not-exists? dest-div-id))
-      (execution-visualizer-add-node* dest-vertex-id dest-node-name dest-node-type dest-layout))
+      (execution-visualizer-add-node dest-vertex-id dest-node-name dest-node-type dest-runs-execution-workflow-id dest-layout))
 
     (if dest-vertex-id
       (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)

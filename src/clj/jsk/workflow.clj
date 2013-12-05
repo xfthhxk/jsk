@@ -201,7 +201,9 @@
 
     {:roots (g/roots digraph) :table tbl}))
 
-(defn workflow-execution-data
+; FIXME: if making public, then need to use assigned
+; runs-execution-workflow-id and maybe not do ds/finalize
+(defn- workflow-execution-data
   "Fetches a map with keys :execution-id :info. :info is the workflow
    execution data and returns it as a data structure which conforms
    to the IExecutionTable protocol."
@@ -214,8 +216,11 @@
 
 
 (defn setup-execution [wf-id]
-  (let [exec-id (db/new-execution! wf-id)]
-    (workflow-execution-data exec-id)))
+  (let [exec-id (db/new-execution! wf-id)
+        {:keys[info] :as ans} (workflow-execution-data exec-id)
+        vertex-wf-map (ds/vertex-workflow-to-run-map info)]
+    (db/set-vertex-runs-execution-workflow-mapping vertex-wf-map)
+    ans))
 
 (defn setup-synthetic-execution [job-id]
   (let [{:keys [execution-id wf-id exec-wf-id exec-vertex-id

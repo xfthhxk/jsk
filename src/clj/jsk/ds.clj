@@ -82,7 +82,11 @@
 
   (finalize [tbl]
     "Populates additional data to facilitate processing
-     based on information already in tbl."))
+     based on information already in tbl.")
+
+  (vertex-workflow-to-run-map [tbl]
+    "Call after finalize is called. Returns a map of vertex ids to an execution workflow id
+     that vertex is to run."))
 
 
 
@@ -194,4 +198,11 @@
     (reduce (fn[ans v]
               (process-wf-vertex ans v))
             tbl
+            (workflow-vertices tbl)))
+
+
+  (vertex-workflow-to-run-map [tbl]
+    (reduce (fn[ans v]
+              (assoc ans v (->> v (vertex-attrs tbl) :exec-wf-to-run)))
+            {}
             (workflow-vertices tbl))))
