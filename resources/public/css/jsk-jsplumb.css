@@ -29,6 +29,33 @@
 
 
 
+
+.aLabel {
+	-webkit-transition:background-color 0.25s ease-in;
+	-moz-transition:background-color 0.25s ease-in;
+	transition:background-color 0.25s ease-in;
+}
+
+.aLabel._jsPlumb_hover, ._jsPlumb_source_hover, ._jsPlumb_target_hover {
+	background-color:#1e8151;
+	color:white;
+}
+
+.aLabel {
+	background-color:white;
+	opacity:0.8;
+	padding:0.3em;
+	border-radius:0.5em;
+	border:1px solid #346789;
+	cursor:pointer;
+}
+
+
+
+/* END JSPLUMB */
+
+
+
 .workflow-node {
 	width:5em;
 	padding:1em;
@@ -55,28 +82,8 @@
 
 }
 
-.aLabel {
-	-webkit-transition:background-color 0.25s ease-in;
-	-moz-transition:background-color 0.25s ease-in;
-	transition:background-color 0.25s ease-in;
-}
-
-.aLabel._jsPlumb_hover, ._jsPlumb_source_hover, ._jsPlumb_target_hover {
-	background-color:#1e8151;
-	color:white;
-}
-
-.aLabel {
-	background-color:white;
-	opacity:0.8;
-	padding:0.3em;
-	border-radius:0.5em;
-	border:1px solid #346789;
-	cursor:pointer;
-}
-
 /* ep => end point the thing that is the source for connections */
-.ep-success {
+.ep-designer-success {
 	position:absolute;
 	bottom: 10%;
 	/* right: 5px; */
@@ -94,11 +101,11 @@
   border-radius: 0.5em;
 }
 
-.ep-success:hover {
+.ep-designer-success:hover {
 	box-shadow: 0px 0px 6px black;
 }
 
-.ep-fail {
+.ep-designer-fail {
 	position:absolute;
 	bottom: 10%;
 	/* right: 5px; */
@@ -113,8 +120,26 @@
 	transition:box-shadow 0.25s ease-in;
 }
 
-.ep-fail:hover {
+.ep-designer-fail:hover {
 	box-shadow: 0px 0px 6px black;
+}
+
+
+/* ep => end point the thing that is the source for connections */
+.ep-exec-visualizer-success {
+	position:absolute;
+	bottom: 10%;
+	right: 25%;
+	width:1em;
+	height:1em;
+}
+
+.ep-exec-visualizer-fail {
+	position:absolute;
+	bottom: 10%;
+	left: 25%;
+	width:1px;
+	height:1px;
 }
 
 
@@ -142,4 +167,40 @@ path { cursor:pointer; }
 
 path, ._jsPlumb_endpoint { cursor:pointer; }
 
-/* END JSPLUMB */
+.drill-down-workflow-node {
+  cursor: pointer;
+}
+
+
+.available-node {
+ cursor: move;
+}
+
+
+button.rm-node-btn {
+  position: absolute;
+  top: 0%;
+  right: 0%;
+}
+
+div.node-execution-status {
+  position: absolute;
+  top: 0%;
+  right: 0%;
+}
+
+
+span.glyphicon-flash {
+  font-size: 1.5em;
+  color: white;
+}
+
+span.glyphicon-ok {
+  font-size: 1.5em;
+  color: green;
+}
+
+span.glyphicon-exclamation-sign {
+  font-size: 1.5em;
+  color: red;
+}

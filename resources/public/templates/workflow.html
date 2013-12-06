@@ -56,12 +56,15 @@
 
         <!-- workflow node -->
       <div class="workflow-node" id="workflow-node">
-        <button id="delete-node-id-1" type="button" class="close rm-node-btn">&times;</button>
+        <button id="delete-node-id-1" type="button" class="close rm-node-btn">&times;</button> <!-- For designer only -->
+        <div class="node-execution-status">
+          <span id="execution-status-node-id-1" class="glyphicon"></span>
+        </div>
         <p/>
         <div class="workflow-node-item-name">Job 1</div>
             <p>
                 <div class="ep-fail" id="ep-fail-node-id-1" data-node-id="123" data-node-exit="fail"></div>
-        <div class="ep-success" id="ep-success-node-id-1" data-node-id="123" data-node-exit="success"></div>
+                <div class="ep-success" id="ep-success-node-id-1" data-node-id="123" data-node-exit="success"></div>
              </p>
         </div>
       </div>
@@ -99,6 +102,11 @@
         </table>
     </div>
 
+
+<!-- For indicating the status of nodes on the execution visualizer -->
+    <span id="execution-status-success" class="glyphicon glyphicon-ok"></span>
+    <span id="execution-status-fail" class="glyphicon glyphicon-warning-sign"></span>
+    <span id="execution-status-running" class="glyphicon glyphicon-flash"></span>
 
 
     </body>

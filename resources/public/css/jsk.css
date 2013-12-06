@@ -51,17 +51,18 @@ div.visible {
   height: 100%;
 }
 
-.available-node {
- cursor: move;
-}
 
 
-button.rm-node-btn {
-  position: absolute;
-  top: 0%;
-  right: 0%;
-}
 
-.drill-down-workflow-node {
-  cursor: pointer;
-}
+
+
+
+
+
+
+
+
+
+
+
+

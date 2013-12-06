@@ -113,6 +113,17 @@
          w (<! (rfn/fetch-workflow-details id))]
      (show-visualizer w))))
 
+(defn- status-id->glyph
+  "Translates "
+  [id]
+  (case id
+    1 ""                          ; unexecuted-status
+    2 "glyphicon-flash"           ; started-status
+    3 "glyphicon-ok"       ; finished-success
+    4 "glyphicon-exclamation-sign"))  ; finished-error
+    ;4 "glyphicon-fire"))  ; finished-error
+    ;4 "glyphicon-warning-sign"))  ; finished-error
+
 ;----------------------------------------------------------------------
 ; Lists all workflows.
 ;----------------------------------------------------------------------
@@ -157,14 +168,32 @@
 ;----------------------------------------------------------------------
 ; Adding a new workflow node on the visualizer.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id node-id node-name success-div-id fail-div-id rm-btn-id]
+(em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id node-id node-name success-div-id fail-div-id rm-btn-id status-span-id status-id]
   "div.workflow-node"          (ef/set-attr :id div-id :data-node-id node-id)
   "button"                     (ef/do->
-                                 (ef/set-attr :id rm-btn-id :data-node-id node-id)
-                                 (events/listen :click (fn[e] (delete-workflow-node div-id fail-div-id success-div-id))))
+                                 (if (= -1 status-id)
+                                   (do
+                                     (ef/set-attr :id rm-btn-id :data-node-id node-id)
+                                     (events/listen :click (fn[e] (delete-workflow-node div-id fail-div-id success-div-id))))
+                                   (ef/remove-node)))
+  "span.glyphicon"              (ef/do->
+                                 (if (= -1 status-id)
+                                   (ef/remove-node)
+                                   (do
+                                     (ef/set-attr :id status-span-id)
+                                     (ef/add-class (status-id->glyph status-id))))) ; this is the status which is valid only in execution visualization
+  "div.node-execution-status" (ef/do->
+                                (if (= -1 status-id)
+                                  (ef/remove-node)
+                                  (ef/set-attr :data-ignore ""))) ; can't return nil else node disappears
   "div.workflow-node-item-name" (ef/content node-name)
-  "div.ep-fail"                (ef/set-attr :data-node-id node-id :id fail-div-id)
-  "div.ep-success"             (ef/set-attr :data-node-id node-id :id success-div-id))
+  "div.ep-fail"                (ef/do->
+                                (ef/set-attr :data-node-id node-id :id fail-div-id)
+                                (ef/set-class (if (= -1 status-id) "ep-designer-fail" "ep-exec-visualizer-fail")))
+  "div.ep-success"             (ef/do->
+                                (ef/set-attr :data-node-id node-id :id success-div-id)
+                                (ef/set-class (if (= -1 status-id) "ep-designer-success" "ep-exec-visualizer-success"))))
+
 
 
 ;----------------------------------------------------------------------
@@ -222,13 +251,15 @@
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
         rm-btn-id      (str "rm-node-id-" node-id-str)
-        rm-btn-sel     (str "#" rm-btn-id)]
+        rm-btn-sel     (str "#" rm-btn-id)
+        status-span-id nil ; for indicating its a desiger node
+        status-id      -1]
 
     ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
 
       (ef/at "#workflow-visualization-area"
-        (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id)))
+        (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id nil -1)))
 
       (set! (-> div-sel $ first .-style .-cssText) layout)
       (node-hover-handler div-sel rm-btn-sel)
@@ -343,33 +374,31 @@
 
 
 
-(defn- workflow-node-type? [node-type] (= 2 node-type))
-
 ;----------------------------------------------------------------------
 ; Creates a visible node in the visualizer.
 ; layout is the csstext property to apply to the node
 ;----------------------------------------------------------------------
 (defn- execution-visualizer-add-node
-  [node-id node-name node-type exec-wf-id layout]
+  [node-id node-name node-type exec-wf-id status-id layout]
   (let [node-id-str     (str node-id)
         div-id         (node-id->div-id node-id)
         div-sel        (str "#" div-id)
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
         rm-btn-id      (str "rm-node-id-" node-id-str)
-        rm-btn-sel     (str "#" rm-btn-id)]
+        rm-btn-sel     (str "#" rm-btn-id)
+        status-span-id (str "execution-status-node-id-" node-id)]
 
     ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
 
     (ef/at "#workflow-visualization-area"
-      (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id)))
+      (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id status-span-id status-id)))
 
       ; remove rm btn in
-    (ef/at rm-btn-sel (ef/remove-node))
+    ;(ef/at rm-btn-sel (ef/remove-node))
 
-      ; for workflow nodes add a click listener which takes you to the execution workflow
-    (u/log (str "exec-wf-id: " exec-wf-id))
+    ; for workflow nodes add a click listener which takes you to the execution workflow
     (when exec-wf-id
       (ef/at div-sel (ef/do->
                         (ef/add-class "drill-down-workflow-node")
@@ -384,16 +413,16 @@
     (plumb/make-target div-sel)))
 
 
-(defn- add-one-execution-edge [{:keys[src-vertex-id src-node-name src-layout src-node-type src-runs-execution-workflow-id
-                            dest-vertex-id dest-node-name dest-layout dest-node-type dest-runs-execution-workflow-id success]}]
+(defn- add-one-execution-edge [{:keys[src-vertex-id src-node-name src-layout src-node-type src-runs-execution-workflow-id src-status-id
+                            dest-vertex-id dest-node-name dest-layout dest-node-type dest-runs-execution-workflow-id dest-status-id success]}]
   (let [src-div-id (node-id->div-id src-vertex-id)
         dest-div-id   (node-id->div-id dest-vertex-id)]
 
     (if (u/element-not-exists? src-div-id)
-      (execution-visualizer-add-node src-vertex-id src-node-name src-node-type src-runs-execution-workflow-id src-layout))
+      (execution-visualizer-add-node src-vertex-id src-node-name src-node-type src-runs-execution-workflow-id src-status-id src-layout))
 
     (if (and dest-vertex-id (u/element-not-exists? dest-div-id))
-      (execution-visualizer-add-node dest-vertex-id dest-node-name dest-node-type dest-runs-execution-workflow-id dest-layout))
+      (execution-visualizer-add-node dest-vertex-id dest-node-name dest-node-type dest-runs-execution-workflow-id dest-status-id dest-layout))
 
     (if dest-vertex-id
       (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)

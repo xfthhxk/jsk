@@ -31,7 +31,8 @@
 ;-----------------------------------------------------------------------
 (em/defsnippet make-currently-executing-row :compiled "public/templates/execution.html"  "#currently-executing-row"  [e]
   "tr" (ef/do->
-          (ef/set-attr :id (gen-executing-row-id (:exec-vertex-id e)))
+          (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
+          (ef/set-attr :id (gen-executing-row-id (:exec-vertex-id e))) ; needs a special id to be able to update later
           (ef/set-attr :data-execution-id (str (:execution-id e)))
           (ef/set-attr :data-vertex-id (str (:exec-vertex-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
