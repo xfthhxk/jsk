@@ -57,14 +57,11 @@
         <!-- workflow node -->
       <div class="workflow-node" id="workflow-node">
         <button id="delete-node-id-1" type="button" class="close rm-node-btn">&times;</button> <!-- For designer only -->
-        <div class="node-execution-status">
-          <span id="execution-status-node-id-1" class="glyphicon"></span>
-        </div>
         <p/>
         <div class="workflow-node-item-name">Job 1</div>
             <p>
-                <div class="ep-fail" id="ep-fail-node-id-1" data-node-id="123" data-node-exit="fail"></div>
-                <div class="ep-success" id="ep-success-node-id-1" data-node-id="123" data-node-exit="success"></div>
+                <div class="ep-designer-fail" id="ep-fail-node-id-1" data-node-id="123" data-node-exit="fail"></div>
+                <div class="ep-designer-success" id="ep-success-node-id-1" data-node-id="123" data-node-exit="success"></div>
              </p>
         </div>
       </div>
@@ -107,7 +104,55 @@
     <span id="execution-status-success" class="glyphicon glyphicon-ok"></span>
     <span id="execution-status-fail" class="glyphicon glyphicon-warning-sign"></span>
     <span id="execution-status-running" class="glyphicon glyphicon-flash"></span>
+    <span id="execution-wf-open" class="glyphicon glyphicon-zoom-in"></span>
 
+
+    <div id="execution-visualizer">
+      <div class="panel panel-default">
+        <div class="panel-body">
+          <label for="execution-id" class="control-label">Execution:</label>
+          <label id="execution-id">1234</label>
+
+          <label for="workflow-name" class="control-label">Workflow:</label>
+          <label id="workflow-name">Important Workflow</label>
+
+          <label for="executon-status" class="control-label">Status:</label>
+          <label id="execution-status">Successful</label>
+
+          <label for="start-ts" class="control-label">Started:</label>
+          <label id="start-ts">2013-12-07 20:42:32</label>
+
+          <label for="finish-ts" class="control-label">Finished:</label>
+          <label id="finish-ts">2013-12-07 20:42:44</label>
+        </div>
+      </div>
+
+      <ol id="execution-breadcrumb" class="breadcrumb">
+        <li><a href="#">Workflow 1</a></li>
+        <li><a href="#">Workflow 2</a></li>
+      </ol>
+
+      <div id="execution-visualization-area">
+        <!-- this is where the nodes and connections are displayed -->
+      </div>
+
+    </div>
+
+<!-- Execution node template -->
+    <div id="execution-node" class="workflow-node">
+        <div class="node-execution-status">
+          <span id="execution-status-node-id-1" class="glyphicon"></span>
+        </div>
+        <p/>
+        <div class="workflow-node-item-name">Job 1</div>
+        <p>
+           <div class="ep-exec-visualizer-fail" id="ep-fail-node-id-1" data-node-id="123" data-node-exit="fail"></div>
+           <div class="ep-exec-visualizer-success" id="ep-success-node-id-1" data-node-id="123" data-node-exit="success"></div>
+        </p>
+        <div class="drill-down-execution-node">
+           <span class="glyphicon glyphicon-zoom-in"></span>
+        </div>
+    </div>
 
     </body>
 </html>

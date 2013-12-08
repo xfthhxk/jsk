@@ -180,6 +180,9 @@
        (db/execution-vertex-started exec-vertex-id ts))
 
      (put! @info-chan {:event :wf-started
+                       :exec-vertex-id exec-vertex-id
+                       :exec-wf-id exec-wf-id
+                       :start-ts ts
                        :execution-id exec-id})
      (run-nodes roots exec-id))))
 
@@ -311,6 +314,7 @@
       (put! @cond-chan {:event :wf-finished
                         :exec-vertex-id parent-vertex
                         :execution-id execution-id
+                        :success? (not exec-wf-fail?)
                         :exec-wf-id exec-wf-id})
       (run-nodes next-nodes execution-id))))
 

@@ -167,11 +167,6 @@ path { cursor:pointer; }
 
 path, ._jsPlumb_endpoint { cursor:pointer; }
 
-.drill-down-workflow-node {
-  cursor: pointer;
-}
-
-
 .available-node {
  cursor: move;
 }
@@ -189,6 +184,12 @@ div.node-execution-status {
   right: 0%;
 }
 
+div.drill-down-execution-node {
+  position: static;
+  top: 50%;
+  right: 50%;
+  cursor: pointer;
+}
 
 span.glyphicon-flash {
   font-size: 1.5em;
@@ -203,4 +204,8 @@ span.glyphicon-ok {
 span.glyphicon-exclamation-sign {
   font-size: 1.5em;
   color: red;
+}
+
+span.glyphicon-zoom-in {
+  font-size: 1.5em;
 }

@@ -17,6 +17,13 @@
 
 (def node-store (atom {}))
 
+; stores for the current execution the execution workflow id and name
+; with the root wf as the very first thing pushed on the stack
+(def breadcrumb-wf-stack (atom []))
+
+
+(defn- workflow-type? [node-type-id] (= 2 node-type-id))
+
 (defn- show-element [sel]
   (-> sel $ .show))
 
@@ -114,15 +121,22 @@
      (show-visualizer w))))
 
 (defn- status-id->glyph
-  "Translates "
+  "Translates id to a glyphicon"
   [id]
   (case id
     1 ""                          ; unexecuted-status
     2 "glyphicon-flash"           ; started-status
     3 "glyphicon-ok"       ; finished-success
     4 "glyphicon-exclamation-sign"))  ; finished-error
-    ;4 "glyphicon-fire"))  ; finished-error
-    ;4 "glyphicon-warning-sign"))  ; finished-error
+
+(defn- status-id->desc
+  "Translates id to string description"
+  [id]
+  (case id
+    1 "Not started"                          ; unexecuted-status
+    2 "Started"           ; started-status
+    3 "Successful"       ; finished-success
+    4 "Errored"))  ; finished-error
 
 ;----------------------------------------------------------------------
 ; Lists all workflows.
@@ -168,31 +182,15 @@
 ;----------------------------------------------------------------------
 ; Adding a new workflow node on the visualizer.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id node-id node-name success-div-id fail-div-id rm-btn-id status-span-id status-id]
+(em/defsnippet workflow-node :compiled "public/templates/workflow.html" "#workflow-node" [div-id node-id node-name success-div-id fail-div-id rm-btn-id]
   "div.workflow-node"          (ef/set-attr :id div-id :data-node-id node-id)
   "button"                     (ef/do->
-                                 (if (= -1 status-id)
-                                   (do
-                                     (ef/set-attr :id rm-btn-id :data-node-id node-id)
-                                     (events/listen :click (fn[e] (delete-workflow-node div-id fail-div-id success-div-id))))
-                                   (ef/remove-node)))
-  "span.glyphicon"              (ef/do->
-                                 (if (= -1 status-id)
-                                   (ef/remove-node)
-                                   (do
-                                     (ef/set-attr :id status-span-id)
-                                     (ef/add-class (status-id->glyph status-id))))) ; this is the status which is valid only in execution visualization
-  "div.node-execution-status" (ef/do->
-                                (if (= -1 status-id)
-                                  (ef/remove-node)
-                                  (ef/set-attr :data-ignore ""))) ; can't return nil else node disappears
+                                 (ef/set-attr :id rm-btn-id :data-node-id node-id)
+                                 (events/listen :click (fn[e] (delete-workflow-node div-id fail-div-id success-div-id))))
   "div.workflow-node-item-name" (ef/content node-name)
-  "div.ep-fail"                (ef/do->
-                                (ef/set-attr :data-node-id node-id :id fail-div-id)
-                                (ef/set-class (if (= -1 status-id) "ep-designer-fail" "ep-exec-visualizer-fail")))
-  "div.ep-success"             (ef/do->
-                                (ef/set-attr :data-node-id node-id :id success-div-id)
-                                (ef/set-class (if (= -1 status-id) "ep-designer-success" "ep-exec-visualizer-success"))))
+  "div.ep-designer-fail"        (ef/set-attr :data-node-id node-id :id fail-div-id)
+  "div.ep-designer-success"     (ef/set-attr :data-node-id node-id :id success-div-id))
+
 
 
 
@@ -251,15 +249,13 @@
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
         rm-btn-id      (str "rm-node-id-" node-id-str)
-        rm-btn-sel     (str "#" rm-btn-id)
-        status-span-id nil ; for indicating its a desiger node
-        status-id      -1]
+        rm-btn-sel     (str "#" rm-btn-id)]
 
     ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
 
       (ef/at "#workflow-visualization-area"
-        (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id nil -1)))
+        (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id)))
 
       (set! (-> div-sel $ first .-style .-cssText) layout)
       (node-hover-handler div-sel rm-btn-sel)
@@ -355,22 +351,57 @@
         (reconstruct-ui graph)))))
 
 
-
-
 (defn show-workflows []
   (go
    (let [ww (<! (rfn/fetch-all-workflows))]
      (u/showcase (list-workflows ww)))))
 
 
+;----------------------------------------------------------------------
+;----------------------------------------------------------------------
+;  Begin Execution visualization Section
+;----------------------------------------------------------------------
+;----------------------------------------------------------------------
 
 ;----------------------------------------------------------------------
 ; Layout the readonly visualization area.
 ;----------------------------------------------------------------------
-(em/defsnippet execution-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [exec-info]
-  "#workflow-save-success" (ef/remove-node)
-  "#workflow-visualizer-node-explorer" (ef/remove-node)
-  "#workflow-save-form" (ef/remove-node))
+(em/defsnippet execution-visualizer :compiled "public/templates/workflow.html" "#execution-visualizer" [{:keys[workflow-name execution-id status-id start-ts finish-ts]}]
+  "#execution-id" (ef/content (str execution-id))
+  "#workflow-name" (ef/content workflow-name)
+  "#execution-status" (ef/content (status-id->desc status-id))
+  "#start-ts" (ef/content (str start-ts))
+  "#finish-ts" (ef/content (str finish-ts)))
+
+;----------------------------------------------------------------------
+; Adding a new execution node on the visualizer.
+;----------------------------------------------------------------------
+(em/defsnippet execution-node :compiled "public/templates/workflow.html" "#execution-node" [div-id node-id node-name success-div-id fail-div-id status-span-id status-id exec-wf-id]
+  "div.workflow-node"          (ef/set-attr :id div-id :data-node-id node-id)
+  "div.node-execution-status span.glyphicon" (ef/do->
+                                               (ef/set-attr :id status-span-id)
+                                               (ef/add-class (status-id->glyph status-id)))
+
+  ; can drill down if exec-wf-id is not nil, ie  this is a workflow node
+  "div.drill-down-execution-node"  (ef/do->
+                                     (if exec-wf-id
+                                       (events/listen :click (fn[e] (show-execution-workflow-details exec-wf-id)))
+                                       (ef/remove-node)))
+
+  "div.workflow-node-item-name" (ef/content node-name)
+  "div.ep-exec-visualizer-fail" (ef/set-attr :data-node-id node-id :id fail-div-id)
+  "div.ep-exec-visualizer-success" (ef/set-attr :data-node-id node-id :id success-div-id))
+
+;----------------------------------------------------------------------
+; Breadcrumb generator
+;----------------------------------------------------------------------
+(em/defsnippet wf-breadcrumb :compiled "public/templates/workflow.html" "#execution-breadcrumb" [wfs]
+  "#execution-breadcrumb :not(li:first-child)" (ef/remove-node)
+  "li" (em/clone-for [wf wfs]
+         "a" (ef/do->
+              (events/listen :click (fn[e] (show-execution-workflow-details (:exec-wf-id wf))))
+              (ef/set-attr :data-wf-id (str (:exec-wf-id wf)))
+              (ef/content (:wf-name wf)))))
 
 
 
@@ -385,36 +416,27 @@
         div-sel        (str "#" div-id)
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
-        rm-btn-id      (str "rm-node-id-" node-id-str)
-        rm-btn-sel     (str "#" rm-btn-id)
         status-span-id (str "execution-status-node-id-" node-id)]
 
     ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
 
-    (ef/at "#workflow-visualization-area"
-      (ef/append (workflow-node div-id node-id-str node-name success-div-id fail-div-id rm-btn-id status-span-id status-id)))
+    (ef/at "#execution-visualization-area"
+      (ef/append (execution-node div-id node-id-str node-name success-div-id fail-div-id status-span-id status-id exec-wf-id)))
 
-      ; remove rm btn in
-    ;(ef/at rm-btn-sel (ef/remove-node))
-
-    ; for workflow nodes add a click listener which takes you to the execution workflow
-    (when exec-wf-id
-      (ef/at div-sel (ef/do->
-                        (ef/add-class "drill-down-workflow-node")
-                        (events/listen :click (fn[e] (show-execution-workflow-details exec-wf-id))))))
-
-    (set! (-> div-sel $ first .-style .-cssText) layout)
+    (set! (-> div-sel $ first .-style .-cssText) (str "position: relative; " layout))
     (plumb/draggable div-sel {:containment :parent})
     (plumb/make-success-source (str "#" success-div-id))
     (plumb/make-failure-source (str "#" fail-div-id))
-    ;(plumb/disable-endpoint-dnd (str "#" success-div-id))
-    ;(plumb/disable-endpoint-dnd (str "#" fail-div-id))
     (plumb/make-target div-sel)))
 
 
-(defn- add-one-execution-edge [{:keys[src-vertex-id src-node-name src-layout src-node-type src-runs-execution-workflow-id src-status-id
-                            dest-vertex-id dest-node-name dest-layout dest-node-type dest-runs-execution-workflow-id dest-status-id success]}]
+
+(defn- add-one-execution-edge
+  "Adds vertices if needed and the execution edge to the visualizer"
+  [{:keys[src-vertex-id src-node-name src-layout src-node-type src-runs-execution-workflow-id src-status-id
+          dest-vertex-id dest-node-name dest-layout dest-node-type dest-runs-execution-workflow-id dest-status-id success]}]
+
   (let [src-div-id (node-id->div-id src-vertex-id)
         dest-div-id   (node-id->div-id dest-vertex-id)]
 
@@ -436,22 +458,52 @@
     (add-one-execution-edge m)))
 
 
+; turn this in to a protocol/ns thing
+(defn- index-of [id stack]
+  (loop [idx 0  [head & tail] stack]
+    (cond
+     (not head) -1
+     (= id (:exec-wf-id head)) idx
+     :else  (recur (inc idx) tail))))
+
+
+; otherwise find where it is and pop up to that item
+(defn- update-breadcrumb-wf-stack!
+  "Pushes the data to the stack when the wf id is not on the stack.
+   Otherwise pops till the id is reached"
+  [exec-wf-id nm]
+  (let [idx (index-of exec-wf-id @breadcrumb-wf-stack)]
+    (if (= -1 idx)
+      (swap! breadcrumb-wf-stack conj {:exec-wf-id exec-wf-id :wf-name nm})
+      (swap! breadcrumb-wf-stack subvec 0 (inc idx)))))
+
 
 (defn- show-execution-workflow-details [exec-wf-id]
   (u/log (str"exec-wf-id is:" exec-wf-id))
   (go
-   (let [exec-wf-info (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
-    (plumb/reset) ; clear any state it may have had
-    (u/showcase (execution-visualizer exec-wf-info))
-    (plumb/default-container :#workflow-visualization-area)
-    (construct-execution-ui exec-wf-info))))
+   (let [{:keys[wf-info] :as exec-wf-info} (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
+     (plumb/reset) ; clear any state it may have had
+     (plumb/default-container :#execution-visualization-area)
+
+     (update-breadcrumb-wf-stack! exec-wf-id (:workflow-name wf-info))
+
+     (ef/at "#execution-visualization-area" (ef/content "")) ; clear the existing content
+     (plumb/do-while-suspended  #(construct-execution-ui exec-wf-info))
+     ;(construct-execution-ui exec-wf-info)
+     (ef/at "#execution-breadcrumb" (ef/content (wf-breadcrumb @breadcrumb-wf-stack))))))
+
 
 (defn show-execution-visualizer
   [execution-id]
   (u/log (str "execution-id is:" execution-id))
+
+
+  (reset! breadcrumb-wf-stack [])  ; clear the state
+
   (go
    (let [{:keys[root-execution-workflow-id]:as exec-info}
          (<! (rfn/fetch-execution-details execution-id))]
+     (u/showcase (execution-visualizer exec-info))
      (show-execution-workflow-details root-execution-workflow-id))))
 
 

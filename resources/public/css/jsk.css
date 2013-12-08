@@ -47,10 +47,17 @@ div.visible {
 
 #workflow-visualization-area {
   border-style: solid;
-  border-color: white;
+  border-color: #FFDEAD;
   height: 100%;
 }
 
+
+#execution-visualization-area {
+
+  border-style: solid;
+  border-color: #FFDEAD;
+  height: 100%;
+}
 
 
 
