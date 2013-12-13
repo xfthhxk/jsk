@@ -563,9 +563,10 @@
         exec-wf-id (id-map synthetic-workflow-id)
         exec-vertex-id (snapshot-synthetic-workflow exec-wf-id job-id unexecuted-status)
         job-name (get-job-name job-id)]
+
     {:execution-id exec-id
      :wf-id synthetic-workflow-id
-     :exec-wf-id (id-map synthetic-workflow-id)
+     :exec-wf-id exec-wf-id
      :exec-vertex-id exec-vertex-id
      :status unexecuted-status
      :job-nm job-name
@@ -758,6 +759,51 @@
   {:wf-info (first (exec-raw [exec-wf-sql [exec-wf-id]] :results))
    :nodes (exec-raw [exec-wf-nodes-sql [exec-wf-id]] :results)})
 
+; Top part of union selects workflows
+; bottom part selects synthetic workflows
+(def ^:private execution-search-sql
+  "select
+       e.execution_id
+     , wfn.node_name as node_name
+     , s.execution_status_id
+     , s.status_code
+     , e.start_ts
+     , e.finish_ts
+  from execution e
+  join execution_workflow ew
+    on e.execution_id = ew.execution_id
+  join node wfn
+    on ew.workflow_id = wfn.node_id
+  join execution_status s
+    on e.status_id = s.execution_status_id
+ where ew.root = true
+   and wfn.is_system = false
+   and e.start_ts between ? and ?
+union all
+select
+       e.execution_id
+     , jn.node_name as job_name
+     , s.execution_status_id
+     , s.status_code
+     , e.start_ts
+     , e.finish_ts
+  from execution e
+  join execution_workflow ew
+    on e.execution_id = ew.execution_id
+  join node wfn
+    on ew.workflow_id = wfn.node_id
+  join execution_status s
+    on e.status_id = s.execution_status_id
+  join execution_vertex v
+    on ew.execution_workflow_id = v.execution_workflow_id
+  join node jn
+    on v.node_id = jn.node_id
+ where ew.root = true
+   and wfn.is_system = true
+   and e.start_ts between ? and ?")
 
-
+(defn execution-search
+  "Does a basic search for executions between the timestamps specified."
+  [start-ts finish-ts]
+  (exec-raw [execution-search-sql [start-ts finish-ts start-ts finish-ts]] :results))
 

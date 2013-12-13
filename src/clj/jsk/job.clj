@@ -6,7 +6,6 @@
             [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as db]
-            [clojure.core.async :refer [put!]]
             [korma.db :as k])
   (:use [swiss-arrows core]))
 

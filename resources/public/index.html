@@ -116,23 +116,22 @@
               <!-- sub panel header -->
               <div class="panel-heading">
                   <h5 class="panel-title">
-                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#currently-executing-accordion" href="#nodes-currently-executing">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#currently-executing-accordion" href="#current-executions">
                       Currently Executing
                     </a>
                   </h5>
               </div>
 
-              <div id="nodes-currently-executing" class="panel-collapse collapse in">
+              <div id="current-executions" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
                       <th>Execution ID</th>
-                      <th>Instance ID</th>
                       <th>Name</th>
                       <th>Start</th>
                     </tr>
                   </thead>
-                  <tbody id="nodes-currently-executing-tbody">
+                  <tbody id="current-executions-tbody">
                    </tbody>
                 </table>
               </div>
@@ -142,30 +141,28 @@
 
 
           <!-- Finished executing -->
-          <div class="panel-group" id="nodes-errored-accordion">
+          <div class="panel-group" id="errored-executions-accordion">
             <div class="panel panel-default">
 
               <div class="panel-heading">
                 <h5 class="panel-title">
-                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#nodes-errored-accordion" href="#nodes-errored">
+                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#errored-executions-accordion" href="#executions-errored">
                     <span class="text-danger">Errored</span>
                     </a>
                 </h5>
               </div>
 
-              <div id="nodes-errored" class="panel-collapse collapse in">
+              <div id="executions-errored" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
                       <th>Execution ID</th>
-                      <th>Instance ID</th>
                       <th>Name</th>
                       <th>Start</th>
-                      <th>Finish</th>
-                      <th>Error</th>
+                      <th>Errored</th>
                     </tr>
                   </thead>
-                  <tbody id="nodes-errored-tbody">
+                  <tbody id="errored-executions-tbody">
                   </tbody>
                 </table>
               </div> <!-- finished executions table div -->
@@ -173,29 +170,28 @@
           </div> <!-- error executions accordion div -->
 
           <!-- nodes executed successfully -->
-          <div class="panel-group" id="nodes-executed-accordion">
+          <div class="panel-group" id="successful-executions-accordion">
             <div class="panel panel-default">
 
               <div class="panel-heading">
                 <h5 class="panel-title">
-                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#nodes-executed-accordion" href="#nodes-executed">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#successful-executions-accordion" href="#successful-executions">
                       <span class="text-success">Successful</span>
                     </a>
                 </h5>
               </div>
 
-              <div id="nodes-executed" class="panel-collapse collapse in">
+              <div id="successful-executions" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
                       <th>Execution ID</th>
-                      <th>Instance ID</th>
                       <th>Name</th>
                       <th>Start</th>
                       <th>Finish</th>
                     </tr>
                   </thead>
-                  <tbody id="nodes-executed-tbody">
+                  <tbody id="successful-executions-tbody">
                   </tbody>
                 </table>
               </div> <!-- finished executions table div -->

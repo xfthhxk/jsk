@@ -7,6 +7,7 @@
             [jsk.db :as db]
             [jsk.ds :as ds]
             [jsk.graph :as g]
+            [jsk.job :as j]
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojure.string :as str]
             [clojure.core.async :refer [chan go go-loop put! >! <!]]
@@ -35,9 +36,11 @@
 (defn- add-exec-info!
   "Adds the execution-id and table to the exec-info. Also
    initailizes the running jobs count property."
-  [exec-id info]
+  [exec-id info root-wf-name start-ts]
   (let [exec-wf-counts (zipmap (ds/workflows info) (repeat 0))]
     (swap! exec-infos assoc exec-id {:info info
+                                     :root-wf-name root-wf-name
+                                     :start-ts start-ts
                                      :running-jobs exec-wf-counts
                                      :failed-exec-wfs #{}})))
 (defn- rm-exec-info!
@@ -50,7 +53,15 @@
   [exec-id]
   (get-in @exec-infos [exec-id :info]))
 
+
+
 (defn get-by-exec-id [id] (get @exec-infos id))
+
+(defn get-execution-root-wf-name [exec-id]
+  (get-in @exec-infos [exec-id :root-wf-name]))
+
+(defn get-execution-start-ts [exec-id]
+  (get-in @exec-infos [exec-id :start-ts]))
 
 (defn- update-running-jobs-count!
   "Updates the running jobs count based on the value of :execution-id.
@@ -158,10 +169,12 @@
   ([wf-id]
    (try
      (let [wf-name (w/get-workflow-name wf-id)
+           start-ts (db/now)
            {:keys[execution-id info]} (w/setup-execution wf-id)]
-       (add-exec-info! execution-id info)
+       (add-exec-info! execution-id info wf-name start-ts)
        (put! @info-chan {:event :execution-started
                          :execution-id execution-id
+                         :start-ts start-ts
                          :wf-name wf-name})
        ; pass in nil for exec-vertex-id since the actual workflow is represented
        ; by the execution and is not a vertex in itself
@@ -203,8 +216,10 @@
 (defn- run-job-as-synthetic-wf
   "Runs the job in the context of a synthetic workflow."
   [job-id]
-  (let [{:keys[execution-id info] :as m} (w/setup-synthetic-execution job-id)]
-    (add-exec-info! execution-id info)
+  (let [{:keys[execution-id info job-nm] :as m} (w/setup-synthetic-execution job-id)
+        start-ts (db/now)]
+    (db/workflow-started (ds/root-workflow info) start-ts)
+    (add-exec-info! execution-id info job-nm start-ts)
     (run-nodes (ds/vertices (get-exec-info execution-id))
                execution-id)))
 
@@ -229,12 +244,14 @@
 
 (defn- execution-finished [exec-id success? last-exec-wf-id]
   (let [root-wf-id (-> exec-id get-exec-info ds/root-workflow)
+        exec-name (get-execution-root-wf-name exec-id)
+        start-ts (get-execution-start-ts exec-id)
         ts (db/now)]
     (db/workflow-finished root-wf-id success? ts)
     (put! @info-chan {:event :wf-finished :execution-id exec-id :success? success?})
     (db/execution-finished exec-id success? ts)
-    (put! @info-chan {:event :execution-finished :execution-id exec-id :success? success?})
-    #_(rm-exec-info! exec-id)))
+    (put! @info-chan {:event :execution-finished :execution-id exec-id :success? success? :finish-ts ts :start-ts start-ts :wf-name exec-name})
+    (rm-exec-info! exec-id)))
 
 
 (defn- parents-to-upd [vertex-id execution-id success?]

@@ -1,0 +1,117 @@
+<html>
+    <body>
+    <!-- Job executions section -->
+    <div class="panel-group" id="executions-accordion">
+      <div class="panel panel-default">
+
+        <!-- panel header -->
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a class="accordion-toggle" data-toggle="collapse" data-parent="#executions-accordion" href="#all-executions">
+              Executions
+            </a>
+          </h4>
+        </div>
+
+        <div id="all-executions" class="panel-collapse collapse in">
+
+          <!-- Currently executing -->
+          <div class="panel-group" id="currently-executing-accordion">
+            <div class="panel panel-default">
+
+              <!-- sub panel header -->
+              <div class="panel-heading">
+                  <h5 class="panel-title">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#currently-executing-accordion" href="#nodes-currently-executing">
+                      Currently Executing
+                    </a>
+                  </h5>
+              </div>
+
+              <div id="nodes-currently-executing" class="panel-collapse collapse in">
+                <table class="table table-condensed table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>Execution ID</th>
+                      <th>Instance ID</th>
+                      <th>Name</th>
+                      <th>Start</th>
+                    </tr>
+                  </thead>
+                  <tbody id="nodes-currently-executing-tbody">
+                   </tbody>
+                </table>
+              </div>
+
+            </div> <!-- panel -->
+          </div> <!-- panel-group -->
+
+
+          <!-- Finished executing -->
+          <div class="panel-group" id="nodes-errored-accordion">
+            <div class="panel panel-default">
+
+              <div class="panel-heading">
+                <h5 class="panel-title">
+                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#nodes-errored-accordion" href="#nodes-errored">
+                    <span class="text-danger">Errored</span>
+                    </a>
+                </h5>
+              </div>
+
+              <div id="nodes-errored" class="panel-collapse collapse in">
+                <table class="table table-condensed table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>Execution ID</th>
+                      <th>Instance ID</th>
+                      <th>Name</th>
+                      <th>Start</th>
+                      <th>Finish</th>
+                      <th>Error</th>
+                    </tr>
+                  </thead>
+                  <tbody id="nodes-errored-tbody">
+                  </tbody>
+                </table>
+              </div> <!-- finished executions table div -->
+            </div> <!-- error executions panel -->
+          </div> <!-- error executions accordion div -->
+
+          <!-- nodes executed successfully -->
+          <div class="panel-group" id="nodes-executed-accordion">
+            <div class="panel panel-default">
+
+              <div class="panel-heading">
+                <h5 class="panel-title">
+                    <a class="accordion-toggle" data-toggle="collapse" data-parent="#nodes-executed-accordion" href="#nodes-executed">
+                      <span class="text-success">Successful</span>
+                    </a>
+                </h5>
+              </div>
+
+              <div id="nodes-executed" class="panel-collapse collapse in">
+                <table class="table table-condensed table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>Execution ID</th>
+                      <th>Instance ID</th>
+                      <th>Name</th>
+                      <th>Start</th>
+                      <th>Finish</th>
+                    </tr>
+                  </thead>
+                  <tbody id="nodes-executed-tbody">
+                  </tbody>
+                </table>
+              </div> <!-- finished executions table div -->
+
+
+            </div> <!-- panel -->
+          </div> <!-- panel-group -->
+
+        </div> <!-- executions panel -->
+      </div>   <!-- executions panel group -->
+    </div>  <!-- executions accordion div -->
+    </body>
+</html>
