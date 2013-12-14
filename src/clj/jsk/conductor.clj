@@ -288,7 +288,7 @@
 ;-----------------------------------------------------------------------
 ; Resume execution
 ;-----------------------------------------------------------------------
-(defn resume-execution [exec-id exec-vertex-id]
+(defn- resume-execution* [exec-id exec-vertex-id]
   (let [wf-name "Fixme: need wf-name/job-name"
         start-ts (db/now)
         {:keys[info]} (w/resume-workflow-execution-data exec-id)]
@@ -298,6 +298,13 @@
                       :start-ts start-ts
                       :wf-name wf-name})
     (run-nodes [exec-vertex-id] exec-id)))
+
+(defn resume-execution [exec-id exec-vertex-id]
+  (if (execution-exists? exec-id)
+    {:success? false :error "Execution is already in progress."}
+    (do
+      (resume-execution* exec-id exec-vertex-id)
+      {:success? true})))
 
 
 (defn- execution-finished [exec-id success? last-exec-wf-id]

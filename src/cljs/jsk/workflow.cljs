@@ -21,6 +21,9 @@
 ; with the root wf as the very first thing pushed on the stack
 (def breadcrumb-wf-stack (atom []))
 
+; for keeping track of what execution id we are looking at
+(def current-execution-id (atom nil))
+
 
 (defn- workflow-type? [node-type-id] (= 2 node-type-id))
 
@@ -354,6 +357,8 @@
 ;----------------------------------------------------------------------
 ;----------------------------------------------------------------------
 
+
+
 ;----------------------------------------------------------------------
 ; Layout the readonly visualization area.
 ;----------------------------------------------------------------------
@@ -384,6 +389,7 @@
   "div.ep-exec-visualizer-fail" (ef/set-attr :data-node-id node-id :id fail-div-id)
   "div.ep-exec-visualizer-success" (ef/set-attr :data-node-id node-id :id success-div-id))
 
+
 ;----------------------------------------------------------------------
 ; Breadcrumb generator
 ;----------------------------------------------------------------------
@@ -394,6 +400,18 @@
               (events/listen :click (fn[e] (show-execution-workflow-details (:exec-wf-id wf))))
               (ef/set-attr :data-wf-id (str (:exec-wf-id wf)))
               (ef/content (:wf-name wf)))))
+
+(em/defsnippet execution-vertices :compiled "public/templates/workflow.html" "#execution-vertices-table" [vv]
+  "tbody > :not(tr:first-child)" (ef/remove-node)
+  "tbody > tr" (em/clone-for [v vv]
+                 "td.execution-vertex-id" (ef/content (str (:execution-vertex-id v)))
+                 "td.execution-vertex-name" (ef/content (str (:node-nm v)))
+                 "td.execution-vertex-status" (ef/content (u/status-id->desc (:status v)))
+                 "td.execution-vertex-start" (ef/content (str (:start-ts v)))
+                 "td.execution-vertex-finish" (ef/content (str (:finish-ts v)))
+                 "td > a.execution-resume-action" (events/listen :click
+                                                            (fn[e]
+                                                              (rfn/resume-execution @current-execution-id (:execution-vertex-id v))))))
 
 
 
@@ -470,19 +488,44 @@
       (swap! breadcrumb-wf-stack subvec 0 (inc idx)))))
 
 
+; vv  is a seq of maps
+(defn- collect-execution-details [vv]
+  (->> (reduce (fn[ans {:keys[src-status-id src-vertex-id src-start-ts src-finish-ts src-node-name
+                              dest-status-id dest-vertex-id dest-start-ts dest-finish-ts dest-node-name]}]
+                 (assoc ans src-vertex-id
+                            {:execution-vertex-id src-vertex-id
+                             :start-ts src-start-ts
+                             :finish-ts src-finish-ts
+                             :node-nm src-node-name
+                             :status src-status-id}
+                            dest-vertex-id
+                            {:execution-vertex-id dest-vertex-id
+                             :start-ts dest-start-ts
+                             :finish-ts dest-finish-ts
+                             :node-nm dest-node-name
+                             :status dest-status-id}))
+              {}
+              vv)
+       vals
+       (filter #(-> % :execution-vertex-id nil? not))))
+
+
 (defn- show-execution-workflow-details [exec-wf-id]
   (u/log (str"exec-wf-id is:" exec-wf-id))
   (go
-   (let [{:keys[wf-info] :as exec-wf-info} (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
-     (plumb/reset) ; clear any state it may have had
-     (plumb/default-container :#execution-visualization-area)
+   (let [{:keys[wf-info nodes] :as exec-wf-info} (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
+
+     (ef/at "#execution-visualization-area" (ef/content "")) ; clear the existing content
 
      (update-breadcrumb-wf-stack! exec-wf-id (:workflow-name wf-info))
 
-     (ef/at "#execution-visualization-area" (ef/content "")) ; clear the existing content
-     (plumb/do-while-suspended  #(construct-execution-ui exec-wf-info))
      ;(construct-execution-ui exec-wf-info)
-     (ef/at "#execution-breadcrumb" (ef/content (wf-breadcrumb @breadcrumb-wf-stack))))))
+     (ef/at "#execution-breadcrumb" (ef/content (wf-breadcrumb @breadcrumb-wf-stack)))
+     (ef/at "#execution-vertices-info" (ef/content (execution-vertices (collect-execution-details nodes))))
+
+     (plumb/reset) ; clear any state it may have had
+     (plumb/default-container :#execution-visualization-area)
+     (plumb/do-while-suspended  #(construct-execution-ui exec-wf-info)))))
 
 
 (defn show-execution-visualizer
@@ -490,6 +533,7 @@
   (u/log (str "execution-id is:" execution-id))
 
 
+  (reset! current-execution-id execution-id)
   (reset! breadcrumb-wf-stack [])  ; clear the state
 
   (go

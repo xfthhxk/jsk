@@ -125,28 +125,51 @@
           <label for="finish-ts" class="control-label">Finished:</label>
           <label id="finish-ts">2013-12-07 20:42:44</label>
 
-          <div class="btn-group">
-            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
-              Action <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu">
-              <li><a class="execution-abort-action" href="#">Abort</a></li>
-            </ul>
-          </div>
-        </div>
+          <a class="execution-abort-action" href="#">Abort</a>
 
-      </div>
+        </div> <!-- panel-body -->
+      </div> <!-- panel-default -->
 
       <ol id="execution-breadcrumb" class="breadcrumb">
         <li><a href="#">Workflow 1</a></li>
         <li><a href="#">Workflow 2</a></li>
       </ol>
 
+      <div id="execution-vertices-info" class="panel-group">
+      </div> <!-- execution-vertices-info -->
+
       <div id="execution-visualization-area">
         <!-- this is where the nodes and connections are displayed -->
       </div>
 
-    </div>
+      </div> <!-- execution-visualizer -->
+
+
+<!-- BEGIN Execution Vertices Details table -->
+     <table id="execution-vertices-table" class="table table-condensed table-hover table-striped">
+          <thead>
+            <tr>
+              <th>Instance ID</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Start</th>
+              <th>Finish</th>
+              <th>Actions</th>
+          </thead>
+          <tbody id="execution-vertices-tbody">
+              <tr>
+                <td class="execution-vertex-id">42</td>
+                <td class="execution-vertex-name">Some job name</td>
+                <td class="execution-vertex-status">Successful</td>
+                <td class="execution-vertex-start">25 May 2034</td>
+                <td class="execution-vertex-finish">25 May 2034</td>
+                <td class="execution-vertex-actions">
+                  <a class="execution-resume-action" href="#">Resume</a>
+                </td>
+              </tr>
+          </tbody>
+        </table>
+<!-- END Execution Vertices Details table -->
 
 <!-- Execution node template -->
     <div id="execution-node" class="workflow-node">
@@ -164,5 +187,5 @@
         </div>
     </div>
 
-    </body>
+</body>
 </html>

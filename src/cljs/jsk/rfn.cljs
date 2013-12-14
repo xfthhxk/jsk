@@ -86,6 +86,9 @@
 (defn abort-execution [id]
   (rpc/GET (str "/executions/abort/" id)))
 
+(defn resume-execution [exec-id vertex-id]
+  (rpc/GET (str "/executions/resume/" exec-id "/" vertex-id)))
+
 
 
 
