@@ -83,6 +83,9 @@
 (defn fetch-execution-workflow-details [id]
   (rpc/GET (str "/executions/workflows/" id)))
 
+(defn abort-execution [id]
+  (rpc/GET (str "/executions/abort/" id)))
+
 
 
 

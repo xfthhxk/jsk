@@ -163,7 +163,25 @@
           tbl
           data))
 
-(defn- data->exec-tbl
+
+(defn- use-previous-finalization* [tbl data vertex-key runs-wf-key]
+  (reduce (fn[ans m]
+            (let [vertex (vertex-key m)
+                  runs-wf (runs-wf-key m)]
+              (if runs-wf
+                (ds/set-vertex-runs-workflow ans vertex runs-wf)
+                ans)))
+          tbl
+          data))
+
+(defn- use-previous-finalization
+  "Sets the workflows to run for the workflow nodes."
+  [tbl data]
+  (-> tbl
+      (use-previous-finalization* data :src-exec-vertex-id  :src-runs-execution-workflow-id)
+      (use-previous-finalization* data :dest-exec-vertex-id :dest-runs-execution-workflow-id)))
+
+(defn- data->exec-tbl*
   "data is a seq of maps which is turned into an execution info table."
   [data]
   (-> (ds/new-execution-table)
@@ -171,8 +189,17 @@
       (populate-exec-wfs data)
       (populate-vertices data)
       (add-deps data)
-      (set-vertex-attrs data)
-      (ds/finalize)))
+      (set-vertex-attrs data)))
+
+
+(defn- data->exec-tbl
+  "Has to make a distinction between a brand new execution and resuming an existing execution.
+   When resuming use the data available in the DB already."
+  [data initial-run?]
+  (let [tbl (data->exec-tbl* data)]
+    (if initial-run?
+      (ds/finalize tbl)
+      (use-previous-finalization tbl data))))
 
 
 (defn- data->digraph
@@ -201,23 +228,25 @@
 
     {:roots (g/roots digraph) :table tbl}))
 
-; FIXME: if making public, then need to use assigned
-; runs-execution-workflow-id and maybe not do ds/finalize
 (defn- workflow-execution-data
   "Fetches a map with keys :execution-id :info. :info is the workflow
    execution data and returns it as a data structure which conforms
    to the IExecutionTable protocol."
-  [exec-id]
+  [exec-id initial-run?]
   (let [data (db/get-execution-graph exec-id)
-        tbl (data->exec-tbl data)]
+        tbl (data->exec-tbl data initial-run?)]
     (debug "tbl is " tbl)
     {:execution-id exec-id :info tbl}))
 
+(defn resume-workflow-execution-data
+  "Fetches an existing execution's data."
+  [exec-id]
+  (workflow-execution-data exec-id false))
 
 
 (defn setup-execution [wf-id]
   (let [exec-id (db/new-execution! wf-id)
-        {:keys[info] :as ans} (workflow-execution-data exec-id)
+        {:keys[info] :as ans} (workflow-execution-data exec-id true)
         vertex-wf-map (ds/vertex-workflow-to-run-map info)]
     (db/set-vertex-runs-execution-workflow-mapping vertex-wf-map)
     ans))

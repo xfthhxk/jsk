@@ -2,6 +2,17 @@
   (:require [enfocus.core :as ef])
   (:require-macros [enfocus.macros :as em]))
 
+
+(defn status-id->desc
+  "Translates id to string description"
+  [id]
+  (case id
+    1 "Not started"
+    2 "Started"
+    3 "Successful"
+    4 "Errored"
+    5 "Aborted"))
+
 (defn log [x]
   (.log js/console (str x)))
 

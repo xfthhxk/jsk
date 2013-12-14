@@ -129,15 +129,6 @@
     3 "glyphicon-ok"       ; finished-success
     4 "glyphicon-exclamation-sign"))  ; finished-error
 
-(defn- status-id->desc
-  "Translates id to string description"
-  [id]
-  (case id
-    1 "Not started"                          ; unexecuted-status
-    2 "Started"           ; started-status
-    3 "Successful"       ; finished-success
-    4 "Errored"))  ; finished-error
-
 ;----------------------------------------------------------------------
 ; Lists all workflows.
 ;----------------------------------------------------------------------
@@ -369,9 +360,10 @@
 (em/defsnippet execution-visualizer :compiled "public/templates/workflow.html" "#execution-visualizer" [{:keys[workflow-name execution-id status-id start-ts finish-ts]}]
   "#execution-id" (ef/content (str execution-id))
   "#workflow-name" (ef/content workflow-name)
-  "#execution-status" (ef/content (status-id->desc status-id))
+  "#execution-status" (ef/content (u/status-id->desc status-id))
   "#start-ts" (ef/content (str start-ts))
-  "#finish-ts" (ef/content (str finish-ts)))
+  "#finish-ts" (ef/content (str finish-ts))
+  "a.execution-abort-action" (events/listen :click (fn[event] (rfn/abort-execution execution-id))))
 
 ;----------------------------------------------------------------------
 ; Adding a new execution node on the visualizer.

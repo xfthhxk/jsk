@@ -129,7 +129,15 @@
        (-> id u/str->int db/get-execution-details edn-response))
 
   (GET "/executions/workflows/:id" [id]
-       (-> id u/str->int db/get-execution-workflow-details edn-response)))
+       (-> id u/str->int db/get-execution-workflow-details edn-response))
+
+  (GET "/executions/abort/:id" [id]
+       (-> id u/str->int conductor/abort-execution edn-response))
+
+  (GET "/executions/resume/:id/:vid" [id vid]
+       (let [execution-id (u/str->int id)
+             vertex-id (u/str->int vid)]
+         (edn-response (conductor/resume-execution execution-id vertex-id)))))
 
 
 ;-----------------------------------------------------------------------

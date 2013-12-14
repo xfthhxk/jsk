@@ -84,11 +84,11 @@
 ;-----------------------------------------------------------------------
 (j/defjob ShellJob
   [ctx]
-  (let [{:strs [cmd-line exec-dir exec-vertex-id]} (qc/from-job-data ctx)
+  (let [{:strs [cmd-line exec-dir exec-vertex-id execution-id timeout]} (qc/from-job-data ctx)
         log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")]
 
     (info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
-    (ps/exec cmd-line exec-dir log-file-name)))
+    (ps/exec1 execution-id exec-vertex-id timeout cmd-line exec-dir log-file-name)))
 
 
 ;-----------------------------------------------------------------------

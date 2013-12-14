@@ -1,5 +1,5 @@
 (ns jsk.executions
-  (:require [jsk.rpc :as rpc]
+  (:require [jsk.rfn :as rfn]
             [jsk.util :as ju]
             [jsk.workflow :as w]
             [cljs.core.async :as async :refer [<!]]
@@ -24,6 +24,10 @@
   "td.execution-name"    (ef/content (:wf-name e))
   "td.execution-start"   (ef/content (str (:start-ts e))))
 
+;  "a.execution-view-action" (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
+;  "a.execution-abort-action" (events/listen :click (fn[event] (rfn/abort-execution (:execution-id e)))))
+
+
 (em/defsnippet make-execution-successful-row :compiled "public/templates/execution.html"  "#execution-successful-row"  [e]
   "tr" (ef/do->
           (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
@@ -33,14 +37,15 @@
   "td.execution-start"   (ef/content (str (:start-ts e)))
   "td.execution-finish"  (ef/content (str (:finish-ts e))))
 
-(em/defsnippet make-execution-error-row :compiled "public/templates/execution.html"  "#execution-error-row"  [e]
+(em/defsnippet make-execution-unsuccessful-row :compiled "public/templates/execution.html"  "#execution-unsuccessful-row"  [e]
   "tr" (ef/do->
           (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id"       (ef/content (str (:execution-id e)))
-  "td.execution-name"          (ef/content (:wf-name e))
-  "td.execution-start"         (ef/content (str (:start-ts e)))
-  "td.execution-finish"        (ef/content (str (:finish-ts e))))
+  "td.execution-name"     (ef/content (:wf-name e))
+  "td.execution-status"   (ef/content (ju/status-id->desc (:status e)))
+  "td.execution-start"    (ef/content (str (:start-ts e)))
+  "td.execution-finish"   (ef/content (str (:finish-ts e))))
 
 ;-----------------------------------------------------------------------
 ; Nodes
@@ -67,7 +72,7 @@
   "td.node-start"   (ef/content (str (:start-ts e)))
   "td.node-finish"  (ef/content (str (:finish-ts e))))
 
-(em/defsnippet make-node-error-row :compiled "public/templates/execution.html"  "#node-error-row"  [e]
+(em/defsnippet make-node-unsuccessful-row :compiled "public/templates/execution.html"  "#node-unsuccessful-row"  [e]
   "tr" (ef/do->
           (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
           (ef/set-attr :data-execution-id (str (:execution-id e)))
@@ -95,7 +100,7 @@
   (ef/at "#successful-executions-tbody" (ef/prepend (make-execution-successful-row msg))))
 
 (defmethod execution-finished false [msg]
-  (ef/at "#errored-executions-tbody" (ef/prepend (make-execution-error-row msg))))
+  (ef/at "#unsuccessful-executions-tbody" (ef/prepend (make-execution-unsuccessful-row msg))))
 
 
 (defmulti dispatch :event)

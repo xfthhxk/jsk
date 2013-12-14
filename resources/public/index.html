@@ -141,28 +141,29 @@
 
 
           <!-- Finished executing -->
-          <div class="panel-group" id="errored-executions-accordion">
+          <div class="panel-group" id="unsuccessful-executions-accordion">
             <div class="panel panel-default">
 
               <div class="panel-heading">
                 <h5 class="panel-title">
-                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#errored-executions-accordion" href="#executions-errored">
-                    <span class="text-danger">Errored</span>
+                  <a class="accordion-toggle" data-toggle="collapse" data-parent="#unsuccessful-executions-accordion" href="#executions-unsuccessful">
+                    <span class="text-danger">Unsuccessful</span>
                     </a>
                 </h5>
               </div>
 
-              <div id="executions-errored" class="panel-collapse collapse in">
+              <div id="executions-unsuccessful" class="panel-collapse collapse in">
                 <table class="table table-condensed table-hover table-striped">
                   <thead>
                     <tr>
                       <th>Execution ID</th>
                       <th>Name</th>
+                      <th>Status</th>
                       <th>Start</th>
-                      <th>Errored</th>
+                      <th>Stop</th>
                     </tr>
                   </thead>
-                  <tbody id="errored-executions-tbody">
+                  <tbody id="unsuccessful-executions-tbody">
                   </tbody>
                 </table>
               </div> <!-- finished executions table div -->

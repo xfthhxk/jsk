@@ -8,6 +8,7 @@
             [jsk.ds :as ds]
             [jsk.graph :as g]
             [jsk.job :as j]
+            [jsk.ps :as ps]
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojure.string :as str]
             [clojure.core.async :refer [chan go go-loop put! >! <!]]
@@ -42,7 +43,11 @@
                                      :root-wf-name root-wf-name
                                      :start-ts start-ts
                                      :running-jobs exec-wf-counts
-                                     :failed-exec-wfs #{}})))
+                                     :failed-exec-wfs #{}})
+    ; allows for aborting jobs/executions etc
+    ; FIXME: this thing uses an atom also (need to store all this stuff in one place)
+    (ps/begin-execution-tracking exec-id)))
+
 (defn- rm-exec-info!
   "Removes the execution-id and all its data from the in memory store"
   [exec-id]
@@ -53,9 +58,12 @@
   [exec-id]
   (get-in @exec-infos [exec-id :info]))
 
-
-
 (defn get-by-exec-id [id] (get @exec-infos id))
+
+(defn execution-exists?
+  "Answers true if the execution is known to the conductor."
+  [exec-id]
+  (-> exec-id get-by-exec-id nil? not))
 
 (defn get-execution-root-wf-name [exec-id]
   (get-in @exec-infos [exec-id :root-wf-name]))
@@ -115,6 +123,7 @@
                         :node-id node-id
                         :node-nm node-nm
                         :trigger-src :conductor
+                        :timeout Integer/MAX_VALUE
                         :start-ts (db/now)
                         :exec-vertex-id v}]]
       (run-job (:node-id data) data))))
@@ -171,11 +180,13 @@
      (let [wf-name (w/get-workflow-name wf-id)
            start-ts (db/now)
            {:keys[execution-id info]} (w/setup-execution wf-id)]
+
        (add-exec-info! execution-id info wf-name start-ts)
        (put! @info-chan {:event :execution-started
                          :execution-id execution-id
                          :start-ts start-ts
                          :wf-name wf-name})
+
        ; pass in nil for exec-vertex-id since the actual workflow is represented
        ; by the execution and is not a vertex in itself
        (start-workflow-execution nil (ds/root-workflow info) execution-id))
@@ -242,6 +253,53 @@
   true)
 
 
+(defn- abort-execution* [exec-id]
+  (info "Aborting execution with id:" exec-id)
+  (let [root-wf-id (-> exec-id get-exec-info ds/root-workflow)
+        exec-name (get-execution-root-wf-name exec-id)
+        start-ts (get-execution-start-ts exec-id)
+        ts (db/now)]
+
+    (ps/kill! exec-id)
+    (ps/end-execution-tracking exec-id)
+
+    (db/update-execution-status exec-id db/aborted-status ts)
+
+    (put! @info-chan {:event :execution-finished
+                      :execution-id exec-id
+                      :success? false
+                      :status db/aborted-status
+                      :finish-ts ts
+                      :start-ts start-ts
+                      :wf-name exec-name})
+
+    (rm-exec-info! exec-id))
+  true)
+
+
+;-----------------------------------------------------------------------
+; Aborts the entire execution
+;-----------------------------------------------------------------------
+(defn abort-execution [exec-id]
+  (if (execution-exists? exec-id)
+    (abort-execution* exec-id)
+    false))
+
+;-----------------------------------------------------------------------
+; Resume execution
+;-----------------------------------------------------------------------
+(defn resume-execution [exec-id exec-vertex-id]
+  (let [wf-name "Fixme: need wf-name/job-name"
+        start-ts (db/now)
+        {:keys[info]} (w/resume-workflow-execution-data exec-id)]
+    (add-exec-info! exec-id info wf-name start-ts)
+    (put! @info-chan {:event :execution-started
+                      :execution-id exec-id
+                      :start-ts start-ts
+                      :wf-name wf-name})
+    (run-nodes [exec-vertex-id] exec-id)))
+
+
 (defn- execution-finished [exec-id success? last-exec-wf-id]
   (let [root-wf-id (-> exec-id get-exec-info ds/root-workflow)
         exec-name (get-execution-root-wf-name exec-id)
@@ -249,8 +307,17 @@
         ts (db/now)]
     (db/workflow-finished root-wf-id success? ts)
     (put! @info-chan {:event :wf-finished :execution-id exec-id :success? success?})
+
     (db/execution-finished exec-id success? ts)
-    (put! @info-chan {:event :execution-finished :execution-id exec-id :success? success? :finish-ts ts :start-ts start-ts :wf-name exec-name})
+    (ps/end-execution-tracking exec-id)
+    (put! @info-chan {:event :execution-finished
+                      :execution-id exec-id
+                      :success? success?
+                      :status (if success? db/finished-success db/finished-error)
+                      :finish-ts ts
+                      :start-ts start-ts
+                      :wf-name exec-name})
+
     (rm-exec-info! exec-id)))
 
 

@@ -63,6 +63,9 @@
   (set-vertex-attrs [tbl v node-id node-nm node-type wf-id exec-wf-id]
     "Sets the node-id, name, type, wf-id for vertex v in tbl.")
 
+  (set-vertex-runs-workflow [tbl v exec-wf-id]
+     "Sets the execution workflow id that vertex v (workflow node) should run.")
+
   (vertex-attrs [tbl v]
     "Gets the node id, nm, type and the wf the node belongs to.")
 
@@ -168,6 +171,11 @@
                       :node-nm node-nm
                       :node-type node-type
                       :belongs-to-wf exec-wf-id}))
+
+  ; used when we are re-running an execution and want to use the assigned values
+  ; from the database
+  (set-vertex-runs-workflow [tbl v exec-wf-id]
+    (update-in tbl [:vertices v] merge {:exec-wf-to-run exec-wf-id}))
 
   (vertex-attrs [tbl v]
     (get-in tbl [:vertices v]))

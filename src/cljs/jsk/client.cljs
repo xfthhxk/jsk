@@ -43,8 +43,7 @@
   "#schedule-list-action"  (events/listen :click #(s/show-schedules))
   "#schedule-add-action"   (events/listen :click #(s/show-add-schedule))
   "#workflow-list-action"  (events/listen :click #(w/show-workflows))
-  "#workflow-add-action"   (events/listen :click #(w/show-designer))
-  "#workflow-test-action"  (events/listen :click #(w/show-test)))
+  "#workflow-add-action"   (events/listen :click #(w/show-visualizer)))
 
 
 (defn ws-connect []

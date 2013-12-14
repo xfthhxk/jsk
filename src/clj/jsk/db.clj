@@ -586,24 +586,26 @@
     ["select
              ew.execution_workflow_id
            , ew.workflow_id
-           , ew.root               as is_root_wf
-           , f.node_id             as src_id
-           , f.status_id           as src_status_id
-           , f.start_ts            as src_start_ts
-           , f.finish_ts           as src_finish_ts
-           , f.execution_vertex_id as src_exec_vertex_id
-           , t.node_id             as dest_id
-           , t.status_id           as dest_status_id
-           , t.start_ts            as dest_start_ts
-           , t.finish_ts           as dest_finish_ts
-           , t.execution_vertex_id as dest_exec_vertex_id
+           , ew.root                      as is_root_wf
+           , f.node_id                    as src_id
+           , f.status_id                  as src_status_id
+           , f.start_ts                   as src_start_ts
+           , f.finish_ts                  as src_finish_ts
+           , f.execution_vertex_id        as src_exec_vertex_id
+           , f.runs_execution_workflow_id as src_runs_execution_workflow_id
+           , t.node_id                    as dest_id
+           , t.status_id                  as dest_status_id
+           , t.start_ts                   as dest_start_ts
+           , t.finish_ts                  as dest_finish_ts
+           , t.execution_vertex_id        as dest_exec_vertex_id
+           , t.runs_execution_workflow_id as dest_runs_execution_workflow_id
            , e.success
-           , fn.node_name          as src_name
-           , fn.node_type_id       as src_type
-           , tn.node_name          as dest_name
-           , tn.node_type_id       as dest_type
-           , f.layout              as src_layout
-           , t.layout              as dest_layout
+           , fn.node_name                 as src_name
+           , fn.node_type_id              as src_type
+           , tn.node_name                 as dest_name
+           , tn.node_type_id              as dest_type
+           , f.layout                     as src_layout
+           , t.layout                     as dest_layout
         from execution_workflow ew
         join execution_vertex   f
           on ew.execution_workflow_id = f.execution_workflow_id
@@ -618,13 +620,19 @@
        where e.execution_id = ? " [id]] :results))
 
 
+(defn update-execution-status
+  "Updates the execution status to the status specified."
+  [execution-id status ts]
+  (update execution
+    (set-fields {:status-id status :finish-ts ts})
+    (where {:execution-id execution-id})))
+
 (defn execution-finished
   "Marks the execution as finished and sets the status."
   [execution-id success? finish-ts]
-  (let [status (if success? finished-success finished-error)]
-    (update execution
-      (set-fields {:status-id status :finish-ts finish-ts})
-      (where {:execution-id execution-id}))))
+  (update-execution-status execution-id
+                           (if success? finished-success finished-error)
+                           finish-ts))
 
 
 (defn execution-vertex-started [exec-vertex-id ts]
