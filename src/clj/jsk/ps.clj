@@ -111,9 +111,13 @@
     ; stick in cache so can be killed if need be by outside intervention
     (cache-ps exec-group-id exec-id (.process sp))
 
-    (let [^ProcessResult result (-> sp .future (.get timeout TimeUnit/SECONDS))]
-      (rm-from-cache exec-group-id exec-id)
-      {:exit-code (.exitValue result)})))
+    (try
+      (let [^ProcessResult result (-> sp .future (.get timeout TimeUnit/SECONDS))]
+        (rm-from-cache exec-group-id exec-id)
+        {:exit-code (.exitValue result)})
+      (catch Exception e
+        (rm-from-cache exec-group-id exec-id)
+        (throw e)))))
 
 (defn exec1
   "Takes a cmd with args to run and the directory in which it should be run"
