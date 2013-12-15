@@ -88,8 +88,8 @@
 
 (defn- create-triggers [job-id]
   (info "Creating triggers for job " job-id)
-  (let [schedules (get-job-schedule-info job-id)]
-    (q/schedule-cron-job! job-id ju/job-type-id schedules)))
+  (doseq [{:keys[node-schedule-id cron-expression]} (get-job-schedule-info job-id)]
+    (q/schedule-cron-job! node-schedule-id job-id ju/job-type-id cron-expression)))
 
 ;-----------------------------------------------------------------------
 ; Associates a job to a set of schedule-ids.
