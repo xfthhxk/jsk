@@ -83,21 +83,24 @@
 
 (defn- get-job-schedule-info [schedule-id]
   (exec-raw ["select
-                     js.job_schedule_id
-                   , js.job_id
+                     ns.node_schedule_id
+                   , ns.node_id
+                   , n.node_type_id
                    , s.cron_expression
                 from
-                     job_schedule js
+                     node_schedule ns
                 join schedule     s
-                  on js.schedule_id = s.schedule_id
-               where js.schedule_id = ?"
+                  on ns.schedule_id = s.schedule_id
+                join node n
+                  on ns.node_id = n.node_id
+               where ns.schedule_id = ?"
              [schedule-id]]
             :results))
 
 
 (defn- update-schedule-quartz! [schedule-id]
-  (let [ss (get-job-schedule-info schedule-id)]
-    (q/update-triggers! ss)))
+  (doseq [{:keys[node-schedule-id node-id node-type-id cron-expression]} (get-job-schedule-info schedule-id)]
+    (q/update-trigger! node-schedule-id node-id node-type-id cron-expression)))
 
 (defn- update-schedule! [{:keys [schedule-id] :as s} user-id]
   (update-schedule-db! s user-id)

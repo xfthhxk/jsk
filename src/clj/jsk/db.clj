@@ -322,6 +322,7 @@
   (exec-raw ["select
                      ns.node_schedule_id
                    , ns.node_id
+                   , n.node_type_id
                    , s.cron_expression
                 from
                      node_schedule ns

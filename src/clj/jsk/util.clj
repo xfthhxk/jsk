@@ -34,3 +34,12 @@
 
 (defn str->int [s]
   (Integer/parseInt s))
+
+(def job-type-id 1)
+(def workflow-type-id 2)
+
+(defn workflow-type? [id]
+  (= workflow-type-id id))
+
+(defn job-type? [id]
+  (= job-type-id id))

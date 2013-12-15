@@ -252,7 +252,7 @@
 (defn trigger-workflow-now
   [wf-id]
   (log/info "Triggering workflow with id: " wf-id)
-  (put! @cond-chan {:event :trigger-wf :wf-id wf-id})
+  (put! @cond-chan {:event :trigger-wf :node-id wf-id})
   true)
 
 
@@ -366,8 +366,8 @@
     :conductor (run-job node-id)))
 
 
-(defmethod dispatch :trigger-wf [{:keys [wf-id]}]
-  (start-workflow-execution wf-id))
+(defmethod dispatch :trigger-wf [{:keys [node-id]}]
+  (start-workflow-execution node-id))
 
 (defmethod dispatch :run-wf [{:keys [exec-vertex-id exec-wf-id execution-id]}]
   (start-workflow-execution exec-vertex-id exec-wf-id execution-id))

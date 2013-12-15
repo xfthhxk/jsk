@@ -2,9 +2,9 @@
   "JSK quartz"
   (:require [jsk.ps :as ps]
             [jsk.conf :as conf]
+            [jsk.util :as ju]
             [clojure.core.async :refer [put!]]
-            [taoensso.timbre :as timbre
-             :refer (trace debug info warn error fatal spy with-log-level)]
+            [taoensso.timbre :as log]
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojurewerkz.quartzite.conversion :as qc]
             [clojurewerkz.quartzite.triggers :as t]
@@ -87,8 +87,9 @@
   (let [{:strs [cmd-line exec-dir exec-vertex-id execution-id timeout]} (qc/from-job-data ctx)
         log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")]
 
-    (info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
+    (log/info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
     (ps/exec1 execution-id exec-vertex-id timeout cmd-line exec-dir log-file-name)))
+
 
 
 ;-----------------------------------------------------------------------
@@ -98,8 +99,9 @@
 ;-----------------------------------------------------------------------
 (j/defjob JskTriggerJob
   [ctx]
-  (let [{:strs [node-id]} (qc/from-job-data ctx)]
-    (put! @conductor-channel {:event :trigger-job :node-id node-id :trigger-src :quartz})))
+  (let [{:strs [node-id node-type]} (qc/from-job-data ctx)
+        event (if (ju/workflow-type? node-type) :trigger-wf :trigger-job)]
+    (put! @conductor-channel {:event event :node-id node-id :trigger-src :quartz})))
 
 
 ;-----------------------------------------------------------------------
@@ -119,9 +121,10 @@
                (j/with-identity job-key)
                (j/store-durably))))
 
-(defn- make-triggerable-job [node-id]
+; NB node-id has to be unique across jobs *and* workflows
+(defn- make-triggerable-job [node-id node-type]
   (j/build (j/of-type JskTriggerJob)
-           (j/using-job-data {"node-id" node-id "ignore-execution?" true}) ; string keys for quartz
+           (j/using-job-data {"node-id" node-id "node-type" node-type "ignore-execution?" true}) ; string keys for quartz
            (j/with-identity (make-trigger-job-key node-id))
            (j/store-durably)))
 
@@ -142,15 +145,15 @@
 ;-----------------------------------------------------------------------
 (defn- make-cron-trigger
   "Makes a cron trigger instance based on the schedule specified."
-  [trigger-id cron-expr job-id]
+  [trigger-id cron-expr node-id node-type]
 
-  (info "make-cron-trigger id " trigger-id ", cron: " cron-expr ", job-id:" job-id)
+  (log/info "make-cron-trigger id " trigger-id ", cron: " cron-expr ", node-id:" node-id)
 
   (let [cron-sched (cron/schedule (cron/cron-schedule cron-expr))
         trigger-key (make-trigger-key trigger-id)
-        job-key (make-trigger-job-key job-id)]
+        job-key (make-trigger-job-key node-id)]
 
-    (add-job (make-triggerable-job job-id))
+    (add-job (make-triggerable-job node-id node-type))
 
     (t/build
      (t/with-identity trigger-key)
@@ -158,15 +161,8 @@
      (t/start-now)
      (t/with-schedule cron-sched))))
 
-
-(defn- create-trigger-instances [node-id schedules]
-  (let [args (map (juxt #(:node-schedule-id %) :cron-expression (constantly node-id)) schedules)]
-    (map #(apply make-cron-trigger %) args)))
-
-(defn schedule-cron-job! [node-id schedules]
-  (doseq [t (create-trigger-instances node-id schedules)]
-      (schedule-trigger t)))
-
+(defn schedule-cron-job! [trigger-id node-id node-type cron-expr]
+  (schedule-trigger (make-cron-trigger trigger-id cron-expr node-id node-type)))
 
 ;-----------------------------------------------------------------------
 ; Deletes triggers specified by the trigger-ids.
@@ -178,22 +174,8 @@
 ;-----------------------------------------------------------------------
 ; Update triggers.
 ;-----------------------------------------------------------------------
-(defn update-triggers! [schedule-infos]
-  (doseq [{:keys [node-schedule-id node-id cron-expression]} schedule-infos]
-    (let [t (make-cron-trigger node-schedule-id cron-expression node-id)]
-      (reschedule-job t))))
-
-
-
-;-----------------------------------------------------------------------
-; WORKFLOW
-;-----------------------------------------------------------------------
-(defn register-workflow
-  "Registers the workflow with jsk/quartz."
-  [wf-id]
-
-
-  )
+(defn update-trigger! [node-schedule-id node-id node-type cron-expression]
+  (reschedule-job (make-cron-trigger node-schedule-id cron-expression node-id node-type)))
 
 
 

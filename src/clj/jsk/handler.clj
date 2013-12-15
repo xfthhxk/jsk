@@ -114,11 +114,9 @@
 ; Read schedules from database and associates them to jobs in quartz.
 ;-----------------------------------------------------------------------
 (defn- populate-quartz-triggers []
-  (let [ss (db/enabled-nodes-schedule-info)
-        ss-by-job (group-by :job-id ss)]
-    (info "Setting up " (count ss) " triggers in Quartz.")
-    (doseq [job-id (keys ss-by-job)]
-      (q/schedule-cron-job! job-id (ss-by-job job-id)))))
+  (doseq [{:keys[cron-expression node-id node-schedule-id node-type-id]}
+          (db/enabled-nodes-schedule-info)]
+    (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression)))
 
 (defn- populate-quartz []
   (populate-quartz-jobs)

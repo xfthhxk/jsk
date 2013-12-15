@@ -89,7 +89,7 @@
 (defn- create-triggers [job-id]
   (info "Creating triggers for job " job-id)
   (let [schedules (get-job-schedule-info job-id)]
-    (q/schedule-cron-job! job-id schedules)))
+    (q/schedule-cron-job! job-id ju/job-type-id schedules)))
 
 ;-----------------------------------------------------------------------
 ; Associates a job to a set of schedule-ids.
