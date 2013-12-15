@@ -79,11 +79,11 @@
 ; Schedule ids associated with the specified job id.
 ;-----------------------------------------------------------------------
 (defn schedules-for-job [job-id]
-  (db/schedules-for-job job-id))
+  (db/schedules-for-node job-id))
 
 
 (defn- get-job-schedule-info [job-id]
-  (db/get-job-schedule-info job-id))
+  (db/get-node-schedule-info job-id))
 
 
 (defn- create-triggers [job-id]
@@ -100,14 +100,14 @@
     (assoc-schedules! job-id schedule-ids user-id))
 
   ([job-id schedule-ids user-id]
-     (let [job-schedule-ids (db/job-schedules-for-job job-id)]
+     (let [node-schedule-ids (db/node-schedules-for-node job-id)]
        (info "user-id " user-id " requests job-id " job-id " be associated with schedules " schedule-ids)
 
        (k/transaction
-         (db/rm-job-schedules! job-schedule-ids)
+         (db/rm-node-schedules! node-schedule-ids)
          (db/assoc-schedules! job-id schedule-ids user-id))
 
-       (q/rm-triggers! job-schedule-ids)
+       (q/rm-triggers! node-schedule-ids)
        (create-triggers job-id)          ; add new schedules if any
 
        (info "job schedule associations made for job-id: " job-id)

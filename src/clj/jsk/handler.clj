@@ -114,7 +114,7 @@
 ; Read schedules from database and associates them to jobs in quartz.
 ;-----------------------------------------------------------------------
 (defn- populate-quartz-triggers []
-  (let [ss (db/enabled-jobs-schedule-info)
+  (let [ss (db/enabled-nodes-schedule-info)
         ss-by-job (group-by :job-id ss)]
     (info "Setting up " (count ss) " triggers in Quartz.")
     (doseq [job-id (keys ss-by-job)]

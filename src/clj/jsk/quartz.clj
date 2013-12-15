@@ -159,12 +159,12 @@
      (t/with-schedule cron-sched))))
 
 
-(defn- create-trigger-instances [job-id schedules]
-  (let [args (map (juxt #(:job-schedule-id %) :cron-expression (constantly job-id)) schedules)]
+(defn- create-trigger-instances [node-id schedules]
+  (let [args (map (juxt #(:node-schedule-id %) :cron-expression (constantly node-id)) schedules)]
     (map #(apply make-cron-trigger %) args)))
 
-(defn schedule-cron-job! [job-id schedules]
-  (doseq [t (create-trigger-instances job-id schedules)]
+(defn schedule-cron-job! [node-id schedules]
+  (doseq [t (create-trigger-instances node-id schedules)]
       (schedule-trigger t)))
 
 
@@ -179,8 +179,8 @@
 ; Update triggers.
 ;-----------------------------------------------------------------------
 (defn update-triggers! [schedule-infos]
-  (doseq [{:keys [job-schedule-id job-id cron-expression]} schedule-infos]
-    (let [t (make-cron-trigger job-schedule-id cron-expression job-id)]
+  (doseq [{:keys [node-schedule-id node-id cron-expression]} schedule-infos]
+    (let [t (make-cron-trigger node-schedule-id cron-expression node-id)]
       (reschedule-job t))))
 
 

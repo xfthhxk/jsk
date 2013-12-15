@@ -3,7 +3,7 @@ drop table if exists execution_vertex;
 drop table if exists execution_workflow;
 drop table if exists execution;
 drop table if exists execution_status;
-drop table if exists job_schedule;
+drop table if exists node_schedule;
 drop table if exists schedule;
 drop table if exists job_var;
 drop table if exists job;
@@ -109,25 +109,25 @@ create table schedule( schedule_id     int            auto_increment primary key
                      , create_ts       timestamp      not null default current_timestamp()
                      , creator_id      int            not null
                      , update_ts       timestamp      not null default current_timestamp()
-                     , updater_id      varchar(50)    not null);
+                     , updater_id      int            not null);
 
 alter table schedule add constraint unq_schedule_schedule_name unique(schedule_name);
 alter table schedule add constraint fk_schedule_creator_id foreign key (creator_id) references app_user(app_user_id);
 alter table schedule add constraint fk_schedule_updater_id foreign key (updater_id) references app_user(app_user_id);
 
 
-/* ---------------------------- Job Schedule ----------------------------------- */
+/* ---------------------------- Node Schedule ----------------------------------- */
 /* Doesn't make sense to have update info here since you either create or delete */
-create table job_schedule ( job_schedule_id int         auto_increment primary key
-                          , job_id          int         not null
-                          , schedule_id     int         not null
-                          , create_ts       timestamp   not null default current_timestamp()
-                          , creator_id  varchar(50) not null);
+create table node_schedule ( node_schedule_id int         auto_increment primary key
+                           , node_id          int         not null
+                           , schedule_id      int         not null
+                           , create_ts        timestamp   not null default current_timestamp()
+                           , creator_id       int         not null);
 
-alter table job_schedule add constraint fk_job_schedule_job_id foreign key (job_id) references job(job_id);
-alter table job_schedule add constraint fk_job_schedule_schedule_id foreign key (schedule_id) references schedule(schedule_id);
-alter table job_schedule add constraint fk_job_schedule_creator_id foreign key (creator_id) references app_user(app_user_id);
-alter table job_schedule add constraint unq_job_schedule_job_id_schedule_id unique(job_id, schedule_id);
+alter table node_schedule add constraint fk_node_schedule_node_id foreign key (node_id) references node(node_id);
+alter table node_schedule add constraint fk_node_schedule_schedule_id foreign key (schedule_id) references schedule(schedule_id);
+alter table node_schedule add constraint fk_node_schedule_creator_id foreign key (creator_id) references app_user(app_user_id);
+alter table node_schedule add constraint unq_node_schedule_job_id_schedule_id unique(node_id, schedule_id);
 
 
 /* ---------------------------- Workflow ----------------------------------- */

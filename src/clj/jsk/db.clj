@@ -53,9 +53,9 @@
   (pk :workflow-edge-id)
   (entity-fields :workflow-edge-id :vertex-id :next-vertex-id :success))
 
-(defentity job-schedule
-  (pk :job-schedule-id)
-  (entity-fields :job-schedule-id :job-id :schedule-id))
+(defentity node-schedule
+  (pk :node-schedule-id)
+  (entity-fields :node-schedule-id :job-id :schedule-id))
 
 (def base-job-query
   (-> (select* job)
@@ -260,43 +260,43 @@
 
 
 ;-----------------------------------------------------------------------
-; Schedule ids associated with the specified job id.
+; Schedule ids associated with the specified node id.
 ;-----------------------------------------------------------------------
-(defn schedules-for-job [job-id]
-  (->> (select job-schedule (where {:job-id job-id}))
+(defn schedules-for-node [node-id]
+  (->> (select node-schedule (where {:node-id node-id}))
        (map :schedule-id)
        set))
 
 ;-----------------------------------------------------------------------
-; Job schedule ids associated with the specified job id.
+; Job schedule ids associated with the specified node id.
 ;-----------------------------------------------------------------------
-(defn job-schedules-for-job [job-id]
-  (->> (select job-schedule (where {:job-id job-id}))
-       (map :job-schedule-id)
+(defn node-schedules-for-node [node-id]
+  (->> (select node-schedule (where {:node-id node-id}))
+       (map :node-schedule-id)
        set))
 
 
 ;-----------------------------------------------------------------------
-; Deletes from job-schedule all rows matching job-schedule-ids
-; Also removes from quartz all jobs matching the job-schedule-id
-; ie the triggers IDd by job-scheduler-id
+; Deletes from node-schedule all rows matching node-schedule-ids
+; Also removes from quartz all jobs matching the node-schedule-id
+; ie the triggers IDd by node-scheduler-id
 ;-----------------------------------------------------------------------
-(defn rm-job-schedules! [job-schedule-ids]
-  (delete job-schedule (where {:job-schedule-id [in job-schedule-ids]})))
+(defn rm-node-schedules! [node-schedule-ids]
+  (delete node-schedule (where {:node-schedule-id [in node-schedule-ids]})))
 
 ;-----------------------------------------------------------------------
-; Deletes from job-schedule all rows matching job-id
+; Deletes from node-schedule all rows matching node-id
 ;-----------------------------------------------------------------------
-(defn rm-schedules-for-job! [job-id]
-  (-> job-id job-schedules-for-job rm-job-schedules!))
+(defn rm-schedules-for-node! [node-id]
+  (-> node-id node-schedules-for-node rm-node-schedules!))
 
-(defn get-job-schedule-info [job-id]
-  (exec-raw ["select   js.job_schedule_id
+(defn get-node-schedule-info [node-id]
+  (exec-raw ["select   ns.node_schedule_id
                      , s.*
-                from   job_schedule js
+                from   node_schedule ns
                 join   schedule s
-                  on   js.schedule_id = s.schedule_id
-               where   job_id = ?" [job-id]] :results))
+                  on   ns.schedule_id = s.schedule_id
+               where   node_id = ?" [node-id]] :results))
 
 
 
@@ -305,32 +305,30 @@
 ; schedule-ids is a set of integer ids
 ;-----------------------------------------------------------------------
 (defn assoc-schedules!
-  ([{:keys [job-id schedule-ids]} user-id]
-    (assoc-schedules! job-id schedule-ids user-id))
+  ([{:keys [node-id schedule-ids]} user-id]
+    (assoc-schedules! node-id schedule-ids user-id))
 
-  ([job-id schedule-ids user-id]
+  ([node-id schedule-ids user-id]
     (let [schedule-id-set (set schedule-ids)
-          data {:job-id job-id :creator-id user-id}
+          data {:node-id node-id :creator-id user-id}
           insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) schedule-id-set)]
       (if (not (empty? insert-maps))
-        (insert job-schedule (values insert-maps))))))
+        (insert node-schedule (values insert-maps))))))
 
 ;-----------------------------------------------------------------------
 ; Gets all enabled jobs with schedules.
 ;-----------------------------------------------------------------------
-(defn enabled-jobs-schedule-info []
+(defn enabled-nodes-schedule-info []
   (exec-raw ["select
-                     js.job_schedule_id
-                   , js.job_id
+                     ns.node_schedule_id
+                   , ns.node_id
                    , s.cron_expression
                 from
-                     job_schedule js
+                     node_schedule ns
                 join schedule     s
-                  on js.schedule_id = s.schedule_id
-                join job          j
-                  on js.job_id = j.job_id
+                  on ns.schedule_id = s.schedule_id
                 join node         n
-                  on j.job_id = n.node_id
+                  on ns.node_id = n.node_id
                where n.is_enabled = 1"]
             :results))
 
