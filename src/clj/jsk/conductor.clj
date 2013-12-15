@@ -12,7 +12,7 @@
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojure.string :as str]
             [clojure.core.async :refer [chan go go-loop put! >! <!]]
-            [taoensso.timbre :as timbre
+            [taoensso.timbre :as log
              :refer (trace debug info warn error fatal)])
   (:import (org.quartz JobDataMap JobDetail JobExecutionContext JobKey Scheduler)))
 
@@ -76,7 +76,7 @@
   'f' is a fn such as inc/dec for updating the count.  Answers with the
   new running job count for the exec-wf-id in execution-id."
   [execution-id exec-wf-id f]
-  (debug "update running jobs count with: execution-id: " execution-id ", exec-wf-id: " exec-wf-id ", f:" f)
+  (log/debug "update running jobs count with: execution-id: " execution-id ", exec-wf-id: " exec-wf-id ", f:" f)
   (let [path [execution-id :running-jobs exec-wf-id]]
     (-> (swap! exec-infos update-in path f)
         (get-in path))))
@@ -157,9 +157,9 @@
         f (fn[id](->> id (ds/vertex-attrs info) :node-type))
         type-map (group-by f node-ids)]
 
-    (debug "run-nodes: node-ids:" node-ids)
-    (debug "run-nodes: info:" info)
-    (debug "run-nodes: type-map:" type-map)
+    (log/debug "run-nodes: node-ids:" node-ids)
+    (log/debug "run-nodes: info:" info)
+    (log/debug "run-nodes: type-map:" type-map)
 
     (assert (nil? others)
             (str "wf-id: " wf-id ", others: " others
@@ -227,8 +227,11 @@
 (defn- run-job-as-synthetic-wf
   "Runs the job in the context of a synthetic workflow."
   [job-id]
-  (let [{:keys[execution-id info job-nm] :as m} (w/setup-synthetic-execution job-id)
-        start-ts (db/now)]
+  (let [{:keys[execution-id info]} (w/setup-synthetic-execution job-id)
+        start-ts (db/now)
+        job-nm (->> info ds/vertices first (ds/vertex-attrs info) :node-nm)]
+
+    (log/info "info: " info ", job-nm: " job-nm)
     (db/workflow-started (ds/root-workflow info) start-ts)
     (add-exec-info! execution-id info job-nm start-ts)
     (run-nodes (ds/vertices (get-exec-info execution-id))
@@ -239,7 +242,7 @@
 ; Schedule job to be triggered now.
 ;-----------------------------------------------------------------------
 (defn trigger-job-now [job-id]
-  (info "job-id is " job-id)
+  (log/info "job-id is " job-id)
   (put! @cond-chan {:event :trigger-job :node-id job-id :trigger-src :user})
   true)
 
@@ -248,13 +251,13 @@
 ;-----------------------------------------------------------------------
 (defn trigger-workflow-now
   [wf-id]
-  (info "Triggering workflow with id: " wf-id)
+  (log/info "Triggering workflow with id: " wf-id)
   (put! @cond-chan {:event :trigger-wf :wf-id wf-id})
   true)
 
 
 (defn- abort-execution* [exec-id]
-  (info "Aborting execution with id:" exec-id)
+  (log/info "Aborting execution with id:" exec-id)
   (let [root-wf-id (-> exec-id get-exec-info ds/root-workflow)
         exec-name (get-execution-root-wf-name exec-id)
         start-ts (get-execution-start-ts exec-id)
@@ -263,7 +266,7 @@
     (ps/kill! exec-id)
     (ps/end-execution-tracking exec-id)
 
-    (db/update-execution-status exec-id db/aborted-status ts)
+    (db/execution-aborted exec-id ts)
 
     (put! @info-chan {:event :execution-finished
                       :execution-id exec-id
@@ -274,6 +277,7 @@
                       :wf-name exec-name})
 
     (rm-exec-info! exec-id))
+  (log/info "all done cleaning up execution: " exec-id)
   true)
 
 
@@ -289,10 +293,11 @@
 ; Resume execution
 ;-----------------------------------------------------------------------
 (defn- resume-execution* [exec-id exec-vertex-id]
-  (let [wf-name "Fixme: need wf-name/job-name"
+  (let [wf-name (db/get-execution-name exec-id)
         start-ts (db/now)
         {:keys[info]} (w/resume-workflow-execution-data exec-id)]
     (add-exec-info! exec-id info wf-name start-ts)
+    (db/update-execution-status exec-id db/started-status start-ts)
     (put! @info-chan {:event :execution-started
                       :execution-id exec-id
                       :start-ts start-ts
@@ -345,7 +350,7 @@
         vertices-wf-map (parents-to-upd exec-vertex-id execution-id success?)
         vertices (conj (keys vertices-wf-map) exec-vertex-id)
         wfs (conj (vals vertices-wf-map) exec-wf-id)]
-    (info "Marking finished: Vertices:" vertices ", wfs:" wfs)
+    (log/info "Marking finished: Vertices:" vertices ", wfs:" wfs)
     (db/workflows-and-vertices-finished vertices wfs success? ts)
 
     ; FIXME: need to iterate over all the vertices and put on info-chan
@@ -390,24 +395,28 @@
 ; determines next set of jobs to run
 ; also determines if the workflow is finished and/or errored.
 (defmethod dispatch :job-finished [{:keys[execution-id exec-wf-id exec-vertex-id success?] :as msg}]
-  (debug "job-finished: " msg)
-  (let [new-count (update-running-jobs-count! execution-id exec-wf-id dec)
-        next-nodes (successor-nodes execution-id exec-vertex-id success?)
-        exec-wf-fail? (and (not success?) (empty? next-nodes))
-        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))
-        {:keys[parent-vertex]} (-> (get-exec-info execution-id)
-                                   (ds/vertex-attrs exec-vertex-id))]
+  (log/debug "job-finished: " msg)
+  (if (execution-exists? execution-id)
+    (let [new-count (update-running-jobs-count! execution-id exec-wf-id dec)
+          next-nodes (successor-nodes execution-id exec-vertex-id success?)
+          exec-wf-fail? (and (not success?) (empty? next-nodes))
+          exec-wf-finished? (and (zero? new-count) (empty? next-nodes))
+          {:keys[parent-vertex]} (-> (get-exec-info execution-id)
+                                     (ds/vertex-attrs exec-vertex-id))]
 
-    (if exec-wf-fail?
-      (mark-exec-wf-failed! execution-id exec-wf-id))
+      (if exec-wf-fail?
+        (mark-exec-wf-failed! execution-id exec-wf-id))
 
-    (if exec-wf-finished?
-      (put! @cond-chan {:event :wf-finished
-                        :exec-vertex-id parent-vertex
-                        :execution-id execution-id
-                        :success? (not exec-wf-fail?)
-                        :exec-wf-id exec-wf-id})
-      (run-nodes next-nodes execution-id))))
+      (if exec-wf-finished?
+        (put! @cond-chan {:event :wf-finished
+                          :exec-vertex-id parent-vertex
+                          :execution-id execution-id
+                          :success? (not exec-wf-fail?)
+                          :exec-wf-id exec-wf-id})
+        (run-nodes next-nodes execution-id)))
+
+    ; otherwise log a message, execution can disappear when an execution is aborted
+    (log/info "Execution info not found, likely aborted. execution-id:" execution-id)))
 
 
 (defn init

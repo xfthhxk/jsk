@@ -1,7 +1,7 @@
 drop table if exists execution_edge;
 drop table if exists execution_vertex;
-drop table if exists execution;
 drop table if exists execution_workflow;
+drop table if exists execution;
 drop table if exists execution_status;
 drop table if exists job_schedule;
 drop table if exists schedule;
@@ -209,6 +209,7 @@ alter table execution_workflow add constraint fk_execution_workflow_execution_id
 -----*/
 
 create table execution_vertex ( execution_vertex_id        int       auto_increment primary key
+                              , execution_id               int       not null
                               , execution_workflow_id      int       not null
                               , node_id                    int       not null
                               , runs_execution_workflow_id int       null
@@ -223,6 +224,7 @@ alter table execution_vertex add constraint fk_execution_vertex_execution_workfl
 alter table execution_vertex add constraint fk_execution_vertex_runs_execution_workflow_id
   foreign key (runs_execution_workflow_id) references execution_workflow(execution_workflow_id);
 
+alter table execution_vertex add constraint fk_execution_vertex_execution_id foreign key (execution_id) references execution(execution_id);
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);
 alter table execution_vertex add constraint unq_execution_vertex unique(execution_workflow_id, node_id);

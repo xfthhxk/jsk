@@ -238,10 +238,24 @@
     (debug "tbl is " tbl)
     {:execution-id exec-id :info tbl}))
 
+
+(defn- populate-synthetic-wf-data [{:keys[execution-id exec-wf-id wf-id exec-vertex-id job-id job-nm node-type]}]
+    {:execution-id execution-id
+     :info
+      (-> (ds/new-execution-table)
+          (ds/add-workflows [exec-wf-id])
+          (ds/add-workflow-mapping exec-wf-id wf-id)
+          (ds/set-root-workflow exec-wf-id)
+          (ds/add-vertices [exec-vertex-id])
+          (ds/set-vertex-attrs exec-vertex-id job-id job-nm node-type wf-id exec-wf-id)
+          (ds/finalize))})
+
 (defn resume-workflow-execution-data
   "Fetches an existing execution's data."
   [exec-id]
-  (workflow-execution-data exec-id false))
+  (if (db/synthetic-workflow-execution? exec-id)
+    (populate-synthetic-wf-data (db/synthetic-workflow-resumption exec-id))
+    (workflow-execution-data exec-id false)))
 
 
 (defn setup-execution [wf-id]
@@ -252,6 +266,10 @@
     ans))
 
 (defn setup-synthetic-execution [job-id]
+  (populate-synthetic-wf-data (db/synthetic-workflow-started job-id)))
+
+(comment
+
   (let [{:keys [execution-id wf-id exec-wf-id exec-vertex-id
                 status job-nm node-type]} (db/synthetic-workflow-started job-id)]
 

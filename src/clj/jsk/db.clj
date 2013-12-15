@@ -495,8 +495,10 @@
     (insert-execution-workflows exec-id wf-id child-wfs))
 
   (exec-raw
-   ["insert into execution_vertex (execution_workflow_id, node_id, status_id, layout)
-       select ew.execution_workflow_id
+   ["insert into execution_vertex (execution_id, execution_workflow_id, node_id, status_id, layout)
+       select
+              ew.execution_id
+            , ew.execution_workflow_id
             , wv.node_id
             , ?
             , wv.layout
@@ -536,6 +538,7 @@
                  :start-ts  (now)}))
       extract-identity))
 
+
 (defn new-execution!
   "Sets up a new execution returning the newly created execution-id."
   [wf-id]
@@ -547,10 +550,11 @@
 (defn- snapshot-synthetic-workflow
   "Creates a snapshot for the synthetic workflow which consists of 1 job.
    Answers with the execution-vertex-id."
-  [exec-wf-id job-id status-id]
+  [exec-id exec-wf-id job-id status-id]
 
   (-> (insert execution-vertex
-        (values {:execution-workflow-id exec-wf-id :node-id job-id
+        (values {:execution-id exec-id
+                 :execution-workflow-id exec-wf-id :node-id job-id
                  :status-id    status-id    :layout ""}))
       extract-identity))
 
@@ -561,7 +565,7 @@
   (let [exec-id (new-execution*)
         id-map  (insert-execution-workflows exec-id synthetic-workflow-id [])
         exec-wf-id (id-map synthetic-workflow-id)
-        exec-vertex-id (snapshot-synthetic-workflow exec-wf-id job-id unexecuted-status)
+        exec-vertex-id (snapshot-synthetic-workflow exec-id exec-wf-id job-id unexecuted-status)
         job-name (get-job-name job-id)]
 
     {:execution-id exec-id
@@ -570,6 +574,7 @@
      :exec-vertex-id exec-vertex-id
      :status unexecuted-status
      :job-nm job-name
+     :job-id job-id
      :node-type job-type-id}))
 
 
@@ -618,6 +623,28 @@
         join node tn
           on t.node_id = tn.node_id
        where e.execution_id = ? " [id]] :results))
+
+
+(defn execution-aborted [exec-id ts]
+  ; all vertices which are not finished and status id is not 1
+  ; all execution workflows which are not finished and status id is not 1
+  ; execution tbl
+  (transaction
+   (update execution-vertex
+           (set-fields {:status-id aborted-status :finish-ts ts})
+           (where (and (= :execution-id exec-id)
+                       (not= :start-ts nil)
+                       (= :finish-ts nil))))
+
+   (update execution-workflow
+           (set-fields {:status-id aborted-status :finish-ts ts})
+           (where (and (= :execution-id exec-id)
+                       (not= :start-ts nil)
+                       (= :finish-ts nil))))
+
+   (update execution
+           (set-fields {:status-id aborted-status :finish-ts ts})
+           (where {:execution-id exec-id}))))
 
 
 (defn update-execution-status
@@ -814,4 +841,82 @@ select
   "Does a basic search for executions between the timestamps specified."
   [start-ts finish-ts]
   (exec-raw [execution-search-sql [start-ts finish-ts start-ts finish-ts]] :results))
+
+(def ^:private execution-name-sql
+  "  select
+         wf.node_name wf_name
+    from execution e
+    join execution_workflow ew
+      on e.execution_id = ew.execution_id
+     and ew.root = true
+    join node wf
+      on ew.workflow_id = wf.node_id
+     and wf.is_system = false
+   where e.execution_id = ?
+union all
+  select
+         jn.node_name
+    from execution e
+    join execution_workflow ew
+      on e.execution_id = ew.execution_id
+     and ew.root = true
+    join node wf
+      on ew.workflow_id = wf.node_id
+     and wf.is_system = true
+    join execution_vertex v
+      on ew.execution_workflow_id = v.execution_workflow_id
+    join node jn
+      on v.node_id = jn.node_id
+   where e.execution_id = ? ")
+
+(defn get-execution-name [exec-id]
+  (->> (exec-raw [execution-name-sql [exec-id exec-id]] :results)
+       (map :wf-name)
+       first))
+
+
+
+(def ^:private is-synthetic-wf-sql
+  "select 1
+     from execution e
+     join execution_workflow ew
+       on e.execution_id = ew.execution_id
+    where ew.root = true
+      and e.execution_id = ?
+      and ew.workflow_id = ? ")
+
+(defn synthetic-workflow-execution? [exec-id]
+  (-> (exec-raw [is-synthetic-wf-sql [exec-id synthetic-workflow-id]] :results)
+      count
+      (= 1)))
+
+(def ^:private synthetic-wf-resume-sql
+ "select
+       e.execution_id
+     , ew.execution_workflow_id as exec_wf_id
+     , ew.workflow_id           as wf_id
+     , v.execution_vertex_id    as exec_vertex_id
+     , j.node_id                as job_id
+     , j.node_name              as job_nm
+     , j.node_type_id           as node_type
+  from execution e
+  join execution_workflow ew
+    on e.execution_id = ew.execution_id
+  join execution_vertex v
+    on ew.execution_workflow_id = v.execution_workflow_id
+  join node j
+    on v.node_id = j.node_id
+ where e.execution_id = ? ")
+
+(defn synthetic-workflow-resumption [exec-id]
+  (first (exec-raw [synthetic-wf-resume-sql [exec-id]] :results)))
+
+
+
+
+
+
+
+
+
 
