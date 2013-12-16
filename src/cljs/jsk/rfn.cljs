@@ -7,10 +7,18 @@
             [jsk.util :as u]))
 
 ;----------------------------------------------------------------------
-; Node functions
+; Job & Workflow functions
 ;----------------------------------------------------------------------
 (defn fetch-all-nodes []
   (rpc/GET "/nodes"))
+
+(defn fetch-node-info [node-id]
+  (rpc/GET (str "/nodes/" node-id)))
+
+
+(defn fetch-schedule-associations [node-id]
+  (rpc/GET (str "/nodes/schedules/" node-id)))
+
 
 ;----------------------------------------------------------------------
 ; Job functions
@@ -32,16 +40,6 @@
   (rpc/POST "/jobs/save" job))
 
 
-(defn fetch-all-schedules []
-  (rpc/GET "/schedules"))
-
-
-(defn fetch-schedule-associations [job-id]
-  (rpc/GET (str "/jobs/sched-assoc/" job-id)))
-
-(defn save-job-schedule-associations [data]
-  (rpc/POST "/jobs/assoc" data))
-
 ;----------------------------------------------------------------------
 ; Schedule functions
 ;----------------------------------------------------------------------
@@ -53,6 +51,9 @@
 
 (defn save-schedule [data]
   (rpc/POST "/schedules/save" data))
+
+(defn save-schedule-associations [data]
+  (rpc/POST "/schedules/assoc" data))
 
 ;----------------------------------------------------------------------
 ; Workflow functions

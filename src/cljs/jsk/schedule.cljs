@@ -3,12 +3,21 @@
             [jsk.util :as ju]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
+            [enfocus.effects :as effects]
             [enfocus.events :as events])
+  (:use [jayq.core :only [$]])
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
+; FIXME: show/hide element repeated in multiple places
+(defn- show-element [sel]
+  (-> sel $ .show))
+
+(defn- hide-element [sel]
+  (-> sel $ .hide))
 
 (declare save-schedule schedule-row-clicked)
+
 
 ;-----------------------------------------------------------------------
 ; List all schedules
@@ -40,6 +49,8 @@
   "#save-btn"        (events/listen :click save-schedule))
 
 
+
+
 (defn show-schedules []
   (go
    (let [ss (<! (rfn/fetch-all-schedules))]
@@ -69,3 +80,54 @@
 
 (defn show-add-schedule []
   (show-schedule-edit {:schedule-id -1}))
+
+
+
+;-----------------------------------------------------------------------
+; Job + Schedule associations
+;-----------------------------------------------------------------------
+(defn- hide-save-success []
+  (hide-element "#assoc-save-success"))
+
+(defn- show-save-success []
+  (show-element "#assoc-save-success")
+  (ef/at "#assoc-save-success"  (effects/fade-out 1000)))
+
+(defn- parse-schedule-assoc-form []
+  (let [form (ef/from "#schedule-assoc-form" (ef/read-form))
+        schedule-id-strs (if-let [sch-id (:schedule-id form)]
+                           (ju/ensure-coll sch-id)
+                           [])
+        schedule-ids (map ju/str->int schedule-id-strs)]
+    {:node-id (-> :node-id form ju/str->int)
+     :schedule-ids schedule-ids}))
+
+(defn- save-schedule-assoc [e]
+  (go
+   (let [data (parse-schedule-assoc-form)]
+     (<! (rfn/save-schedule-associations data))
+     (show-save-success))))
+
+(em/defsnippet schedule-assoc :compiled "public/templates/schedule-associations.html" "#schedule-associations" [node ss selected-ids]
+  "#node-id"            (ef/set-attr :value (str (:node-id node)))
+  "#node-name"          (ef/content (:node-name node))
+  "#schedule-assoc-div" (em/clone-for [s ss]
+                          "label" (ef/content (:schedule-name s))
+                          "input" (ef/do->
+                                    (ef/set-attr :value (str (:schedule-id s)))
+                                    (ef/set-prop :checked (contains? selected-ids (:schedule-id s)))))
+  "#save-assoc-btn"     (events/listen :click save-schedule-assoc))
+
+
+(defn show-schedule-assoc [node-id]
+  (go
+    (let [node-info (<! (rfn/fetch-node-info node-id))
+          ss (<! (rfn/fetch-all-schedules))
+          assoc-schedule-ids (<! (rfn/fetch-schedule-associations node-id))]
+      (ju/showcase (schedule-assoc node-info ss assoc-schedule-ids))
+      (hide-save-success))))
+
+
+
+
+

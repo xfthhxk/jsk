@@ -43,6 +43,12 @@
 (defn make-trigger-key [id]
   (t/key (str id) "jsk-trigger"))
 
+(defn ls-trigger-group-names []
+  (qs/get-trigger-group-names))
+
+(defn get-job-triggers [id]
+  (.getTriggersOfJob ^Scheduler @qs/*scheduler* (make-trigger-job-key id)))
+
 ;-----------------------------------------------------------------------
 ; Answers if the cron expression is valid or not.
 ;-----------------------------------------------------------------------
@@ -101,6 +107,7 @@
   [ctx]
   (let [{:strs [node-id node-type]} (qc/from-job-data ctx)
         event (if (ju/workflow-type? node-type) :trigger-wf :trigger-job)]
+    (log/info "Triggering job with id " node-id)
     (put! @conductor-channel {:event event :node-id node-id :trigger-src :quartz})))
 
 
@@ -162,12 +169,14 @@
      (t/with-schedule cron-sched))))
 
 (defn schedule-cron-job! [trigger-id node-id node-type cron-expr]
+  (log/info "Scheduling: trigger:" trigger-id ", node-id:" node-id ", node-type:" node-type ", cron:" cron-expr)
   (schedule-trigger (make-cron-trigger trigger-id cron-expr node-id node-type)))
 
 ;-----------------------------------------------------------------------
 ; Deletes triggers specified by the trigger-ids.
 ;-----------------------------------------------------------------------
 (defn rm-triggers! [trigger-ids]
+  (log/info "Deleting triggers: " trigger-ids)
   (qs/delete-triggers (map make-trigger-key trigger-ids)))
 
 

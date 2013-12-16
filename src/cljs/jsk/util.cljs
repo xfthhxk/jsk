@@ -98,6 +98,7 @@
                     (ef/add-class "visible"))))
 
 
+
 (def container "#container")
 (def dashboard "#executions-accordion")
 

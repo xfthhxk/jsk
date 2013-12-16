@@ -73,19 +73,11 @@
   (GET "/jobs/:id" [id]
        (-> id u/str->int j/get-job edn-response))
 
-  (GET "/jobs/sched-assoc/:id" [id]
-       (-> id u/str->int j/schedules-for-job edn-response))
-
   (GET "/jobs/trigger-now/:id" [id]
        (-> id u/str->int conductor/trigger-job-now edn-response))
 
   (POST "/jobs/save" [_ :as request]
-        (-> (:params request) (j/save-job! (uid request)) edn-response))
-
-  (POST "/jobs/assoc" [_ :as request]
-        (info "request is: " request)
-        (-> (:edn-params request) (j/assoc-schedules! (uid request)) edn-response)))
-
+        (-> (:params request) (j/save-job! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to schedules
@@ -98,7 +90,11 @@
        (-> id u/str->int s/get-schedule edn-response))
 
   (POST "/schedules/save" [_ :as request]
-       (-> (:params request) (s/save-schedule! (uid request)) edn-response)))
+       (-> (:params request) (s/save-schedule! (uid request)) edn-response))
+
+  (POST "/schedules/assoc" [_ :as request]
+        (info "request is: " request)
+        (-> (:edn-params request) (s/assoc-schedules! (uid request)) edn-response)))
 
 
 ;-----------------------------------------------------------------------
@@ -145,7 +141,14 @@
 ;-----------------------------------------------------------------------
 (defroutes node-routes
   (GET "/nodes" []
-       (edn-response (db/ls-nodes))))
+       (edn-response (db/ls-nodes)))
+
+  (GET "/nodes/:id" [id]
+       (-> id u/str->int db/get-node-by-id edn-response))
+
+  (GET "/nodes/schedules/:id" [id]
+       (-> id u/str->int db/schedules-for-node edn-response)))
+
 
 
 ;-----------------------------------------------------------------------

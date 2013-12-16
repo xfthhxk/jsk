@@ -1,8 +1,7 @@
 (ns jsk.db
   "Database access"
   (:require [clojure.string :as string]
-            [taoensso.timbre :as timbre
-             :refer (trace debug info warn error fatal spy with-log-level)])
+            [taoensso.timbre :as log])
   (:use [korma core db]))
 
 
@@ -52,6 +51,10 @@
 (defentity workflow-edge
   (pk :workflow-edge-id)
   (entity-fields :workflow-edge-id :vertex-id :next-vertex-id :success))
+
+(defentity schedule
+  (pk :schedule-id)
+  (entity-fields :schedule-id :schedule-name :schedule-desc :cron-expression))
 
 (defentity node-schedule
   (pk :node-schedule-id)
@@ -121,9 +124,14 @@
 
 
 (defn get-node-by-name
-  "Gets a job by name if one exists otherwise returns nil"
+  "Gets a node by name if one exists otherwise returns nil"
   [nm]
   (first (select node (where {:node-name nm}))))
+
+(defn get-node-by-id
+  "Gets a node by name if one exists otherwise returns nil"
+  [id]
+  (first (select node (where {:node-id id}))))
 
 (defn get-job-by-name
   "Gets a job by name if one exists otherwise returns nil"
@@ -171,6 +179,69 @@
   "Answers true if workflow name exists"
   [nm]
   (-> nm get-workflow-by-name nil? not))
+
+;-----------------------------------------------------------------------
+; Insert a schedule
+;-----------------------------------------------------------------------
+(defn insert-schedule! [m user-id]
+  (let [merged-map (merge (dissoc m :schedule-id) {:creator-id user-id :updater-id user-id})]
+    (log/info "Creating new schedule: " merged-map)
+    (-> (insert schedule (values merged-map))
+         extract-identity)))
+
+
+;-----------------------------------------------------------------------
+; Update an existing schedule
+; Answers with the schedule-id if update is successful.
+;-----------------------------------------------------------------------
+(defn update-schedule! [{:keys [schedule-id] :as m} user-id]
+  (let [merged-map (merge m {:updater-id user-id :update-ts (now)})]
+    (log/info "Updating schedule: " m)
+    (update schedule (set-fields (dissoc m :schedule-id))
+      (where {:schedule-id schedule-id})))
+  schedule-id)
+
+
+;-----------------------------------------------------------------------
+; Schedule lookups
+;-----------------------------------------------------------------------
+(defn ls-schedules
+  []
+  "Lists all schedules"
+  (select schedule))
+
+(defn get-schedule
+  "Gets a schedule for the id specified"
+  [id]
+  (first (select schedule
+          (where {:schedule-id id}))))
+
+(defn get-schedules [ids]
+  (select schedule
+    (where {:schedule-id [in ids]})))
+
+(defn get-schedule-by-name
+  "Gets a schedule by name if one exists otherwise returns nil"
+  [nm]
+  (first (select schedule (where {:schedule-name nm}))))
+
+(defn nodes-for-schedule
+  "Lookup nodes tied to a schedule"
+  [schedule-id]
+  (exec-raw ["select
+                     ns.node_schedule_id
+                   , ns.node_id
+                   , n.node_type_id
+                   , s.cron_expression
+                from
+                     node_schedule ns
+                join schedule     s
+                  on ns.schedule_id = s.schedule_id
+                join node n
+                  on ns.node_id = n.node_id
+               where ns.schedule_id = ?"
+             [schedule-id]]
+            :results))
 
 
 
@@ -470,7 +541,7 @@
   "Creates rows in execution-workflows table and returns a map of
    wf-id to execution-workflow-id."
   [exec-id wf child-wfs]
-  (debug "insert execution-workflows: exec-id: " exec-id
+  (log/debug "insert execution-workflows: exec-id: " exec-id
          ", wf: " wf ", child-wfs: " child-wfs)
 
   (reduce (fn [ans id]

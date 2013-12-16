@@ -2,6 +2,7 @@
   (:require [jsk.plumb :as plumb]
             [jsk.util :as u]
             [jsk.rfn :as rfn]
+            [jsk.schedule :as s]
             [enfocus.core :as ef]
             [enfocus.events :as events]
             [enfocus.effects :as effects]
@@ -115,8 +116,6 @@
     (rfn/trigger-workflow-now wf-id)))
 
 
-(defn show-workflow-edit [w])
-
 (defn workflow-row-clicked [e]
   (go
    (let [id (ef/from (u/event-source e) (ef/get-attr :data-workflow-id))
@@ -160,6 +159,7 @@
             (ef/set-attr :id (str (:node-id n)) :data-node-id (str (:node-id n)))
             (ef/content (:node-name n)))))
 
+
 ;----------------------------------------------------------------------
 ; Layout of the entire visualizer screen.
 ;----------------------------------------------------------------------
@@ -171,7 +171,10 @@
   "#workflow-is-enabled" (ef/do->
                            (ef/set-prop "checked" enabled?)
                            (ef/set-attr :value (str enabled?)))
-  "#workflow-save-action" (events/listen :click save-workflow))
+  "#workflow-save-action" (events/listen :click save-workflow)
+  "#view-assoc-schedules" (if (= -1 workflow-id)
+                            (ef/remove-node)
+                            (events/listen :click #(s/show-schedule-assoc workflow-id))))
 
 ;----------------------------------------------------------------------
 ; Adding a new workflow node on the visualizer.

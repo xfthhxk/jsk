@@ -76,7 +76,6 @@
   'f' is a fn such as inc/dec for updating the count.  Answers with the
   new running job count for the exec-wf-id in execution-id."
   [execution-id exec-wf-id f]
-  (log/debug "update running jobs count with: execution-id: " execution-id ", exec-wf-id: " exec-wf-id ", f:" f)
   (let [path [execution-id :running-jobs exec-wf-id]]
     (-> (swap! exec-infos update-in path f)
         (get-in path))))
@@ -157,9 +156,10 @@
         f (fn[id](->> id (ds/vertex-attrs info) :node-type))
         type-map (group-by f node-ids)]
 
-    (log/debug "run-nodes: node-ids:" node-ids)
-    (log/debug "run-nodes: info:" info)
-    (log/debug "run-nodes: type-map:" type-map)
+    (comment
+      (log/debug "run-nodes: node-ids:" node-ids)
+      (log/debug "run-nodes: info:" info)
+      (log/debug "run-nodes: type-map:" type-map))
 
     (assert (nil? others)
             (str "wf-id: " wf-id ", others: " others

@@ -1,5 +1,5 @@
 (ns jsk.job
-  (:require [taoensso.timbre :as timbre :refer (info warn error)]
+  (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [clojure.stacktrace :as st]
             [jsk.quartz :as q]
@@ -80,35 +80,3 @@
 ;-----------------------------------------------------------------------
 (defn schedules-for-job [job-id]
   (db/schedules-for-node job-id))
-
-
-(defn- get-job-schedule-info [job-id]
-  (db/get-node-schedule-info job-id))
-
-
-(defn- create-triggers [job-id]
-  (info "Creating triggers for job " job-id)
-  (doseq [{:keys[node-schedule-id cron-expression]} (get-job-schedule-info job-id)]
-    (q/schedule-cron-job! node-schedule-id job-id ju/job-type-id cron-expression)))
-
-;-----------------------------------------------------------------------
-; Associates a job to a set of schedule-ids.
-; schedule-ids is a set of integer ids
-;-----------------------------------------------------------------------
-(defn assoc-schedules!
-  ([{:keys [job-id schedule-ids]} user-id]
-    (assoc-schedules! job-id schedule-ids user-id))
-
-  ([job-id schedule-ids user-id]
-     (let [node-schedule-ids (db/node-schedules-for-node job-id)]
-       (info "user-id " user-id " requests job-id " job-id " be associated with schedules " schedule-ids)
-
-       (k/transaction
-         (db/rm-node-schedules! node-schedule-ids)
-         (db/assoc-schedules! job-id schedule-ids user-id))
-
-       (q/rm-triggers! node-schedule-ids)
-       (create-triggers job-id)          ; add new schedules if any
-
-       (info "job schedule associations made for job-id: " job-id)
-       true)))
