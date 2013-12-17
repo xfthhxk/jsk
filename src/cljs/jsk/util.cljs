@@ -2,16 +2,16 @@
   (:require [enfocus.core :as ef])
   (:require-macros [enfocus.macros :as em]))
 
+(def status-id-desc-map {1 "Not Started"
+                         2 "Started"
+                         3 "Successful"
+                         4 "Errored"
+                         5 "Aborted"})
 
 (defn status-id->desc
   "Translates id to string description"
   [id]
-  (case id
-    1 "Not started"
-    2 "Started"
-    3 "Successful"
-    4 "Errored"
-    5 "Aborted"))
+  (get status-id-desc-map id))
 
 (defn log [x]
   (.log js/console (str x)))
@@ -41,6 +41,9 @@
             (assoc coll k (-> k m str->int)))
           m
           kk))
+
+(defn nan? [i]
+  (.isNaN js/window i))
 
 
 (defn element-value [id]

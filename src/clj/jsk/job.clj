@@ -6,8 +6,7 @@
             [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as db]
-            [korma.db :as k])
-  (:use [swiss-arrows core]))
+            [korma.db :as k]))
 
 ;-----------------------------------------------------------------------
 ; Job lookups

@@ -9,6 +9,7 @@
               [jsk.util :as ju]
               [jsk.job :as j]
               [jsk.executions :as executions]
+              [jsk.search :as search]
               [jsk.workflow :as w]
               [jsk.schedule :as s])
     (:require-macros [cljs.core.async.macros :refer [go]])
@@ -37,13 +38,14 @@
 ; Main screen event handling.
 ;-----------------------------------------------------------------------
 (defaction init-events []
-  "#show-dashboard-action" (events/listen :click #(ju/display-dashboard))
-  "#job-list-action"       (events/listen :click #(j/show-jobs))
-  "#job-add-action"        (events/listen :click #(j/show-add-job))
-  "#schedule-list-action"  (events/listen :click #(s/show-schedules))
-  "#schedule-add-action"   (events/listen :click #(s/show-add-schedule))
-  "#workflow-list-action"  (events/listen :click #(w/show-workflows))
-  "#workflow-add-action"   (events/listen :click #(w/show-visualizer)))
+  "#show-dashboard-action"   (events/listen :click #(ju/display-dashboard))
+  "#execution-search-action" (events/listen :click #(search/show-execution-search))
+  "#job-list-action"         (events/listen :click #(j/show-jobs))
+  "#job-add-action"          (events/listen :click #(j/show-add-job))
+  "#schedule-list-action"    (events/listen :click #(s/show-schedules))
+  "#schedule-add-action"     (events/listen :click #(s/show-add-schedule))
+  "#workflow-list-action"    (events/listen :click #(w/show-workflows))
+  "#workflow-add-action"     (events/listen :click #(w/show-visualizer)))
 
 
 (defn ws-connect []

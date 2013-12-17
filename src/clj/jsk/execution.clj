@@ -5,8 +5,7 @@
             [clojurewerkz.quartzite.conversion :as qc]
             [clojure.core.async :refer [put!]])
   (:import (org.quartz CronExpression JobDetail JobExecutionContext
-                       JobKey Scheduler Trigger TriggerBuilder TriggerKey))
-  (:use [swiss-arrows core]))
+                       JobKey Scheduler Trigger TriggerBuilder TriggerKey)))
 
 (def info-channel (atom nil))
 (def conductor-channel (atom nil))

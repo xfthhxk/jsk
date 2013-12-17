@@ -6,7 +6,7 @@
             [jsk.util :as ju]
             [jsk.quartz :as q])
   (:use [bouncer.validators :only [defvalidator]]
-        [swiss-arrows core]))
+        [swiss arrows]))
 
 
 ;-----------------------------------------------------------------------

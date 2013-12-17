@@ -71,8 +71,7 @@
   (rpc/POST "/workflows/save" data))
 
 (defn trigger-workflow-now [wf-id]
-  (let [url (str "/workflows/trigger-now/" wf-id)]
-    (rpc/GET url)))
+  (rpc/GET (str "/workflows/trigger-now/" wf-id)))
 
 
 ;----------------------------------------------------------------------
@@ -90,6 +89,8 @@
 (defn resume-execution [exec-id vertex-id]
   (rpc/GET (str "/executions/resume/" exec-id "/" vertex-id)))
 
+(defn search-executions [data]
+  (rpc/POST "/executions/search/q" data))
 
 
 

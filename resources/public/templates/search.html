@@ -1,0 +1,65 @@
+<html>
+    <head></head>
+    <body>
+       <div id="executions-search-div">
+           <form id="executions-search-form" role="form">
+               <div class="form-group">
+                   <label for="execution-id">ID:</label>
+                   <input type="text" class="form-control" id="execution-id" name="execution-id"/>
+               </div>
+
+               <div class="form-group">
+                   <label for="execution-name">Name:</label>
+                   <input type="text" class="form-control" id="execution-name" name="execution-name"/>
+               </div>
+
+               <div class="form-group">
+                   <label for="start-ts">Started:</label>
+                   <input type="text" class="form-control" id="start-ts" name="start-ts" enabled="true"/>
+               </div>
+
+               <div class="form-group">
+                   <label for="finish-ts">Finished:</label>
+                   <input type="text" class="form-control" id="finish-ts" name="finish-ts" enabled="true"/>
+               </div>
+
+               <div class="form-group">
+                   <div class="checkbox" id="status-div">
+                       <label>
+                           <input type="checkbox" name="status-ids"/>
+                       </label>
+                   </div>
+               </div>
+
+               <div class="form-group">
+                   <a id="do-search" href="#" role="button" class="btn btn-default">Search</a>
+               </div>
+
+           </form>
+
+            <div id="execution-search-results-div">
+                 <table id="executions-table" class="table table-condensed table-hover table-striped">
+                      <thead>
+                        <tr>
+                            <th>ID</th>
+                          <th>Name</th>
+                          <th>Status</th>
+                          <th>Start</th>
+                          <th>Finish</th>
+                          </tr>
+                        </thead>
+                      <tbody id="executions-tbody">
+                          <tr>
+                            <td class="execution-id">42</td>
+                            <td class="execution-name">Some job name</td>
+                            <td class="execution-status">Successful</td>
+                            <td class="execution-start">25 May 2034</td>
+                            <td class="execution-finish">25 May 2034</td>
+                          </tr>
+                      </tbody>
+                  </table>
+            </div>
+        </div>
+
+    </body>
+</html>

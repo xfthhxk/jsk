@@ -56,3 +56,33 @@ for the job list panel
 
 * Save layout of workflow nodes to reconstruct for display.
 * Save graph to server
+
+; generates slow sql via nested inline views
+(def wf-execution-search-base
+  (-> (select* execution)
+      (fields :execution-id
+              :status-id
+              :start-ts
+              :finish-ts
+              [:node.node-name :execution-name])
+      (join :inner :execution-workflow (= :execution-id :execution-workflow.execution-id))
+      (join :inner :node (= :execution-workflow.workflow-id :node.node-id))
+      (where (and (= :execution-workflow.root true)
+                  (= :node.is-system false)))))
+
+(def job-execution-search-base
+  (-> (select* execution)
+      (fields :execution-id
+              :status-id
+              :start-ts
+              :finish-ts
+              [:jn.node-name :execution-name])
+      (join :inner :execution-workflow (= :execution-id :execution-workflow.execution-id))
+      (join :inner [:node :wfn] (= :execution-workflow.workflow-id :wfn.node-id))
+      (join :inner :execution-vertex (= :execution-workflow.workflow-id :execution-vertex.execution-workflow-id))
+      (join :inner [:node :jn] (= :execution-vertex.node-id :jn.node-id))
+      (where (and (= :execution-workflow.root true)
+                  (= :wfn.is-system true)))))
+
+(sql-only (-> wf-execution-search-base select))
+(sql-only (-> job-execution-search-base select))

@@ -23,8 +23,7 @@
             [clojure.core.async :refer [chan go go-loop put! >! <!]]
             [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
             [com.postspectacular.rotor :as rotor])
-  (:use [swiss-arrows core]
-        [ring.middleware.session.memory :only [memory-store]]
+  (:use [ring.middleware.session.memory :only [memory-store]]
         [ring.middleware.resource :only [wrap-resource]]
         [ring.middleware.file-info :only [wrap-file-info]]))
 

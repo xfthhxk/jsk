@@ -1,6 +1,7 @@
 (ns jsk.db
   "Database access"
   (:require [clojure.string :as string]
+            [clj-time.core :as ctime]
             [taoensso.timbre :as log])
   (:use [korma core db]))
 
@@ -864,85 +865,6 @@
   {:wf-info (first (exec-raw [exec-wf-sql [exec-wf-id]] :results))
    :nodes (exec-raw [exec-wf-nodes-sql [exec-wf-id]] :results)})
 
-; Top part of union selects workflows
-; bottom part selects synthetic workflows
-(def ^:private execution-search-sql
-  "select
-       e.execution_id
-     , wfn.node_name as node_name
-     , s.execution_status_id
-     , s.status_code
-     , e.start_ts
-     , e.finish_ts
-  from execution e
-  join execution_workflow ew
-    on e.execution_id = ew.execution_id
-  join node wfn
-    on ew.workflow_id = wfn.node_id
-  join execution_status s
-    on e.status_id = s.execution_status_id
- where ew.root = true
-   and wfn.is_system = false
-   and e.start_ts between ? and ?
-union all
-select
-       e.execution_id
-     , jn.node_name as job_name
-     , s.execution_status_id
-     , s.status_code
-     , e.start_ts
-     , e.finish_ts
-  from execution e
-  join execution_workflow ew
-    on e.execution_id = ew.execution_id
-  join node wfn
-    on ew.workflow_id = wfn.node_id
-  join execution_status s
-    on e.status_id = s.execution_status_id
-  join execution_vertex v
-    on ew.execution_workflow_id = v.execution_workflow_id
-  join node jn
-    on v.node_id = jn.node_id
- where ew.root = true
-   and wfn.is_system = true
-   and e.start_ts between ? and ?")
-
-(defn execution-search
-  "Does a basic search for executions between the timestamps specified."
-  [start-ts finish-ts]
-  (exec-raw [execution-search-sql [start-ts finish-ts start-ts finish-ts]] :results))
-
-(def ^:private execution-name-sql
-  "  select
-         wf.node_name wf_name
-    from execution e
-    join execution_workflow ew
-      on e.execution_id = ew.execution_id
-     and ew.root = true
-    join node wf
-      on ew.workflow_id = wf.node_id
-     and wf.is_system = false
-   where e.execution_id = ?
-union all
-  select
-         jn.node_name
-    from execution e
-    join execution_workflow ew
-      on e.execution_id = ew.execution_id
-     and ew.root = true
-    join node wf
-      on ew.workflow_id = wf.node_id
-     and wf.is_system = true
-    join execution_vertex v
-      on ew.execution_workflow_id = v.execution_workflow_id
-    join node jn
-      on v.node_id = jn.node_id
-   where e.execution_id = ? ")
-
-(defn get-execution-name [exec-id]
-  (->> (exec-raw [execution-name-sql [exec-id exec-id]] :results)
-       (map :wf-name)
-       first))
 
 
 
@@ -984,9 +906,100 @@ union all
 
 
 
+;-----------------------------------------------------------------------
+;              EXECUTION SEARCH
+;             ------------------
+; korma joins produce inefficient sql, nested inline views
+; which at least h2 doesn't like, probably other rdbms also?
+;-----------------------------------------------------------------------
+(def ^:private wf-execution-search-sql
+  "  select
+         e.execution_id
+       , nn.node_name as execution_name
+       , e.status_id
+       , e.start_ts
+       , e.finish_ts
+    from execution e
+    join execution_workflow ew
+      on e.execution_id = ew.execution_id
+     and ew.root = true
+    join node nn
+      on ew.workflow_id = nn.node_id
+     and nn.is_system = false
+   where 1 = 1 \n")
+
+; korma joins produce inefficient sql, nested inline views
+; which at least h2 doesn't like, probably other rdbms also?
+(def ^:private job-execution-search-sql
+ " select
+         e.execution_id
+       , nn.node_name as execution_name
+       , e.status_id
+       , e.start_ts
+       , e.finish_ts
+    from execution e
+    join execution_workflow ew
+      on e.execution_id = ew.execution_id
+     and ew.root = true
+    join node wf
+      on ew.workflow_id = wf.node_id
+     and wf.is_system = true
+    join execution_vertex v
+      on ew.execution_workflow_id = v.execution_workflow_id
+    join node nn
+      on v.node_id = nn.node_id
+   where 1 = 1 \n")
 
 
+(defn- make-in-clause [xs]
+  (if (-> xs count zero?)
+    ""
+    (let [csv (apply str (interpose "," xs))]
+      (assert (every? (partial instance? Number) xs)
+              "Only making in clauses for Numbers.")
+      (str " in (" csv ")"))))
 
+(defn- make-like-clause [x]
+  (if (and x (-> x empty? not))
+    (str " like '%" x "%'")
+    ""))
+
+; FIXME: this is terrible code
+; execution-id is an int/long
+; node-name is a string
+; start-ts finish-ts are java.sql.Timestamp instances
+; status-ids is a seq of ints
+(defn execution-search
+  ([execution-id] (execution-search execution-id nil nil nil nil))
+  ([execution-id node-name start-ts finish-ts status-ids]
+   (let [id-c " and e.execution_id = ? \n"
+         like-clause (make-like-clause node-name)
+         name-c (if (empty? like-clause)
+                  ""
+                  (str " and nn.node_name " like-clause "\n"))
+         start-c " and e.start_ts >= ? \n"
+         finish-c " and e.finish_ts < ? \n"
+         in-clause (make-in-clause status-ids)
+         status-c (if (empty? in-clause)
+                    ""
+                    (str " and e.status_id " in-clause " \n"))
+         tuples [[execution-id id-c] [start-ts start-c] [finish-ts finish-c]]
+         tt (filter (fn[[v c :as t]] (-> v nil? not)) tuples)
+         vv (map first tt)
+         cc (apply str (-> (map second tt) (conj status-c name-c)))
+         full-query (str wf-execution-search-sql
+                         cc
+                         " union all \n"
+                         job-execution-search-sql
+                         cc)
+         params (vec (flatten (repeat 2 vv)))]
+     (exec-raw [full-query params] :results))))
+
+
+(defn get-execution-name [exec-id]
+  (->> (execution-search exec-id)
+       (map :execution-name)
+       first))
 
 
 

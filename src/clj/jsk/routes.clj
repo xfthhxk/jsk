@@ -11,6 +11,7 @@
             [jsk.conductor :as conductor]
             [jsk.workflow :as w]
             [jsk.quartz :as q]
+            [jsk.search :as search]
             [jsk.schedule :as s]))
 
 
@@ -126,6 +127,10 @@
 
   (GET "/executions/workflows/:id" [id]
        (-> id u/str->int db/get-execution-workflow-details edn-response))
+
+  (POST "/executions/search/q" [_ :as request]
+        (info "executions search: " (:params request))
+        (-> (:params request) search/executions edn-response))
 
   (GET "/executions/abort/:id" [id]
        (-> id u/str->int conductor/abort-execution edn-response))

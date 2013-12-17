@@ -8,9 +8,8 @@
             [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as db]
-            [clojure.core.async :refer [put!]])
-  (:use [korma core db]
-        [swiss-arrows core]))
+            [korma.db :as k]
+            [clojure.core.async :refer [put!]]))
 
 ;-----------------------------------------------------------------------
 ; Workflows lookups
@@ -92,7 +91,7 @@
                              success?))))
 
 (defn- save-workflow* [{:keys[workflow-id connections] :as w} layout user-id]
-  (transaction
+  (k/transaction
     (db/rm-workflow-graph workflow-id) ; rm existing and add new
     (let [workflow-id* (db/save-workflow w user-id)]
       (save-graph (assoc w :workflow-id workflow-id*) layout)
