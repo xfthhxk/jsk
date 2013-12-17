@@ -13,6 +13,9 @@
   [id]
   (get status-id-desc-map id))
 
+(defn executing-status? [id]
+  (= 2 id))
+
 (defn log [x]
   (.log js/console (str x)))
 

@@ -112,12 +112,10 @@
   (execution-finished msg)
   (remove-executing-row msg))
 
-(defmethod dispatch :wf-started [msg])
-(defmethod dispatch :wf-finished [msg])
+(defmethod dispatch :default [msg]
+  ;no-op
+  )
 
-(defmethod dispatch :job-started [msg])
-
-(defmethod dispatch :job-finished [msg])
 
 (defn add-execution [msg]
   (dispatch msg))

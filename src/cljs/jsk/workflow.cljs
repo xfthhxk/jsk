@@ -360,8 +360,6 @@
 ;----------------------------------------------------------------------
 ;----------------------------------------------------------------------
 
-
-
 ;----------------------------------------------------------------------
 ; Layout the readonly visualization area.
 ;----------------------------------------------------------------------
@@ -371,7 +369,9 @@
   "#execution-status" (ef/content (u/status-id->desc status-id))
   "#start-ts" (ef/content (str start-ts))
   "#finish-ts" (ef/content (str finish-ts))
-  "a.execution-abort-action" (events/listen :click (fn[event] (rfn/abort-execution execution-id))))
+  "#execution-abort-action" (if (u/executing-status? status-id)
+                              (events/listen :click (fn[event] (rfn/abort-execution execution-id)))
+                              (ef/remove-node)))
 
 ;----------------------------------------------------------------------
 ; Adding a new execution node on the visualizer.
@@ -404,17 +404,36 @@
               (ef/set-attr :data-wf-id (str (:exec-wf-id wf)))
               (ef/content (:wf-name wf)))))
 
+
+(defn- execution-vertex-status-td-id [id]
+  (str "execution-vertex-status-" id))
+
+(defn- execution-vertex-start-td-id [id]
+  (str "execution-vertex-start-ts-" id))
+
+(defn- execution-vertex-finish-td-id [id]
+  (str "execution-vertex-finish-ts-" id))
+
+(defn- execution-vertex-glyphicon-span-id [id]
+  (str "execution-vertex-glyph-span-id-" id))
+
 (em/defsnippet execution-vertices :compiled "public/templates/workflow.html" "#execution-vertices-table" [vv]
   "tbody > :not(tr:first-child)" (ef/remove-node)
-  "tbody > tr" (em/clone-for [v vv]
-                 "td.execution-vertex-id" (ef/content (str (:execution-vertex-id v)))
-                 "td.execution-vertex-name" (ef/content (str (:node-nm v)))
-                 "td.execution-vertex-status" (ef/content (u/status-id->desc (:status v)))
-                 "td.execution-vertex-start" (ef/content (str (:start-ts v)))
-                 "td.execution-vertex-finish" (ef/content (str (:finish-ts v)))
+  "tbody > tr" (em/clone-for [{:keys[execution-vertex-id node-nm start-ts status finish-ts]} vv]
+                 "td.execution-vertex-id" (ef/content (str execution-vertex-id))
+                 "td.execution-vertex-name" (ef/content node-nm )
+                 "td.execution-vertex-status" (ef/do->
+                                                (ef/set-attr :id (execution-vertex-status-td-id execution-vertex-id))
+                                                (ef/content (u/status-id->desc status )))
+                 "td.execution-vertex-start" (ef/do->
+                                               (ef/set-attr :id (execution-vertex-start-td-id execution-vertex-id))
+                                               (ef/content (str start-ts)))
+                 "td.execution-vertex-finish" (ef/do->
+                                                (ef/set-attr :id (execution-vertex-finish-td-id execution-vertex-id))
+                                                (ef/content (str finish-ts)))
                  "td > a.execution-resume-action" (events/listen :click
                                                             (fn[e]
-                                                              (rfn/resume-execution @current-execution-id (:execution-vertex-id v))))))
+                                                              (rfn/resume-execution @current-execution-id execution-vertex-id )))))
 
 
 
@@ -429,7 +448,7 @@
         div-sel        (str "#" div-id)
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
-        status-span-id (str "execution-status-node-id-" node-id)]
+        status-span-id (execution-vertex-glyphicon-span-id node-id)]
 
     ; right now we're only supporting adding one instance of a node in the workflow
     ;(when (-> div-sel $ count zero?)
@@ -559,12 +578,54 @@
 
 
 
+;-----------------------------------------------------------------------
+; Message dispatching.
+; Maybe execution visualizer should be in a separate ns
+;-----------------------------------------------------------------------
+(defmulti dispatch :event)
 
 
+(defmethod dispatch :wf-started [msg])
+(defmethod dispatch :wf-finished [msg])
+
+(defmethod dispatch :execution-finished [{:keys[status finish-ts]}]
+  (ef/at "#execution-status" (ef/content (u/status-id->desc status)))
+  (ef/at "#finish-ts" (ef/content (str finish-ts)))
+  (ef/at "#execution-abort-action" (ef/remove-node)))
+
+; notify the workflow/execution-visualizer that job is started
+(defmethod dispatch :job-started [{:keys[execution-id exec-vertex-id start-ts status]}]
+  (let [status-td-id (execution-vertex-status-td-id exec-vertex-id)
+        start-td-id (execution-vertex-start-td-id exec-vertex-id)
+        glyph-id (execution-vertex-glyphicon-span-id exec-vertex-id)
+        glyph-sel (str "#" glyph-id)
+        class-text (str "glyphicon " (status-id->glyph status))
+        status-sel (str "#" status-td-id)
+        start-sel (str "#" start-td-id)]
+    (ef/at status-sel (ef/content (u/status-id->desc status)))
+    (ef/at start-sel (ef/content (str start-ts)))
+    (ef/at glyph-sel (ef/set-attr :class class-text))))
+
+; now need to update the glyphicons
+;status-span-id (str "execution-status-node-id-" node-id)]
+(defmethod dispatch :job-finished [{:keys[execution-id exec-vertex-id finish-ts status]}]
+  (let [status-td-id (execution-vertex-status-td-id exec-vertex-id)
+        finish-td-id (execution-vertex-finish-td-id exec-vertex-id)
+        glyph-id (execution-vertex-glyphicon-span-id exec-vertex-id)
+        status-sel (str "#" status-td-id)
+        finish-sel (str "#" finish-td-id)
+        glyph-sel (str "#" glyph-id)
+        class-text (str "glyphicon " (status-id->glyph status)) ]
+    (ef/at status-sel (ef/content (u/status-id->desc status)))
+    (ef/at finish-sel (ef/content (str finish-ts)))
+    (ef/at glyph-sel (ef/set-attr :class class-text))))
 
 
+(defmethod dispatch :default [msg]) ; no-op since some msgs are handles by executions (need to refactor to execution-visualizer ns)
 
-
+(defn event-received [{:keys[execution-id] :as msg}]
+  (when (= execution-id @current-execution-id)
+    (dispatch msg)))
 
 
 

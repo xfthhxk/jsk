@@ -54,7 +54,8 @@
      (loop [[msg-type msg] (<! out)]
        (ju/log (str "msg-type: " msg-type ", msg: " msg))
        (when (= :message msg-type)
-         (executions/add-execution msg))
+         (executions/add-execution msg)
+         (w/event-received msg))
        (recur (<! out))))))
 
 ;-----------------------------------------------------------------------
