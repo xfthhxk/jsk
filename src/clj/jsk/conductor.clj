@@ -318,7 +318,11 @@
         start-ts (get-execution-start-ts exec-id)
         ts (db/now)]
     (db/workflow-finished root-wf-id success? ts)
-    (put! @info-chan {:event :wf-finished :execution-id exec-id :success? success?})
+    ; root wf doesn't have a vertex (it's the execution)
+    ;(put! @info-chan {:event :wf-finished
+    ;                  :execution-id exec-id
+    ;                  :execution-vertices [root-wf-id]
+    ;                  :success? success?})
 
     (db/execution-finished exec-id success? ts)
     (ps/end-execution-tracking exec-id)
@@ -344,17 +348,25 @@
         ans))))
 
 (defn- mark-wf-and-parent-wfs-finished
-  "Finds all parent workflows which also need to be marked as completed."
+  "Finds all parent workflows which also need to be marked as completed.
+  NB exec-vertex-id can be nil if the workflow that finished is the root wf"
   [exec-vertex-id exec-wf-id execution-id success?]
   (let [ts (db/now)
         vertices-wf-map (parents-to-upd exec-vertex-id execution-id success?)
-        vertices (conj (keys vertices-wf-map) exec-vertex-id)
+        vertices (if exec-vertex-id
+                   (conj (keys vertices-wf-map) exec-vertex-id)
+                   [])
         wfs (conj (vals vertices-wf-map) exec-wf-id)]
-    (log/info "Marking finished: Vertices:" vertices ", wfs:" wfs)
+    (log/info "Marking finished for execution-id:" execution-id ", Vertices:" vertices ", wfs:" wfs)
     (db/workflows-and-vertices-finished vertices wfs success? ts)
 
     ; FIXME: need to iterate over all the vertices and put on info-chan
-    (put! @info-chan {:event :wf-finished :execution-id execution-id :success? success?})))
+    (if vertices
+      (put! @info-chan {:event :wf-finished
+                        :execution-id execution-id
+                        :execution-vertices vertices
+                        :finish-ts ts
+                        :success? success?}))))
 
 
 (defmulti dispatch :event)

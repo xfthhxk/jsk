@@ -38,6 +38,7 @@
 ; Main screen event handling.
 ;-----------------------------------------------------------------------
 (defaction init-events []
+  "#jsk-home-action"         (events/listen :click #(ju/display-dashboard))
   "#show-dashboard-action"   (events/listen :click #(ju/display-dashboard))
   "#execution-search-action" (events/listen :click #(search/show-execution-search))
   "#job-list-action"         (events/listen :click #(j/show-jobs))

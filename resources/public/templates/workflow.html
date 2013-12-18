@@ -5,19 +5,25 @@
       <div id="workflow-visualizer">
 
           <form id="workflow-save-form" role="form" class="form-inline">
-                  <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
+            <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
 
-                  <label for="workflow-name" class="control-label">Name</label>
-                  <input id="workflow-name" name="workflow-name" type="text" placeholder="workflow name"/>
+            <div class="form-group">
+              <label for="workflow-name" class="control-label col-sm-2">Name:</label>
+              <div class="col-sm-4">
+                <input id="workflow-name" name="workflow-name" type="text" placeholder="Workflow Name" class="input-sm"/>
+              </div>
+            </div>
 
-                  <label for="workflow-desc" class="control-label">Desc</label>
-            <input id="workflow-desc" name="workflow-desc" type="text" placeholder="workflow desc"/>
+            <div class="form-group">
+              <label for="workflow-desc" class="control-label col-sm-2">Desc:</label>
+              <div class="col-sm-4">
+                <input id="workflow-desc" name="workflow-desc" type="text" placeholder="Description" class="input-sm"/>
+              </div>
+            </div>
 
-                    <div class="checkbox">
-                        <label>
-                          <input type="checkbox" id="workflow-is-enabled" name="is-enabled"> Enabled
-                        </label>
-                    </div>
+            <label "checkbox-inline">
+                <input type="checkbox" id="workflow-is-enabled" name="is-enabled"> Enabled
+            </label>
 
             <a href="#" role="button" id="workflow-save-action" class="btn btn-default" name="workflow-save-btn">Save</a>
             <a href="#" role="button" id="view-assoc-schedules" class="btn btn-default">View Schedules</a>
@@ -47,7 +53,7 @@
         <!-- workflow explorer displayed on left -->
         <div id="workflow-visualizer-node-tree" class="panel panel-info">
             <div class="panel-heading">
-              <h3 class="panel-title">Available Job/WFs</h3>
+              <h3 class="panel-title">Available Jobs/WFs</h3>
             </div>
             <div class="panel-body">
                 <ul id="workflow-visualizer-nodes-list" class="list-group">
@@ -115,30 +121,28 @@
     <div id="execution-visualizer">
       <div class="panel panel-default">
         <div class="panel-body">
-          <label for="execution-id" class="control-label">Execution:</label>
-          <label id="execution-id">1234</label>
+          <label for="execution-id">Execution:</label>
+          <span id="execution-id">1234</span>
 
-          <label for="workflow-name" class="control-label">Workflow:</label>
-          <label id="workflow-name">Important Workflow</label>
+          <label for="workflow-name">Workflow:</label>
+          <span id="workflow-name">Important Workflow</span>
 
-          <label for="executon-status" class="control-label">Status:</label>
-          <label id="execution-status">Successful</label>
+          <label for="executon-status">Status:</label>
+          <span id="execution-status">Successful</span>
 
-          <label for="start-ts" class="control-label">Started:</label>
-          <label id="start-ts">2013-12-07 20:42:32</label>
+          <label for="start-ts">Start:</label>
+          <span id="start-ts">2013-12-07 20:42:32</span>
 
-          <label for="finish-ts" class="control-label">Finished:</label>
-          <label id="finish-ts">2013-12-07 20:42:44</label>
+          <label for="finish-ts">Finish:</label>
+          <span id="finish-ts">2013-12-07 20:42:44</span>
 
           <a id="execution-abort-action" href="#">Abort</a>
 
         </div> <!-- panel-body -->
       </div> <!-- panel-default -->
 
-      <ol id="execution-breadcrumb" class="breadcrumb">
-        <li><a href="#">Workflow 1</a></li>
-        <li><a href="#">Workflow 2</a></li>
-      </ol>
+      <div id="execution-breadcrumb-div">
+      </div>
 
       <div id="execution-vertices-info" class="panel-group">
       </div> <!-- execution-vertices-info -->
@@ -148,6 +152,15 @@
       </div>
 
       </div> <!-- execution-visualizer -->
+
+
+
+
+      <ol id="execution-breadcrumb" class="breadcrumb">
+        <li><a href="#">Workflow 1</a></li>
+        <li><a href="#">Workflow 2</a></li>
+      </ol>
+
 
 
 <!-- BEGIN Execution Vertices Details table -->

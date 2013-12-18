@@ -205,11 +205,12 @@
 
 
 (defn- friend-unauth-handler [request]
-  (info "In unauth handler handler: " request))
+  (debug "In unauth handler handler")
+  (rr/redirect (str (:context request) "/login.html")))
 
 (defn- make-friend-auth [routes]
   (friend/authenticate routes {:allow-anon? false
-                               ; :unauthenticated-handler  friend-unauth-handler
+                               :unauthenticated-handler  friend-unauth-handler
                                :default-landing-uri "/index.html"
                                :login-uri "/login.html"
                                :login-failure-handler login-failure-handler
@@ -254,9 +255,9 @@
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
-             ; wrap-jsk-user-in-session
-             ; make-friend-auth
-             ; wrap-api-unauthenticated
+             wrap-jsk-user-in-session
+             make-friend-auth
+             wrap-api-unauthenticated
              ch/site
              wrap-dir-index
              (wrap-resource "public")

@@ -25,7 +25,6 @@
 ; for keeping track of what execution id we are looking at
 (def current-execution-id (atom nil))
 
-
 (defn- workflow-type? [node-type-id] (= 2 node-type-id))
 
 (defn- show-element [sel]
@@ -48,7 +47,6 @@
 (defn- show-save-success []
   (show-element "#workflow-save-success")
   (ef/at "#workflow-save-success"  (effects/fade-out 1000)))
-
 
 
 
@@ -509,7 +507,6 @@
       (swap! breadcrumb-wf-stack conj {:exec-wf-id exec-wf-id :wf-name nm})
       (swap! breadcrumb-wf-stack subvec 0 (inc idx)))))
 
-
 ; vv  is a seq of maps
 (defn- collect-execution-details [vv]
   (->> (reduce (fn[ans {:keys[src-status-id src-vertex-id src-start-ts src-finish-ts src-node-name
@@ -532,6 +529,7 @@
        (filter #(-> % :execution-vertex-id nil? not))))
 
 
+
 (defn- show-execution-workflow-details [exec-wf-id]
   (u/log (str"exec-wf-id is:" exec-wf-id))
   (go
@@ -542,7 +540,7 @@
      (update-breadcrumb-wf-stack! exec-wf-id (:workflow-name wf-info))
 
      ;(construct-execution-ui exec-wf-info)
-     (ef/at "#execution-breadcrumb" (ef/content (wf-breadcrumb @breadcrumb-wf-stack)))
+     (ef/at "#execution-breadcrumb-div" (ef/content (wf-breadcrumb @breadcrumb-wf-stack)))
      (ef/at "#execution-vertices-info" (ef/content (execution-vertices (collect-execution-details nodes))))
 
      (plumb/reset) ; clear any state it may have had
@@ -573,28 +571,7 @@
 
 
 
-
-
-
-
-
-;-----------------------------------------------------------------------
-; Message dispatching.
-; Maybe execution visualizer should be in a separate ns
-;-----------------------------------------------------------------------
-(defmulti dispatch :event)
-
-
-(defmethod dispatch :wf-started [msg])
-(defmethod dispatch :wf-finished [msg])
-
-(defmethod dispatch :execution-finished [{:keys[status finish-ts]}]
-  (ef/at "#execution-status" (ef/content (u/status-id->desc status)))
-  (ef/at "#finish-ts" (ef/content (str finish-ts)))
-  (ef/at "#execution-abort-action" (ef/remove-node)))
-
-; notify the workflow/execution-visualizer that job is started
-(defmethod dispatch :job-started [{:keys[execution-id exec-vertex-id start-ts status]}]
+(defn- update-ui-exec-vertex-start [exec-vertex-id start-ts status]
   (let [status-td-id (execution-vertex-status-td-id exec-vertex-id)
         start-td-id (execution-vertex-start-td-id exec-vertex-id)
         glyph-id (execution-vertex-glyphicon-span-id exec-vertex-id)
@@ -606,9 +583,7 @@
     (ef/at start-sel (ef/content (str start-ts)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
-; now need to update the glyphicons
-;status-span-id (str "execution-status-node-id-" node-id)]
-(defmethod dispatch :job-finished [{:keys[execution-id exec-vertex-id finish-ts status]}]
+(defn- update-ui-exec-vertex-finish [exec-vertex-id finish-ts status]
   (let [status-td-id (execution-vertex-status-td-id exec-vertex-id)
         finish-td-id (execution-vertex-finish-td-id exec-vertex-id)
         glyph-id (execution-vertex-glyphicon-span-id exec-vertex-id)
@@ -619,6 +594,39 @@
     (ef/at status-sel (ef/content (u/status-id->desc status)))
     (ef/at finish-sel (ef/content (str finish-ts)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
+
+
+
+
+;-----------------------------------------------------------------------
+; Message dispatching.
+; Maybe execution visualizer should be in a separate ns
+;-----------------------------------------------------------------------
+(defmulti dispatch :event)
+
+
+(defmethod dispatch :wf-started [{:keys[exec-vertex-id start-ts]}]
+  (update-ui-exec-vertex-start exec-vertex-id start-ts u/started-status))
+
+; FIXME: the success? should be status!
+(defmethod dispatch :wf-finished [{:keys[execution-vertices finish-ts success?]}]
+  (let [status (if success? u/success-status u/error-status)]
+    (doseq [exec-vertex-id execution-vertices]
+      (update-ui-exec-vertex-finish exec-vertex-id finish-ts status))))
+
+(defmethod dispatch :execution-finished [{:keys[status finish-ts]}]
+  (ef/at "#execution-status" (ef/content (u/status-id->desc status)))
+  (ef/at "#finish-ts" (ef/content (str finish-ts)))
+  (ef/at "#execution-abort-action" (ef/remove-node)))
+
+; notify the workflow/execution-visualizer that job is started
+(defmethod dispatch :job-started [{:keys[execution-id exec-vertex-id start-ts]}]
+  (update-ui-exec-vertex-start exec-vertex-id start-ts u/started-status))
+
+; now need to update the glyphicons
+;status-span-id (str "execution-status-node-id-" node-id)]
+(defmethod dispatch :job-finished [{:keys[exec-vertex-id finish-ts status]}]
+  (update-ui-exec-vertex-finish exec-vertex-id finish-ts status))
 
 
 (defmethod dispatch :default [msg]) ; no-op since some msgs are handles by executions (need to refactor to execution-visualizer ns)

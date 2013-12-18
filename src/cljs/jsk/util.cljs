@@ -2,6 +2,10 @@
   (:require [enfocus.core :as ef])
   (:require-macros [enfocus.macros :as em]))
 
+(def started-status 2)
+(def success-status 3)
+(def error-status 4)
+
 (def status-id-desc-map {1 "Not Started"
                          2 "Started"
                          3 "Successful"
@@ -14,7 +18,7 @@
   (get status-id-desc-map id))
 
 (defn executing-status? [id]
-  (= 2 id))
+  (= started-status id))
 
 (defn log [x]
   (.log js/console (str x)))
@@ -93,12 +97,12 @@
 (def host
   (aget js/window "location" "host"))
 
-(defn- hide-element [selector]
+(defn hide-element [selector]
   (ef/at selector (ef/do->
                     (ef/remove-class "visible")
                     (ef/add-class "hidden"))))
 
-(defn- show-element [selector]
+(defn show-element [selector]
   (ef/at selector (ef/do->
                     (ef/remove-class "hidden")
                     (ef/add-class "visible"))))

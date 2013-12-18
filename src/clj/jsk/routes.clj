@@ -48,10 +48,11 @@
 (defn- current-user [request]
   (get-in request [:session :jsk-user]))
 
-;(defn- uid [request]
-;  (-> request current-user :app-user-id))
+(defn- uid [request]
+  (-> request current-user :app-user-id))
 
-(defn- uid [request] 2)
+; this is for development
+;(defn- uid [request] 2)
 
 
 ;-----------------------------------------------------------------------
@@ -60,6 +61,10 @@
 (defroutes app-routes
   (GET "/logout" req
     (friend/logout* (rr/redirect (str (:context req) "/"))))
+
+  (GET "/logged-in/check" req
+      (-> req current-user nil? not edn-response))
+
   (route/files "/" {:root "resources/public"})
   (route/resources "public")
   (route/not-found "Not found."))
