@@ -29,6 +29,7 @@
                  [enfocus "2.0.2"]
                  [jayq "2.5.0"]
                  [clj-time "0.6.0"]
+                 [com.keminglabs/zmq-async "0.1.0"] ; ZeroMQ via core.async
                  ; light table nrepl deps
                  [org.clojure/tools.nrepl "0.2.3"]
                  [commons-io/commons-io "2.4"]

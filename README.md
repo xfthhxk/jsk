@@ -1,84 +1,48 @@
 # Job Scheduling Kit
-Quartz backed job scheduling.
-Provides UI.
-Jobs are considered to have run successfully if it returns 0.
+What is it?
 
+* Quartz backed job scheduling with dependency management.
+* Provides a UI
+    - creating schedules, jobs, workflows
+    - viewing executions
+    - aborting and resuming executions
+    - search for past executions
+    - ability to manage job dependencies visually
+    - execution lifecycle events are sent to the dashboard without need for refreshing
+
+Terminology:
+  - job: Something to execute
+  - workflow: A directed graph of jobs which can be composed with other workflows.
 
 ## Usage
 
-```shell
+* Start h2 db
+* Run the sql script located at sql/schema.sql
+    - make changes to app_user to put in your email id
+* Update resources/conf/jsk-conf.clj as needed
 
+```shell
 mkdir log
 touch log/jsk.log
 tail -f log/jsk.log
-
+lein run
 ```
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;
-; With a main method
-;;;;;;;;;;;;;;;;;;;;;;;;;;
-lein run
+Connect to http://localhost:8080/login.html
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; AOT compilation
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-lein compile
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Standalone jar
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-lein uberjar
+NB. Should be able to go to http://localhost:8080 but there's a bug with
+how friend is configured in the project.
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Running Standalone jar
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-java -jar ./target/jsk-0.1.0-SNAPSHOT-standalone.jar
+# Debugging
 
+```shell
+lein repl :headless
+```
 
+Connect via nrepl and then the following:
 
-## Quartz
-There are a few table:
-* job
-* schedule
-* job_schedule
-
-Schedules are identified by the schedule_id from the schedule table.
-
-Jobs within Quartz are identified by the job_id from the job table.
-Quartz's concept of a trigger is really the concept of a job and a schedule within JSK.
-Triggers are identified by the job_schedule_id from the job_schedule table.
-
-
-Saving a job always replaces any existing instance registered with Quartz.
-
-Right now schedule associations are a bit stupid.
-It first deletes all associations and then adds whatever might be selected.
-
-
-## Enfocus notes
-Can't have anything other than actual selectors and functions in defaction,
-defsnippet and deftemplate etc.
-
-Have to pass strings to ef/content. doesn't like ints even.
-
-defsnippet only works if the source file is a proper html file. ie can't just
-have random elements not enclosed by html and body elements.
-
-
-
-
-Three types are most important:
-* Cron/Calendar
-* Simple ie do x every 5 minutes
-   (also specify when active/not between 5 am and 10pm)
-* Event based ie file/directory watch
-
-
-** Cron
-- UI will translate interface to cron expression
-
-** Debug
+```clojure
 (defn do-requires []
   (require '[jsk.workflow :as w])
   (require '[jsk.graph :as g])
@@ -89,6 +53,7 @@ Three types are most important:
 
 (do-requires)
 (jsk.main/-main)
+```
 
 
 ## License
