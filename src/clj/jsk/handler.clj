@@ -2,17 +2,9 @@
   "JSK handler"
   (:require
             [jsk.conf :as conf]
-            [jsk.conductor :as conductor]
-            [jsk.db :as db]
             [jsk.routes :as routes]
-            [jsk.ps :as ps]
-            [jsk.quartz :as q]
             [jsk.util :as ju]
             [jsk.user :as juser]
-            [jsk.job :as job]
-            [jsk.execution :as execution]
-            [jsk.schedule :as schedule]
-            [jsk.notification :as n]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -21,8 +13,7 @@
             [ring.util.response :as rr]
             [com.keminglabs.jetty7-websockets-async.core :refer [configurator]]
             [clojure.core.async :refer [chan go go-loop put! >! <!]]
-            [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]
-            [com.postspectacular.rotor :as rotor])
+            [taoensso.timbre :as log])
   (:use [ring.middleware.session.memory :only [memory-store]]
         [ring.middleware.resource :only [wrap-resource]]
         [ring.middleware.file-info :only [wrap-file-info]]))
@@ -36,36 +27,27 @@
 ; how do we know when they disconnect.
 (def ws-connect-channel (chan))
 
-; Channel used to communicate with the conductor.
-(def conductor-channel (chan))
 
 ; Channel used to communicate events for clients (users etc.)
 (def info-channel (chan))
-
-(defn notify-error [{:keys [job-name execution-id error]}]
-  (if error
-    (let [to (conf/error-email-to)
-          subject (str "[JSK ERROR] " job-name)
-          body (str "Job execution ID: " execution-id "\n\n" error)]
-      (info "Sending error email for execution: " execution-id)
-      (n/mail to subject body))))
 
 (defn broadcast-execution [data]
   (doseq [c @ws-clients]
     (put! c (pr-str data))))
 
 
+; FIXME: this needs to listen to conductor's published
+;        notifications and fwd to web sockets
 (defn- setup-job-execution-recorder []
 
-  (execution/register-event-channels! info-channel conductor-channel)
+  ; (execution/register-event-channels! info-channel conductor-channel)
 
-  (q/register-job-execution-recorder!
-    (execution/make-job-recorder "JSK-Job-Execution-Listener"))
+  ; (q/register-job-execution-recorder!
+  ; (execution/make-job-recorder "JSK-Job-Execution-Listener"))
 
   (go-loop [exec-map (<! info-channel)]
-    (debug "Read from execution event channel: " exec-map)
+    (log/debug "Read from execution event channel: " exec-map)
     (broadcast-execution exec-map)
-    (notify-error exec-map)
     (recur (<! info-channel))))
 
 
@@ -83,90 +65,27 @@
 
 
 ;-----------------------------------------------------------------------
-; Logging initalizer.
-;-----------------------------------------------------------------------
-(defn- init-logging []
-  "Setup logging options"
-  (timbre/set-config! [:appenders :rotor]
-                      {:min-level :info
-                       :enabled? true
-                       :async? false                  ; should always be false for rotor
-                       :max-message-per-msecs nil
-                       :fn rotor/append})
-
-  (timbre/set-config! [:shared-appender-config :rotor]
-                      {:path "./log/jsk.log"
-                       :max-size (* 512 1024)
-                       :backlog 5}))
-
-
-;-----------------------------------------------------------------------
-; Read jobs from database and creates them in quartz.
-;-----------------------------------------------------------------------
-(defn- populate-quartz-jobs []
-  (let [jj (job/ls-jobs)]
-    (info "Setting up " (count jj) " jobs in Quartz.")
-    (doseq [j jj]
-      (q/save-job! j))))
-
-;-----------------------------------------------------------------------
-; Read schedules from database and associates them to jobs in quartz.
-;-----------------------------------------------------------------------
-(defn- populate-quartz-triggers []
-  (doseq [{:keys[cron-expression node-id node-schedule-id node-type-id]}
-          (db/enabled-nodes-schedule-info)]
-    (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression)))
-
-(defn- populate-quartz []
-  (populate-quartz-jobs)
-  (populate-quartz-triggers))
-
-
-;-----------------------------------------------------------------------
 ; App starts ticking here.
 ;-----------------------------------------------------------------------
 (defn init []
   "init will be called once when the app is deployed as a servlet
    on an app server such as Tomcat"
 
-  (init-logging)
-  (conf/init "conf/jsk-conf.clj")
+  (log/info "JSK web app beginning init.")
+  (log/info "Connecting to database.")
   (conf/init-db)
 
-  (info "Ensuring log directory exists at: " (conf/exec-log-dir))
-  (ju/ensure-directory (conf/exec-log-dir))
-
-
-  (n/init)
-  (info "Notifications initialized.")
-
-  (conductor/init conductor-channel info-channel)
-
-  (q/init conductor-channel)
-  (info "Quartz initialized.")
-
-  (setup-job-execution-recorder)
+  (log/info "Initializing websockets.")
   (init-ws)
-  (info "Job execution tracking setup.")
 
-
-  (populate-quartz)
-  (info "Quartz populated.")
-
-  (q/start)
-  (info "Quartz started.")
-
-  (info "JSK started successfully."))
+  (log/info "JSK web app started successfully."))
 
 ;-----------------------------------------------------------------------
 ; App shutdown procedure.
 ;-----------------------------------------------------------------------
 (defn destroy []
-  "destroy will be called when the app is shut down"
+  "destroy will be called when the app is shut down")
 
-  (info "JSK is shutting down...")
-  (q/stop)
-  (info "JSK has stopped."))
 
 
 ;-----------------------------------------------------------------------
@@ -180,7 +99,7 @@
     (try
       (handler request)
       (catch Exception ex
-        (error ex)
+        (log/error ex)
         (-> [(.getMessage ex)] ju/make-error-response routes/edn-response (rr/status 500))))))
 
 ;-----------------------------------------------------------------------
@@ -194,18 +113,18 @@
 ; Friend authentication
 ;-----------------------------------------------------------------------
 (defn- login-failure-handler [request]
-  (error "login failed: " request))
+  (log/error "login failed: " request))
 
 
 (defn- friend-credential-fn [m]
-  (info "friend-credential-fn input map is: " m)
+  (log/info "friend-credential-fn input map is: " m)
   (if-let [app-user (juser/get-by-email (:email m))]
     (assoc m :jsk-user app-user)
     m))
 
 
 (defn- friend-unauth-handler [request]
-  (debug "In unauth handler handler")
+  (log/debug "In unauth handler handler")
   (rr/redirect (str (:context request) "/login.html")))
 
 (defn- make-friend-auth [routes]
@@ -222,9 +141,9 @@
 (def unauth-ring-response (-> ["Unauthenticated."] ju/make-error-response routes/edn-response (rr/status 401)))
 
 (defn- send-unauth-ring-response [msg app-user edn?]
-  (warn "send-unauth-ring: " msg)
-  (warn "app-user: " app-user)
-  (warn "edn? " edn?)
+  (log/warn "send-unauth-ring: " msg)
+  (log/warn "app-user: " app-user)
+  (log/warn "edn? " edn?)
   unauth-ring-response)
 
 ; friend will redirect, and the xhr will follow the redirect which eventually
@@ -255,9 +174,9 @@
 ; -- last item happens first
 (def app (-> routes/all-routes
              redn/wrap-edn-params
-             wrap-jsk-user-in-session
-             make-friend-auth
-             wrap-api-unauthenticated
+             ;wrap-jsk-user-in-session
+             ;make-friend-auth
+             ;wrap-api-unauthenticated
              ch/site
              wrap-dir-index
              (wrap-resource "public")

@@ -48,11 +48,11 @@
 (defn- current-user [request]
   (get-in request [:session :jsk-user]))
 
-(defn- uid [request]
-  (-> request current-user :app-user-id))
+;(defn- uid [request]
+;  (-> request current-user :app-user-id))
 
 ; this is for development
-;(defn- uid [request] 2)
+(defn- uid [request] 2)
 
 
 ;-----------------------------------------------------------------------

@@ -1,6 +1,8 @@
 (ns jsk.ps
   "JSK process handling"
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [taoensso.timbre :as log])
+
   (:import (org.zeroturnaround.exec ProcessExecutor ProcessResult StartedProcess)
            (java.io FileOutputStream)
            (java.util.concurrent TimeUnit)))
@@ -39,7 +41,7 @@
 (defn tracking-execution?
   "Answers if the execution is being tracked."
   [exec-id]
-  (-> exec-id @process-cache nil? not))
+  (-> (@process-cache exec-id) nil? not))
 
 ;-----------------------------------------------------------------------
 ; Kills all processes belonging to an execution or just the one item
@@ -90,7 +92,7 @@
     (.directory (io/file exec-dir))
     (.redirectErrorStream true) ; output and error go to the same stream makes it easier to see what happened
     (.redirectOutput os)
-    (.exitValueNormal)))
+    (.exitValueAny)))
 
 (defn- run
   "Executes a process executor returning the result."
@@ -109,12 +111,15 @@
 (defn- start [exec-group-id exec-id timeout ^ProcessExecutor pe]
   (let [^StartedProcess sp (.start pe)]
     ; stick in cache so can be killed if need be by outside intervention
+    (if (-> exec-group-id tracking-execution? not)
+      (begin-execution-tracking exec-group-id))
+
     (cache-ps exec-group-id exec-id (.process sp))
 
     (try
       (let [^ProcessResult result (-> sp .future (.get timeout TimeUnit/SECONDS))]
         (rm-from-cache exec-group-id exec-id)
-        {:exit-code (.exitValue result)})
+        (.exitValue result))
       (catch Exception e
         (rm-from-cache exec-group-id exec-id)
         (throw e)))))

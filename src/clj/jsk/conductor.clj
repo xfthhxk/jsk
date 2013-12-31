@@ -4,17 +4,30 @@
             [jsk.quartz :as q]
             [clojurewerkz.quartzite.conversion :as qc]
             [jsk.workflow :as w]
+            [jsk.messaging :as msg]
+            [jsk.notification :as n]
             [jsk.db :as db]
             [jsk.ds :as ds]
+            [jsk.conf :as conf]
             [jsk.graph :as g]
             [jsk.job :as j]
             [jsk.ps :as ps]
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojure.string :as str]
-            [clojure.core.async :refer [chan go go-loop put! >! <!]]
+            [clojure.core.async :refer [chan go go-loop put! >! <! thread]]
             [taoensso.timbre :as log
              :refer (trace debug info warn error fatal)])
   (:import (org.quartz JobDataMap JobDetail JobExecutionContext JobKey Scheduler)))
+
+
+(defn notify-error [{:keys [job-name execution-id error]}]
+  (if error
+    (let [to (conf/error-email-to)
+          subject (str "[JSK ERROR] " job-name)
+          body (str "Job execution ID: " execution-id "\n\n" error)]
+      (log/info "Sending error email for execution: " execution-id)
+      (n/mail to subject body))))
+
 
 ;-----------------------------------------------------------------------
 ; exec-tbl tracks executions and the status of each job in the workflow.
@@ -26,10 +39,14 @@
 ;-----------------------------------------------------------------------
 (def ^:private exec-infos (atom {}))
 
-(def ^:private cond-chan (atom nil))
+(def ^:private cond-chan (chan))
 
-(def ^:private info-chan (atom nil))
+(def ^:private info-chan (atom (chan)))
 
+(def ^:private pub-sock (atom nil))
+(def ^:private sub-sock (atom nil))
+
+(def ^:private agents (atom #{}))
 
 ;-----------------------------------------------------------------------
 ; Execution Info interactions
@@ -99,14 +116,21 @@
 
 (def ^:private exec-wf-success? (complement exec-wf-failed?))
 
+(defn- pick-agent-for-job
+  "Right now just picks an agent at random."
+  [job-id]
+  ; FIXME: this needs to return the agent based on job sets the agent can handle
+  ; and also the least busy at the moment
+  (-> @agents vec rand-nth))
 
-(defn- execute-job  [^JobKey job-key ^JobDataMap job-data-map]
-    (.triggerJob ^Scheduler @qs/*scheduler* job-key job-data-map))
-
-(defn- run-job
-  ([job-id] (run-job job-id {}))
-  ([job-id data]
-    (execute-job (q/make-job-key job-id) (qc/to-job-data data))))
+(defn- send-job-to-agent [{:keys[node-id execution-id exec-vertex-id timeout]}]
+  (let [agent-id (pick-agent-for-job node-id) ; nb node-id is the job id from the job table
+        data {:msg :run-job
+              :job (j/get-job node-id) ; FIXME: get from cache in the future
+              :execution-id execution-id
+              :exec-vertex-id exec-vertex-id
+              :timeout timeout}]
+    (msg/publish @pub-sock agent-id data)))
 
 
 (defn- run-jobs
@@ -125,7 +149,8 @@
                         :timeout Integer/MAX_VALUE
                         :start-ts (db/now)
                         :exec-vertex-id v}]]
-      (run-job (:node-id data) data))))
+      ; publish msg so an agent will handle job execution
+      (send-job-to-agent data))))
 
 
 ;-----------------------------------------------------------------------
@@ -374,8 +399,8 @@
 (defmethod dispatch :trigger-job [{:keys [node-id trigger-src]}]
   (case trigger-src
     :quartz (run-job-as-synthetic-wf node-id)
-    :user   (run-job-as-synthetic-wf node-id)
-    :conductor (run-job node-id)))
+    :user   (run-job-as-synthetic-wf node-id)))
+    ;:conductor (run-job node-id)))
 
 
 (defmethod dispatch :trigger-wf [{:keys [node-id]}]
@@ -431,20 +456,142 @@
     (log/info "Execution info not found, likely aborted. execution-id:" execution-id)))
 
 
-(defn init
-  "Sets up a queue which other parts of the program can write
-   messages to. A message is a map with at least an :event key.
-   Rest of the keys will depend on the event and what's relevant."
-  [cond-ch info-ch]
+;-----------------------------------------------------------------------
+; -- Networked agents --
+;-----------------------------------------------------------------------
 
-  (reset! cond-chan cond-ch)
-  (reset! info-chan info-ch)
 
-  (go-loop [msg (<! cond-ch)]
-     (try
-       (dispatch msg)
-       (catch Exception ex
-         (error ex)))
-     (recur (<! cond-ch))))
+(defn destroy []
+  (q/stop))
+
+;-----------------------------------------------------------------------
+; Read jobs from database and creates them in quartz.
+;-----------------------------------------------------------------------
+(defn- populate-quartz-jobs []
+  (let [jj (j/ls-jobs)]
+    (info "Setting up " (count jj) " jobs in Quartz.")
+    (doseq [j jj]
+      (q/save-job! j))))
+
+;-----------------------------------------------------------------------
+; Read schedules from database and associates them to jobs in quartz.
+;-----------------------------------------------------------------------
+(defn- populate-quartz-triggers []
+  (doseq [{:keys[cron-expression node-id node-schedule-id node-type-id]}
+          (db/enabled-nodes-schedule-info)]
+    (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression)))
+
+(defn- populate-quartz []
+  (populate-quartz-jobs)
+  (populate-quartz-triggers))
+
+
+(defn- zero-agents? []
+  (-> @agents count zero?))
+
+
+(defmulti dispatch-msg :msg)
+
+
+(defmethod dispatch-msg :agent-registering [{:keys[agent-id]}]
+  (log/info "Agent registering: " agent-id)
+  (swap! agents conj agent-id))
+
+(defmethod dispatch-msg :heartbeat-ack [{:keys[agent-id]}]
+  #_(log/info "Heartbeat from agent: " agent-id))
+
+(defmethod dispatch-msg :run-job-ack [data]
+  (log/info "Run job ack:" data))
+
+(defmethod dispatch-msg :job-finished [data]
+  (log/info "Job finished: " data))
+
+
+(defn- run-agent-request-processing [sock]
+  (loop [data (msg/read-pub-data sock)]
+    (dispatch-msg data)
+    (recur (msg/read-pub-data sock))))
+
+(defn- broadcast-agent-registration [sock t]
+  (while true
+    (msg/publish sock "broadcast" {:msg :agents-register})
+    (Thread/sleep t)))
+
+(defn- broadcast-agent-registration-orig [sock]
+  (msg/publish sock "broadcast" {:msg :agents-register}))
+
+(defn- send-noops [sock n]
+  (dotimes [i n]
+    (msg/publish sock "broadcast" {:msg :noop :id i})))
+
+
+(defn- run-heartbeats [sock t]
+  (let [hb-id (atom 1)]
+    (while true
+      (msg/publish sock "broadcast" {:msg :heartbeat})
+      ;(msg/publish sock "broadcast" {:msg :heartbeat :hb-id @hb-id})
+      ;(swap! hb-id inc)
+      (Thread/sleep t))))
+
+
+(defn init [pub-port sub-port]
+  (log/info "Connecting to database.")
+  (conf/init-db)
+  (let [p-sock (msg/make-socket "tcp" "*" pub-port true :pub)
+        s-sock (msg/make-socket "tcp" "*" sub-port true :sub)]
+
+    (reset! pub-sock p-sock)
+    (reset! sub-sock s-sock)
+
+
+    ; handle agent request messages in another thread
+    (msg/subscribe-everything @sub-sock)
+
+    ; FIXME:
+    ; start heartbeats -- for some reason if heartbeats are started first
+    ; then everything else works ok
+    ; switching the order
+    (future (run-heartbeats @pub-sock 1000))
+    (future (run-agent-request-processing @sub-sock))
+
+    ;FIXME: make sure at least 1 agent is connected
+    ; Do this with a watch or something? this seems lame
+    (while (zero-agents?)
+      (log/info "No agents connected. Waiting..")
+      (broadcast-agent-registration-orig @pub-sock)
+      (Thread/sleep 1000))
+
+
+    (q/init cond-chan)
+    (log/info "Quartz initialized.")
+
+    (populate-quartz)
+    (log/info "Quartz populated.")
+
+    (q/start)
+    (log/info "Quartz started.")
+
+    ; quartz puts stuff on the cond-chan when a trigger is fired
+    (go-loop [msg (<! cond-chan)]
+       (try
+         (dispatch msg)
+         (catch Exception ex
+           (log/error ex)))
+       (recur (<! cond-chan)))
+
+    (go-loop [info (<! @info-chan)]
+      (log/info "::INFO::" info)
+      (recur (<! @info-chan)))))
+
+
+
+
+
+
+
+
+
+
+
 
 

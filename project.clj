@@ -8,6 +8,7 @@
                  ;[org.clojure/clojurescript "0.0-2080"]
                  [org.clojure/core.async "0.1.242.0-44b1e3-alpha"]
                  ; [org.clojure/core.typed "0.2.3"]    ; static type checking
+                 [org.clojure/tools.cli "0.3.0"]     ; command line option processing
                  [clojurewerkz/quartzite "1.1.0"]    ; clojure wrapper around quartz scheduling
                  [org.zeroturnaround/zt-exec "1.5"]  ; process execution
                  [com.taoensso/timbre "2.7.1"]       ; logging
@@ -29,7 +30,7 @@
                  [enfocus "2.0.2"]
                  [jayq "2.5.0"]
                  [clj-time "0.6.0"]
-                 [com.keminglabs/zmq-async "0.1.0"] ; ZeroMQ via core.async
+                 [jnanomsg "0.1.0"]         ; messaging lib
                  ; light table nrepl deps
                  [org.clojure/tools.nrepl "0.2.3"]
                  [commons-io/commons-io "2.4"]

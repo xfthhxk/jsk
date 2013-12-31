@@ -1,7 +1,8 @@
 (ns jsk.util
   (:require [jsk.user :as juser]
             [clojure.java.io :as io]
-            [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)]))
+            [taoensso.timbre :as timbre :refer (trace debug info warn error fatal)])
+  (:import [java.util UUID]))
 
 
 (defn validation-errors? [bouncer-result]
@@ -43,3 +44,8 @@
 
 (defn job-type? [id]
   (= job-type-id id))
+
+
+
+(defn uuid []
+  (-> (UUID/randomUUID) .toString))
