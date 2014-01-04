@@ -9,15 +9,17 @@
             [jsk.db :as db]
             [jsk.ds :as ds]
             [jsk.conf :as conf]
+            [jsk.util :as util]
             [jsk.graph :as g]
             [jsk.job :as j]
             [jsk.ps :as ps]
+            [jsk.tracker :as track]
             [clojurewerkz.quartzite.scheduler :as qs]
-            [clojure.string :as str]
             [clojure.core.async :refer [chan go go-loop put! >! <! thread]]
-            [taoensso.timbre :as log
-             :refer (trace debug info warn error fatal)])
+            [taoensso.timbre :as log])
   (:import (org.quartz JobDataMap JobDetail JobExecutionContext JobKey Scheduler)))
+
+(declare start-workflow-execution)
 
 
 (defn notify-error [{:keys [job-name execution-id error]}]
@@ -39,14 +41,14 @@
 ;-----------------------------------------------------------------------
 (def ^:private exec-infos (atom {}))
 
-(def ^:private cond-chan (chan))
+(def ^:private quartz-chan (chan))
 
 (def ^:private info-chan (atom (chan)))
 
 (def ^:private pub-sock (atom nil))
 (def ^:private sub-sock (atom nil))
 
-(def ^:private agents (atom #{}))
+(def ^:private tracker (atom (track/new-tracker)))
 
 ;-----------------------------------------------------------------------
 ; Execution Info interactions
@@ -121,15 +123,21 @@
   [job-id]
   ; FIXME: this needs to return the agent based on job sets the agent can handle
   ; and also the least busy at the moment
-  (-> @agents vec rand-nth))
+  (-> @tracker track/agents vec rand-nth))
 
-(defn- send-job-to-agent [{:keys[node-id execution-id exec-vertex-id timeout]}]
+(defn- send-job-to-agent [{:keys[node-id execution-id exec-vertex-id timeout exec-wf-id]}]
   (let [agent-id (pick-agent-for-job node-id) ; nb node-id is the job id from the job table
+        job (j/get-job node-id)               ; FIXME: get from cache in the future
         data {:msg :run-job
-              :job (j/get-job node-id) ; FIXME: get from cache in the future
+              :job job
               :execution-id execution-id
               :exec-vertex-id exec-vertex-id
+              :exec-wf-id exec-wf-id
               :timeout timeout}]
+
+    (log/info "Sending job: " job "to agent" agent-id " for execution-id:" execution-id ", vertex-id:" exec-vertex-id)
+
+    (swap! tracker #(track/run-job %1 agent-id exec-vertex-id (util/now)))
     (msg/publish @pub-sock agent-id data)))
 
 
@@ -158,21 +166,16 @@
 ;-----------------------------------------------------------------------
 (defn- run-workflows [wfs exec-id]
   (let [info (get-exec-info exec-id)]
-    (doseq [wf wfs
-            :let [data {:event :run-wf
-                        :execution-id exec-id
-                        :exec-wf-id (:exec-wf-to-run (ds/vertex-attrs info wf))
-                        :exec-vertex-id wf
-                        :trigger-src :conductor}]]
-      (put! @cond-chan data))))
+    (doseq [exec-vertex-id wfs
+            :let [exec-wf-id (:exec-wf-to-run (ds/vertex-attrs info exec-vertex-id))]]
+      (start-workflow-execution exec-vertex-id exec-wf-id exec-id))))
 
 ;-----------------------------------------------------------------------
 ; Runs all nodes handling jobs and workflows slightly differently.
 ;-----------------------------------------------------------------------
 (defn- run-nodes
   "Fires off each node in node-ids.  execution-id is required to figure out
-   the exec-vertex-id which serves as the unique id for writing log files
-   to.  exec-vertex-id is used by the execution.clj ns."
+   the exec-vertex-id which serves as the unique id for writing log files to."
   [node-ids exec-id]
 
   ; group-by node-ids by node-type
@@ -216,7 +219,7 @@
        ; by the execution and is not a vertex in itself
        (start-workflow-execution nil (ds/root-workflow info) execution-id))
      (catch Exception e
-       (error e))))
+       (log/error e))))
 
   ([exec-vertex-id exec-wf-id exec-id]
    (let [info (get-exec-info exec-id)
@@ -268,7 +271,7 @@
 ;-----------------------------------------------------------------------
 (defn trigger-job-now [job-id]
   (log/info "job-id is " job-id)
-  (put! @cond-chan {:event :trigger-job :node-id job-id :trigger-src :user})
+  (run-job-as-synthetic-wf job-id)
   true)
 
 ;-----------------------------------------------------------------------
@@ -277,7 +280,7 @@
 (defn trigger-workflow-now
   [wf-id]
   (log/info "Triggering workflow with id: " wf-id)
-  (put! @cond-chan {:event :trigger-wf :node-id wf-id})
+  (start-workflow-execution wf-id)
   true)
 
 
@@ -313,6 +316,10 @@
   (if (execution-exists? exec-id)
     (abort-execution* exec-id)
     false))
+
+
+(defn abort-execution-vertex [exec-vertex-id]
+  )
 
 ;-----------------------------------------------------------------------
 ; Resume execution
@@ -361,7 +368,6 @@
 
     (rm-exec-info! exec-id)))
 
-
 (defn- parents-to-upd [vertex-id execution-id success?]
   (loop [v-id vertex-id ans {}]
     (let [{:keys[parent-vertex on-success on-failure belongs-to-wf]}
@@ -394,22 +400,7 @@
                         :success? success?}))))
 
 
-(defmulti dispatch :event)
-
-(defmethod dispatch :trigger-job [{:keys [node-id trigger-src]}]
-  (case trigger-src
-    :quartz (run-job-as-synthetic-wf node-id)
-    :user   (run-job-as-synthetic-wf node-id)))
-    ;:conductor (run-job node-id)))
-
-
-(defmethod dispatch :trigger-wf [{:keys [node-id]}]
-  (start-workflow-execution node-id))
-
-(defmethod dispatch :run-wf [{:keys [exec-vertex-id exec-wf-id execution-id]}]
-  (start-workflow-execution exec-vertex-id exec-wf-id execution-id))
-
-(defmethod dispatch :wf-finished [{:keys[execution-id exec-wf-id exec-vertex-id]}]
+(defn- when-wf-finished [execution-id exec-wf-id exec-vertex-id]
   (let [wf-success? (exec-wf-success? execution-id exec-wf-id)
         next-nodes (successor-nodes execution-id exec-vertex-id wf-success?)
         exec-failed? (and (not wf-success?) (empty? next-nodes))
@@ -423,38 +414,50 @@
     (if (or exec-failed? exec-success?)
       (execution-finished execution-id exec-success? exec-wf-id))))
 
-; this comes from execution.clj
-(defmethod dispatch :job-started [{:keys[execution-id exec-wf-id]}]
-  (update-running-jobs-count! execution-id exec-wf-id inc))
+(defn- when-job-started
+  "Logs the status to the db.  Increments the running job count for the execution id."
+  [{:keys[execution-id exec-wf-id exec-vertex-id agent-id] :as data}]
+  (db/execution-vertex-started exec-vertex-id (db/now))
 
-; this comes from execution.clj
-; decrements the running job count for the execution-id
-; determines next set of jobs to run
-; also determines if the workflow is finished and/or errored.
-(defmethod dispatch :job-finished [{:keys[execution-id exec-wf-id exec-vertex-id success?] :as msg}]
+  ; FIXME: 2 atoms being updated individually
+  (update-running-jobs-count! execution-id exec-wf-id inc)
+  (swap! tracker #(track/agent-started-job %1 agent-id exec-vertex-id (util/now)))
+
+  ; FIXME: this doesn't have all the info like the job name, start-ts see old execution.clj
+  (put! @info-chan data))
+
+
+; FIXME: update-running-jobs-count! is updating an atom and so is the code below put in dosync or what not
+; Make idempotent, so if agent sends this again we don't blow up.
+(defn- when-job-finished
+  "Decrements the running job count for the execution id.
+   Determines next set of jobs to run.
+   Determines if the workflow is finished and/or errored.
+   Sends job-finished-ack to agent.
+   Publishes status on info-chan for distribution."
+  [{:keys[execution-id exec-vertex-id agent-id status exec-wf-id success?] :as msg}]
   (log/debug "job-finished: " msg)
-  (if (execution-exists? execution-id)
-    (let [new-count (update-running-jobs-count! execution-id exec-wf-id dec)
-          next-nodes (successor-nodes execution-id exec-vertex-id success?)
-          exec-wf-fail? (and (not success?) (empty? next-nodes))
-          exec-wf-finished? (and (zero? new-count) (empty? next-nodes))
-          {:keys[parent-vertex]} (-> (get-exec-info execution-id)
-                                     (ds/vertex-attrs exec-vertex-id))]
 
-      (if exec-wf-fail?
-        (mark-exec-wf-failed! execution-id exec-wf-id))
+  ; update status in db
+  (db/execution-vertex-finished exec-vertex-id (if success? db/finished-success db/finished-error) (db/now))
 
-      (if exec-wf-finished?
-        (put! @cond-chan {:event :wf-finished
-                          :exec-vertex-id parent-vertex
-                          :execution-id execution-id
-                          :success? (not exec-wf-fail?)
-                          :exec-wf-id exec-wf-id})
-        (run-nodes next-nodes execution-id)))
+  (let [new-count (update-running-jobs-count! execution-id exec-wf-id dec)
+        next-nodes (successor-nodes execution-id exec-vertex-id success?)
+        exec-wf-fail? (and (not success?) (empty? next-nodes))
+        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))
+        {:keys[parent-vertex]} (-> (get-exec-info execution-id)
+                                   (ds/vertex-attrs exec-vertex-id))]
 
-    ; otherwise log a message, execution can disappear when an execution is aborted
-    (log/info "Execution info not found, likely aborted. execution-id:" execution-id)))
+    ; update status memory and ack the agent so it can clear it's memory
+    (swap! tracker #(track/rm-job %1 agent-id exec-vertex-id))
+    (msg/publish @pub-sock agent-id {:msg :job-finished-ack :execution-id execution-id :exec-vertex-id exec-vertex-id})
 
+    (if exec-wf-fail?
+      (mark-exec-wf-failed! execution-id exec-wf-id))
+
+    (if exec-wf-finished?
+      (when-wf-finished execution-id exec-wf-id exec-vertex-id)
+      (run-nodes next-nodes execution-id))))
 
 ;-----------------------------------------------------------------------
 ; -- Networked agents --
@@ -469,7 +472,7 @@
 ;-----------------------------------------------------------------------
 (defn- populate-quartz-jobs []
   (let [jj (j/ls-jobs)]
-    (info "Setting up " (count jj) " jobs in Quartz.")
+    (log/info "Setting up " (count jj) " jobs in Quartz.")
     (doseq [j jj]
       (q/save-job! j))))
 
@@ -487,29 +490,33 @@
 
 
 (defn- zero-agents? []
-  (-> @agents count zero?))
+  (-> @tracker track/agents count zero?))
 
 
-(defmulti dispatch-msg :msg)
+(defmulti dispatch :msg)
 
 
-(defmethod dispatch-msg :agent-registering [{:keys[agent-id]}]
+(defmethod dispatch :agent-registering [{:keys[agent-id]}]
   (log/info "Agent registering: " agent-id)
-  (swap! agents conj agent-id))
+  (swap! tracker #(track/add-agent %1 agent-id (util/now))))
 
-(defmethod dispatch-msg :heartbeat-ack [{:keys[agent-id]}]
-  #_(log/info "Heartbeat from agent: " agent-id))
+(defmethod dispatch :heartbeat-ack [{:keys[agent-id]}]
+  (swap! tracker #(track/agent-heartbeat-rcvd %1 agent-id (util/now))))
 
-(defmethod dispatch-msg :run-job-ack [data]
-  (log/info "Run job ack:" data))
+(defmethod dispatch :run-job-ack [data]
+  (log/info "Run job ack:" data)
+  (when-job-started data))
 
-(defmethod dispatch-msg :job-finished [data]
-  (log/info "Job finished: " data))
+(defmethod dispatch :job-finished [data]
+  (when-job-finished data))
 
 
 (defn- run-agent-request-processing [sock]
   (loop [data (msg/read-pub-data sock)]
-    (dispatch-msg data)
+    (try
+      (dispatch data)
+      (catch Exception ex
+         (log/error ex)))
     (recur (msg/read-pub-data sock))))
 
 (defn- broadcast-agent-registration [sock t]
@@ -562,7 +569,7 @@
       (Thread/sleep 1000))
 
 
-    (q/init cond-chan)
+    (q/init quartz-chan)
     (log/info "Quartz initialized.")
 
     (populate-quartz)
@@ -571,13 +578,15 @@
     (q/start)
     (log/info "Quartz started.")
 
-    ; quartz puts stuff on the cond-chan when a trigger is fired
-    (go-loop [msg (<! cond-chan)]
+    ; quartz puts stuff on the quartz-chan when a trigger is fired
+    (go-loop [{:keys[event node-id]} (<! quartz-chan)]
        (try
-         (dispatch msg)
+         (case event
+           :trigger-wf (start-workflow-execution node-id)
+           :trigger-job (run-job-as-synthetic-wf node-id))
          (catch Exception ex
            (log/error ex)))
-       (recur (<! cond-chan)))
+       (recur (<! quartz-chan)))
 
     (go-loop [info (<! @info-chan)]
       (log/info "::INFO::" info)

@@ -61,10 +61,10 @@
 (defn register-job-execution-recorder! [job-execution-recorder]
   (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener job-execution-recorder (EverythingMatcher/allJobs))))
 
-(def conductor-channel (atom nil))
+(def quartz-channel (atom nil))
 
-(defn init [conductor-ch]
-  (reset! conductor-channel conductor-ch)
+(defn init [quartz-ch]
+  (reset! quartz-channel quartz-ch)
   (qs/initialize))
 
 (defn start []
@@ -76,7 +76,7 @@
 
 (defn ignore-execution?
   "Answers if the execution should be ignored. Quartz triggers are used
-   to put msgs on the conductor-channel.  Quartz triggered jobs will
+   to put msgs on the quartz-channel.  Quartz triggered jobs will
    have this property set to true. Not a 'real' job being executed."
   [^JobExecutionContext ctx]
   (let [{:strs [ignore-execution?]} (qc/from-job-data ctx)]
@@ -108,7 +108,7 @@
   (let [{:strs [node-id node-type]} (qc/from-job-data ctx)
         event (if (ju/workflow-type? node-type) :trigger-wf :trigger-job)]
     (log/info "Triggering job with id " node-id)
-    (put! @conductor-channel {:event event :node-id node-id :trigger-src :quartz})))
+    (put! @quartz-channel {:event event :node-id node-id})))
 
 
 ;-----------------------------------------------------------------------

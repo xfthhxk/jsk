@@ -25,26 +25,6 @@ web server can talk to coordinator to run adhoc jobs. schedule, job and schedule
 on coordinator start, publish msg to agents to register themselves.
 then do broadcast pings every few secs
 
-;; running
-lein run --mode agent --hostname localhost --cmd-port 9000 --status-port 9001
-
-lein run --mode conductor --hostname localhost --cmd-port 9000 --status-port 9001
-
-lein run --mode web-app --web-app-port 8080
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 Top Priority
 -------------

@@ -49,3 +49,14 @@
 
 (defn uuid []
   (-> (UUID/randomUUID) .toString))
+
+(defn now
+  "Current time in millisecs"
+  []
+  (System/currentTimeMillis))
+
+
+(defn jvm-instance-name
+  "Gets the jvm instance name. Hopefully, it is pid@host."
+  []
+  (-> (java.lang.management.ManagementFactory/getRuntimeMXBean) .getName))

@@ -13,6 +13,7 @@
                  [org.zeroturnaround/zt-exec "1.5"]  ; process execution
                  [com.taoensso/timbre "2.7.1"]       ; logging
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
+                 [org.clojure/tools.nrepl "0.2.3"]
                  [swiss-arrows "1.0.0"]              ; syntactic sugar
                  [bouncer "0.3.0-alpha1"]            ; validation lib
                  [com.h2database/h2 "1.3.174"]       ; embedded db

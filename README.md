@@ -13,6 +13,8 @@ What is it?
 Terminology:
   - job: Something to execute
   - workflow: A directed graph of jobs which can be composed with other workflows.
+  - conductor: Central server managing jobs/workflows triggering
+  - agent: Separate process likely on another machine than the conductor which actually runs jobs.
 
 ## Usage
 
@@ -25,36 +27,20 @@ Terminology:
 mkdir log
 touch log/jsk.log
 tail -f log/jsk.log
-lein run
 ```
 
-Connect to http://localhost:8080/login.html
-
-NB. Should be able to go to http://localhost:8080 but there's a bug with
-how friend is configured in the project.
-
-
-# Debugging
+# Running / Debugging via nRepl
 
 ```shell
-lein repl :headless
+# To run the conductor
+lein run --mode conductor --hostname localhost --cmd-port 9000 --status-port 9001 --nrepl-port 7001
+
+# To run the agent
+lein run --mode agent --hostname localhost --cmd-port 9000 --status-port 9001 --nrepl-port 7002
+
+# To run the web app
+lein run --mode web --web-app-port 8080 --nrepl-port 7003
 ```
-
-Connect via nrepl and then the following:
-
-```clojure
-(defn do-requires []
-  (require '[jsk.workflow :as w])
-  (require '[jsk.graph :as g])
-  (require '[jsk.conductor :as c])
-  (require '[jsk.ds :as ds])
-  (require '[jsk.db :as db])
-  (require '[clojure.pprint :as p]))
-
-(do-requires)
-(jsk.main/-main)
-```
-
 
 ## License
 

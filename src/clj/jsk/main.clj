@@ -9,6 +9,7 @@
             [jsk.notification :as n]
             [clojure.string :as string]
             [clojure.tools.cli :as cli]
+            [clojure.tools.nrepl.server :as nrepl]
             [jsk.handler :as jsk])
   (:gen-class))
 
@@ -29,6 +30,9 @@
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
+   ["-n" "--nrepl-port PORT" "nRepl Port number"
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
    ["-H" "--hostname HOST" "Remote host"]
 
@@ -73,36 +77,53 @@
                      :backlog 5}))
 
 
+
+
+(defn- common-init []
+  (log/info "Reading jsk-conf")
+  (conf/init "conf/jsk-conf.clj")
+
+  (log/info "Ensuring log directory exists at: " (conf/exec-log-dir))
+  (ju/ensure-directory (conf/exec-log-dir))
+
+  (n/init)
+  (log/info "Notifications initialized."))
+
 (defn run-as-web-app [port]
+  (common-init)
   (jsk/init)
   (jetty/run-jetty #'jsk/app {:configurator jsk/ws-configurator
                               :port port
                               :join? false}))
 
+(defn run-as-conductor [cmd-port status-port]
+  (common-init)
+  (conductor/init cmd-port status-port))
+
+(defn run-as-agent [hostname cmd-port status-port]
+  (common-init)
+  (jagent/init hostname cmd-port status-port))
+
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args cli-options)
-        {:keys [hostname status-port cmd-port web-app-port]} options]
+        {:keys [hostname status-port cmd-port web-app-port nrepl-port]} options]
 
+    (init-logging)
+    (log/info "JSK started with: " options)
 
     ;; Handle help and error conditions
     (cond
       (:help options) (exit 0 (usage summary))
       errors (exit 1 (error-msg errors)))
 
-    (init-logging)
-    (log/info "JSK started with: " options)
-
-    (conf/init "conf/jsk-conf.clj")
-    (log/info "Ensuring log directory exists at: " (conf/exec-log-dir))
-    (ju/ensure-directory (conf/exec-log-dir))
-
-    (n/init)
-    (log/info "Notifications initialized.")
+    (when nrepl-port
+      (log/info "Starting the nRepl server...")
+      (defonce nrepl-server (nrepl/start-server :port nrepl-port)))
 
     (case (:mode options)
-      "agent" (jagent/init hostname cmd-port status-port)
-      "conductor" (conductor/init cmd-port status-port)
+      "agent" (run-as-agent hostname cmd-port status-port)
+      "conductor" (run-as-conductor cmd-port status-port)
       "web" (run-as-web-app web-app-port)
       (exit 1 (usage summary)))))
 
