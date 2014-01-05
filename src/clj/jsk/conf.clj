@@ -24,6 +24,16 @@
   (@config :error-email-to))
 
 
+(defn heartbeats-dead-after-ms
+  "Max allowed time in milliseconds after which an agent is considered dead."
+  []
+  (get-in @config [:heartbeats :dead-after-milliseconds]))
+
+(defn heartbeats-interval-ms
+  "Heartbeat interval in milliseconds"
+  []
+  (get-in @config [:heartbeats :interval-milliseconds]))
+
 (defn exec-log-dir []
   (@config :execution-log-directory))
 

@@ -60,3 +60,11 @@
   "Gets the jvm instance name. Hopefully, it is pid@host."
   []
   (-> (java.lang.management.ManagementFactory/getRuntimeMXBean) .getName))
+
+
+(defn start-thread [thread-name f]
+  (.start (Thread. nil f (str "jsk-" thread-name))))
+
+
+
+

@@ -492,6 +492,7 @@
 (def finished-success 3)
 (def finished-error 4)
 (def aborted-status 5)
+(def unknown-status 6)
 
 (defentity execution
   (pk :execution-id)
@@ -503,7 +504,7 @@
 
 (defentity execution-vertex
   (pk :execution-vertex-id)
-  (entity-fields :execution-id :execution-workflow-id :node-id :runs-execution-workflow-id :status-id :start-ts :finish-ts))
+  (entity-fields :execution-id :execution-workflow-id :node-id :runs-execution-workflow-id :status-id :start-ts :finish-ts :agent))
 
 ; some strange issue with substituting params in this query
 (def ^:private child-workflow-sql
@@ -733,16 +734,20 @@
                            finish-ts))
 
 
-(defn execution-vertex-started [exec-vertex-id ts]
+(defn execution-vertex-started [exec-vertex-id agent-id ts]
   (update execution-vertex
-    (set-fields {:status-id started-status :start-ts ts})
+    (set-fields {:status-id started-status :agent agent-id :start-ts ts})
     (where {:execution-vertex-id exec-vertex-id})))
 
-(defn execution-vertex-finished [exec-vertex-id status-id ts]
+
+
+(defn update-execution-vertices-status [ids status-id ts]
   (update execution-vertex
     (set-fields {:status-id status-id :finish-ts ts})
-    (where {:execution-vertex-id exec-vertex-id})))
+    (where (in :execution-vertex-id ids))))
 
+(defn execution-vertex-finished [exec-vertex-id status-id ts]
+  (update-execution-vertices-status [exec-vertex-id] status-id ts))
 
 (defn workflow-finished
   "Marks the workflow as finished and sets the status in both the execution-workflow

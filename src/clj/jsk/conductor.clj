@@ -14,12 +14,13 @@
             [jsk.job :as j]
             [jsk.ps :as ps]
             [jsk.tracker :as track]
+            [clojure.string :as string]
             [clojurewerkz.quartzite.scheduler :as qs]
             [clojure.core.async :refer [chan go go-loop put! >! <! thread]]
             [taoensso.timbre :as log])
   (:import (org.quartz JobDataMap JobDetail JobExecutionContext JobKey Scheduler)))
 
-(declare start-workflow-execution)
+(declare start-workflow-execution when-job-finished)
 
 
 (defn notify-error [{:keys [job-name execution-id error]}]
@@ -62,10 +63,10 @@
                                      :root-wf-name root-wf-name
                                      :start-ts start-ts
                                      :running-jobs exec-wf-counts
-                                     :failed-exec-wfs #{}})
-    ; allows for aborting jobs/executions etc
-    ; FIXME: this thing uses an atom also (need to store all this stuff in one place)
-    (ps/begin-execution-tracking exec-id)))
+                                     :failed-exec-wfs #{}})))
+
+(defn- all-execution-ids []
+  (-> @exec-infos keys))
 
 (defn- rm-exec-info!
   "Removes the execution-id and all its data from the in memory store"
@@ -103,6 +104,28 @@
   [execution-id exec-wf-id]
   (get-in @exec-infos [execution-id :running-jobs exec-wf-id]))
 
+(comment
+  ; commented out this isn't used yet anyway
+  (defn- matched-vertices-for-exec-id
+    "Returns a subset of vertex-ids which belong to exec-id"
+    [exec-id vertex-ids]
+    (if-let[tbl (get-exec-info exec-id)]
+      (clojure.set/intersection (ds/vertices tbl) vertex-ids)))
+
+  (defn- vertices-by-execution-ids
+    "Returns a map of execution-ids to set of vertex-ids"
+    [vertex-ids]
+    (loop [ex-ids (all-execution-ids) v-ids (set vertex-ids) ans {}]
+
+      (if (or (empty? v-ids) (empty? ex-ids))
+        ans
+        (let [[e-id & rest-ex-ids] ex-ids
+              matched (matched-vertices-for-exec-id e-id v-ids)]
+          (if matched
+            (recur rest-ex-ids (clojure.set/difference v-ids matched) (assoc ans e-id matched))
+            (recur rest-ex-ids v-ids ans))))))
+  )
+
 (defn- mark-exec-wf-failed!
   "Marks the exec-wf-id in exec-id as failed."
   [exec-id exec-wf-id]
@@ -118,16 +141,27 @@
 
 (def ^:private exec-wf-success? (complement exec-wf-failed?))
 
+;-----------------------------------------------------------------------
+; TODO: Pick agents by the jobs they can handle and which is least busy
+;-----------------------------------------------------------------------
 (defn- pick-agent-for-job
-  "Right now just picks an agent at random."
+  "Right now just picks an agent at random. Returns nil if no agent available for job."
   [job-id]
-  ; FIXME: this needs to return the agent based on job sets the agent can handle
-  ; and also the least busy at the moment
-  (-> @tracker track/agents vec rand-nth))
+  (let [agents (track/agents @tracker)]
+    (if (empty? agents)
+      nil
+      (rand-nth (vec agents)))))
 
-(defn- send-job-to-agent [{:keys[node-id execution-id exec-vertex-id timeout exec-wf-id]}]
-  (let [agent-id (pick-agent-for-job node-id) ; nb node-id is the job id from the job table
-        job (j/get-job node-id)               ; FIXME: get from cache in the future
+
+
+
+;-----------------------------------------------------------------------
+; Sends the :run-job request to the agent. If no agent is available to
+; handle the job forces failure of this exec-vertex-id so processing
+; can move to the next dependency if any..
+;-----------------------------------------------------------------------
+(defn- send-job-to-agent [{:keys[node-id execution-id exec-vertex-id timeout exec-wf-id]} agent-id]
+  (let [job (j/get-job node-id)               ; TODO: get from cache in the future
         data {:msg :run-job
               :job job
               :execution-id execution-id
@@ -136,19 +170,18 @@
               :timeout timeout}]
 
     (log/info "Sending job: " job "to agent" agent-id " for execution-id:" execution-id ", vertex-id:" exec-vertex-id)
-
     (swap! tracker #(track/run-job %1 agent-id exec-vertex-id (util/now)))
     (msg/publish @pub-sock agent-id data)))
 
 
 (defn- run-jobs
   "Fires off each exec vertex id in vertices.  exec-id is required to figure out
-   the exec-vertex-id which serves as the unique id for writing log files
-   to.  exec-vertex-id is used by the execution.clj ns."
+   the exec-vertex-id which serves as the unique id for writing log files to."
   [vertices exec-wf-id exec-id]
   (let [info (get-exec-info exec-id)]
     (doseq [v vertices
             :let [{:keys[node-id node-nm]} (ds/vertex-attrs info v)
+                  agent-id (pick-agent-for-job node-id)
                   data {:execution-id exec-id
                         :exec-wf-id exec-wf-id
                         :node-id node-id
@@ -157,8 +190,14 @@
                         :timeout Integer/MAX_VALUE
                         :start-ts (db/now)
                         :exec-vertex-id v}]]
-      ; publish msg so an agent will handle job execution
-      (send-job-to-agent data))))
+      (if agent-id
+        (send-job-to-agent data agent-id)
+        (when-job-finished {:forced-by-conductor? true
+                            :success? false
+                            :execution-id exec-id
+                            :exec-vertex-id v
+                            :exec-wf-id exec-wf-id})))))
+
 
 
 ;-----------------------------------------------------------------------
@@ -228,8 +267,9 @@
 
      (db/workflow-started exec-wf-id ts)
 
+     ; agent-id is nil because no agents are used to start a workflow vertex
      (if exec-vertex-id
-       (db/execution-vertex-started exec-vertex-id ts))
+       (db/execution-vertex-started exec-vertex-id nil ts))
 
      (put! @info-chan {:event :wf-started
                        :exec-vertex-id exec-vertex-id
@@ -357,7 +397,6 @@
     ;                  :success? success?})
 
     (db/execution-finished exec-id success? ts)
-    (ps/end-execution-tracking exec-id)
     (put! @info-chan {:event :execution-finished
                       :execution-id exec-id
                       :success? success?
@@ -417,7 +456,7 @@
 (defn- when-job-started
   "Logs the status to the db.  Increments the running job count for the execution id."
   [{:keys[execution-id exec-wf-id exec-vertex-id agent-id] :as data}]
-  (db/execution-vertex-started exec-vertex-id (db/now))
+  (db/execution-vertex-started exec-vertex-id agent-id (db/now))
 
   ; FIXME: 2 atoms being updated individually
   (update-running-jobs-count! execution-id exec-wf-id inc)
@@ -435,22 +474,25 @@
    Determines if the workflow is finished and/or errored.
    Sends job-finished-ack to agent.
    Publishes status on info-chan for distribution."
-  [{:keys[execution-id exec-vertex-id agent-id status exec-wf-id success?] :as msg}]
+  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id success? forced-by-conductor?] :as msg}]
   (log/debug "job-finished: " msg)
 
   ; update status in db
   (db/execution-vertex-finished exec-vertex-id (if success? db/finished-success db/finished-error) (db/now))
 
-  (let [new-count (update-running-jobs-count! execution-id exec-wf-id dec)
+  ; update status memory and ack the agent so it can clear it's memory
+  ; agent-id can be null if the conductor is calling this method directly eg when no agent is available
+  (when (not forced-by-conductor?)
+    (swap! tracker #(track/rm-job %1 agent-id exec-vertex-id))
+    (msg/publish @pub-sock agent-id {:msg :job-finished-ack :execution-id execution-id :exec-vertex-id exec-vertex-id}))
+
+  (let [new-count (if forced-by-conductor?
+                    (running-jobs-count execution-id exec-wf-id)
+                    (update-running-jobs-count! execution-id exec-wf-id dec))
         next-nodes (successor-nodes execution-id exec-vertex-id success?)
         exec-wf-fail? (and (not success?) (empty? next-nodes))
-        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))
-        {:keys[parent-vertex]} (-> (get-exec-info execution-id)
-                                   (ds/vertex-attrs exec-vertex-id))]
+        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
 
-    ; update status memory and ack the agent so it can clear it's memory
-    (swap! tracker #(track/rm-job %1 agent-id exec-vertex-id))
-    (msg/publish @pub-sock agent-id {:msg :job-finished-ack :execution-id execution-id :exec-vertex-id exec-vertex-id})
 
     (if exec-wf-fail?
       (mark-exec-wf-failed! execution-id exec-wf-id))
@@ -470,11 +512,11 @@
 ;-----------------------------------------------------------------------
 ; Read jobs from database and creates them in quartz.
 ;-----------------------------------------------------------------------
-(defn- populate-quartz-jobs []
-  (let [jj (j/ls-jobs)]
-    (log/info "Setting up " (count jj) " jobs in Quartz.")
-    (doseq [j jj]
-      (q/save-job! j))))
+;(defn- populate-quartz-jobs []
+;  (let [jj (j/ls-jobs)]
+;    (log/info "Setting up " (count jj) " jobs in Quartz.")
+;    (doseq [j jj]
+;      (q/save-job! j))))
 
 ;-----------------------------------------------------------------------
 ; Read schedules from database and associates them to jobs in quartz.
@@ -485,32 +527,60 @@
     (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression)))
 
 (defn- populate-quartz []
-  (populate-quartz-jobs)
+  ;(populate-quartz-jobs)
   (populate-quartz-triggers))
 
 
-(defn- zero-agents? []
+(defn- zero-agents?
+  "Answers true if there are no agents we know of."
+  []
   (-> @tracker track/agents count zero?))
 
-
+;-----------------------------------------------------------------------
+; Dispatch for messages received from the sub socket.
+;-----------------------------------------------------------------------
 (defmulti dispatch :msg)
 
-
+;-----------------------------------------------------------------------
+; Add the agent and acknowledge.
+;-----------------------------------------------------------------------
 (defmethod dispatch :agent-registering [{:keys[agent-id]}]
   (log/info "Agent registering: " agent-id)
-  (swap! tracker #(track/add-agent %1 agent-id (util/now))))
+  (swap! tracker #(track/add-agent %1 agent-id (util/now)))
+  (msg/publish @pub-sock agent-id {:msg :agent-registered}))
 
+;-----------------------------------------------------------------------
+; If we know about the agent then, update the last heartbeat.
+; Otherwise ask the agent to register. Agent could have registered,
+; switch fails, heartbeats missed, conductor marks it as dead, remvoes
+; from tracker, switch fixed, agent responds to heartbeat.
+;
+; REVIEW: This doesn't look right, @tracker, then swap!, what if agent
+;         gets removed in between those times, then the swap! blows up?
+;-----------------------------------------------------------------------
 (defmethod dispatch :heartbeat-ack [{:keys[agent-id]}]
-  (swap! tracker #(track/agent-heartbeat-rcvd %1 agent-id (util/now))))
+  (if (track/agent-exists? @tracker agent-id)
+    (swap! tracker #(track/agent-heartbeat-rcvd %1 agent-id (util/now)))
+    (msg/publish @pub-sock agent-id {:msg :agents-register})))
 
+;-----------------------------------------------------------------------
+; Agent received the :run-job request, do what's required when a job
+; is started.
+;-----------------------------------------------------------------------
 (defmethod dispatch :run-job-ack [data]
   (log/info "Run job ack:" data)
   (when-job-started data))
 
+;-----------------------------------------------------------------------
+; Agent says the job is finished.
+;-----------------------------------------------------------------------
 (defmethod dispatch :job-finished [data]
   (when-job-finished data))
 
 
+;-----------------------------------------------------------------------
+; Infinite agent request processing loop.
+;-----------------------------------------------------------------------
 (defn- run-agent-request-processing [sock]
   (loop [data (msg/read-pub-data sock)]
     (try
@@ -519,19 +589,10 @@
          (log/error ex)))
     (recur (msg/read-pub-data sock))))
 
-(defn- broadcast-agent-registration [sock t]
-  (while true
-    (msg/publish sock "broadcast" {:msg :agents-register})
-    (Thread/sleep t)))
 
-(defn- broadcast-agent-registration-orig [sock]
-  (msg/publish sock "broadcast" {:msg :agents-register}))
-
-(defn- send-noops [sock n]
-  (dotimes [i n]
-    (msg/publish sock "broadcast" {:msg :noop :id i})))
-
-
+;-----------------------------------------------------------------------
+; Infinitely runs heartbeats.
+;-----------------------------------------------------------------------
 (defn- run-heartbeats [sock t]
   (let [hb-id (atom 1)]
     (while true
@@ -539,6 +600,66 @@
       ;(msg/publish sock "broadcast" {:msg :heartbeat :hb-id @hb-id})
       ;(swap! hb-id inc)
       (Thread/sleep t))))
+
+
+;-----------------------------------------------------------------------
+; TODO: publish on info-chan to the UI
+;-----------------------------------------------------------------------
+(defn- inform-of-dead-agents
+  "Sends an email about the agent disconnect."
+  [agent-ids vertex-ids]
+  (let [to (conf/error-email-to)
+        subject "[JSK AGENT DISCONNECT]"
+        body (str "Agents: " (string/join ", " agent-ids)
+                  "\n\n Execution job-ids:" (string/join ", " vertex-ids))]
+    (n/mail to subject body)))
+
+;-----------------------------------------------------------------------
+; Find dead agents, and mark their jobs as unknown status.
+;-----------------------------------------------------------------------
+(defn- run-dead-agent-check
+  "Checks for dead agents based on last heartbeat received.
+   Marks those agents who last sent heartbeats before now - interval-ts as dead.
+   Removes dead agents so they can't be used for running jobs.
+   Marks affected execution-vertices as in unknown state, but does not remove
+   from exec-infos, in hope that when agent connects again it will update us.
+   If agent doesn't know anything, timeout will have to kick in and fail the job.
+   Email users about agent disconnect and affected exec-vertex ids"
+  [interval-ms]
+  (while true
+    (let [ts-threshold (- (util/now) interval-ms)
+          agent-job-map (track/dead-agents-job-map @tracker ts-threshold)
+          dead-agents (keys agent-job-map)
+          vertex-ids (reduce into #{} (vals agent-job-map))]
+
+      (log/info "Dead agent check, dead agents:" dead-agents ", affected vertex-ids:" vertex-ids)
+
+      (when (-> vertex-ids empty? not)
+        ; mark status as unknown in db
+        (db/update-execution-vertices-status vertex-ids db/unknown-status (db/now))
+
+        ; remove from tracker
+        (swap! tracker track/rm-agents dead-agents)
+
+        (inform-of-dead-agents dead-agents vertex-ids))
+
+      (Thread/sleep interval-ms))))
+
+
+;-----------------------------------------------------------------------
+; REVIEW: Should this be done with a watch?
+;         Had to broadcast repeatedly because it seemed the first message
+;         never made it to the agent.
+;-----------------------------------------------------------------------
+(defn- ensure-one-agent-connected
+  "Ensures at least one agent is connected before exiting this method.
+   Broadcasts a registration request every second so that any running agents can register.
+  sock is a publish socket."
+  [sock]
+  (while (zero-agents?)
+    (log/info "No agents connected. Broadcasting registration and waiting..")
+    (msg/publish sock "broadcast" {:msg :agents-register})
+    (Thread/sleep 1000)))
 
 
 (defn init [pub-port sub-port]
@@ -558,16 +679,10 @@
     ; start heartbeats -- for some reason if heartbeats are started first
     ; then everything else works ok
     ; switching the order
-    (future (run-heartbeats @pub-sock 1000))
-    (future (run-agent-request-processing @sub-sock))
+    (util/start-thread "heartbeats" #(run-heartbeats p-sock (conf/heartbeats-interval-ms)))
+    (util/start-thread "agent-request-processor" #(run-agent-request-processing s-sock))
 
-    ;FIXME: make sure at least 1 agent is connected
-    ; Do this with a watch or something? this seems lame
-    (while (zero-agents?)
-      (log/info "No agents connected. Waiting..")
-      (broadcast-agent-registration-orig @pub-sock)
-      (Thread/sleep 1000))
-
+    (ensure-one-agent-connected p-sock)
 
     (q/init quartz-chan)
     (log/info "Quartz initialized.")
@@ -577,6 +692,8 @@
 
     (q/start)
     (log/info "Quartz started.")
+
+    (util/start-thread "dead-agent-checker" #(run-dead-agent-check (conf/heartbeats-dead-after-ms)))
 
     ; quartz puts stuff on the quartz-chan when a trigger is fired
     (go-loop [{:keys[event node-id]} (<! quartz-chan)]

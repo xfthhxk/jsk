@@ -33,12 +33,23 @@
 
 (defmulti dispatch (fn [m _ _] (:msg m)))
 
-(defmethod dispatch :noop [_ _ _]
-  (log/debug "encountered noop"))
-
 ; sent from conductor to have agents register themselves
 (defmethod dispatch :agents-register [m agent-id sock]
   (register-with-conductor sock agent-id))
+
+; sent from conductor, let conductor know of any finished
+; jobs we haven't gotten acks for
+(defmethod dispatch :agent-registered [m agent-id sock]
+  (log/info "Agent is now registered.")
+
+  (let [msgs (vals @finished-jobs)]
+    (log/info "Finished jobs for which acks not received: " (count msgs))
+
+    (when (-> msgs empty? not)
+      (log/info "Unackd finished jobs: " msgs)
+      (doseq [msg msgs]
+        (msg/publish sock pub-topic msg)))))
+
 
 ; sent from conductor to have agents check in ie a heartbeat
 (defmethod dispatch :heartbeat [m agent-id sock]
@@ -62,10 +73,10 @@
      (try
        (let [exit-code (ps/exec1 execution-id exec-vertex-id timeout command-line execution-directory log-file-name)
              success? (zero? exit-code)]
-         (msg/publish sock pub-topic (assoc base-resp :success? success?)))
+         (when-job-finished (assoc base-resp :success? success?) agent-id sock))
        (catch Exception ex
          (log/error ex)
-         (msg/publish sock pub-topic (assoc base-resp :success? false)))))))
+         (when-job-finished (assoc base-resp :success? false) agent-id sock))))))
 
 
 (defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id]} agent-id sock]

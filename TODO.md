@@ -46,6 +46,8 @@ Top Priority
 * Looping
 * View logs in UI
 * File/Directory monitor jobs
+* Search for jobs/wfs by schedule
+* We're snapshotting the dependencies but not the actual job definition.
 
 
 ## Bugs

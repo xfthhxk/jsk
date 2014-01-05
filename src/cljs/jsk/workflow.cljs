@@ -124,10 +124,11 @@
   "Translates id to a glyphicon"
   [id]
   (case id
-    1 ""                          ; unexecuted-status
-    2 "glyphicon-flash"           ; started-status
-    3 "glyphicon-ok"       ; finished-success
-    4 "glyphicon-exclamation-sign"))  ; finished-error
+    1 ""                            ; unexecuted-status
+    2 "glyphicon-flash"             ; started-status
+    3 "glyphicon-ok"                ; finished-success
+    4 "glyphicon-exclamation-sign"  ; finished-error
+    6 "glyphicon-question-sign"))   ; unknown-status
 
 ;----------------------------------------------------------------------
 ; Lists all workflows.

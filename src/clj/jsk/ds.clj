@@ -144,7 +144,7 @@
             vertices))
 
   (vertices [tbl]
-    (keys (get-in tbl [:vertices])))
+    (set (keys (get-in tbl [:vertices]))))
 
   (workflow-vertices [tbl]
     (filter (fn[v]

@@ -5,12 +5,14 @@
 (def started-status 2)
 (def success-status 3)
 (def error-status 4)
+(def unknown-status 6)
 
 (def status-id-desc-map {1 "Not Started"
                          2 "Started"
                          3 "Successful"
                          4 "Errored"
-                         5 "Aborted"})
+                         5 "Aborted"
+                         6 "Unknown"})
 
 (defn status-id->desc
   "Translates id to string description"

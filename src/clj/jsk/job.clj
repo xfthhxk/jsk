@@ -2,7 +2,6 @@
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [clojure.stacktrace :as st]
-            [jsk.quartz :as q]
             [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as db]
@@ -59,10 +58,9 @@
       first))
 
 (defn- save-job*
-  "Saves the job to the database and the scheduler."
+  "Saves the job to the database."
   [j user-id]
   (let [job-id (db/save-job j user-id)]
-    (q/save-job! (assoc j :job-id job-id))
     {:success? true :job-id job-id}))
 
 ;-----------------------------------------------------------------------

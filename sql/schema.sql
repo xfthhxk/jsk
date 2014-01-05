@@ -165,7 +165,10 @@ insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_sys
 insert into workflow(workflow_id) values (1);
 
 
-/* ---------------------------- Execution Status ----------------------------------- */
+/* ---------------------------- Execution Status -----------------------------------
+     The unknown status occurs when networks/agents go down and we can't communicate
+     with the agent that was responsible for the job.
+   -------------------------------------------------------------------------------------- */
 create table execution_status (  execution_status_id int         auto_increment primary key
                                , status_code         varchar(20)
                                , status_desc         varchar(50));
@@ -177,7 +180,8 @@ insert into execution_status (execution_status_id, status_code, status_desc)
                            , (2, 'started', 'Started')
                            , (3, 'finished-success', 'Finished successfully')
                            , (4, 'finished-errored', 'Finished with errors')
-                           , (5, 'aborted', 'Aborted');
+                           , (5, 'aborted', 'Aborted')
+                           , (6, 'unknown', 'Unknown');
 
 
 /* ---------------------------- Execution ----------------------------------- */
@@ -216,6 +220,7 @@ create table execution_vertex ( execution_vertex_id        int       auto_increm
                               , status_id                  int       not null
                               , start_ts                   timestamp
                               , finish_ts                  timestamp
+                              , agent                      varchar(255)
                               , layout                     varchar(255));
 
 alter table execution_vertex add constraint fk_execution_vertex_execution_workflow_id
@@ -228,6 +233,7 @@ alter table execution_vertex add constraint fk_execution_vertex_execution_id for
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);
 alter table execution_vertex add constraint unq_execution_vertex unique(execution_workflow_id, node_id);
+create index idx_execution_vertex_agent on execution_vertex (agent);
 
 
 create table execution_edge ( execution_edge_id int     auto_increment primary key

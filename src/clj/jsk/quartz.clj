@@ -58,8 +58,8 @@
     false))
 
 
-(defn register-job-execution-recorder! [job-execution-recorder]
-  (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener job-execution-recorder (EverythingMatcher/allJobs))))
+;(defn register-job-execution-recorder! [job-execution-recorder]
+;  (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener job-execution-recorder (EverythingMatcher/allJobs))))
 
 (def quartz-channel (atom nil))
 
@@ -74,27 +74,27 @@
   (qs/shutdown))
 
 
-(defn ignore-execution?
-  "Answers if the execution should be ignored. Quartz triggers are used
-   to put msgs on the quartz-channel.  Quartz triggered jobs will
-   have this property set to true. Not a 'real' job being executed."
-  [^JobExecutionContext ctx]
-  (let [{:strs [ignore-execution?]} (qc/from-job-data ctx)]
-    (if ignore-execution?
-      true
-      false)))
+;(defn ignore-execution?
+;  "Answers if the execution should be ignored. Quartz triggers are used
+;   to put msgs on the quartz-channel.  Quartz triggered jobs will
+;   have this property set to true. Not a 'real' job being executed."
+;  [^JobExecutionContext ctx]
+;  (let [{:strs [ignore-execution?]} (qc/from-job-data ctx)]
+;    (if ignore-execution?
+;      true
+;      false)))
 
 
 ;-----------------------------------------------------------------------
 ; Didn't know about NativeJob. Maybe use that instead.
 ;-----------------------------------------------------------------------
-(j/defjob ShellJob
-  [ctx]
-  (let [{:strs [cmd-line exec-dir exec-vertex-id execution-id timeout]} (qc/from-job-data ctx)
-        log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")]
-
-    (log/info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
-    (ps/exec1 execution-id exec-vertex-id timeout cmd-line exec-dir log-file-name)))
+;(j/defjob ShellJob
+;  [ctx]
+;  (let [{:strs [cmd-line exec-dir exec-vertex-id execution-id timeout]} (qc/from-job-data ctx)
+;        log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")]
+;
+;    (log/info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
+;    (ps/exec1 execution-id exec-vertex-id timeout cmd-line exec-dir log-file-name)))
 
 
 
@@ -117,16 +117,19 @@
 ;
 ; Returns a job instance
 ;-----------------------------------------------------------------------
-(defn- make-shell-job
-  [job-id cmd-line exec-dir]
-    (let [job-map {"cmd-line" cmd-line "exec-dir" exec-dir} ; have to use string keys for quartz
-          job-key (make-job-key job-id)]
+; -- may not be necessary anymore since agent handles the execution and we look up the
+; -- actual job from the database when it comes time to execute the job
 
-      ; NB. j/build is a macro which creates and passes a job builder in using ->
-      (j/build (j/of-type ShellJob)
-               (j/using-job-data job-map)
-               (j/with-identity job-key)
-               (j/store-durably))))
+;(defn- make-shell-job
+;  [job-id cmd-line exec-dir]
+;    (let [job-map {"cmd-line" cmd-line "exec-dir" exec-dir} ; have to use string keys for quartz
+;          job-key (make-job-key job-id)]
+;
+;      ; NB. j/build is a macro which creates and passes a job builder in using ->
+;      (j/build (j/of-type ShellJob)
+;               (j/using-job-data job-map)
+;               (j/with-identity job-key)
+;               (j/store-durably))))
 
 ; NB node-id has to be unique across jobs *and* workflows
 (defn- make-triggerable-job [node-id node-type]
@@ -141,8 +144,8 @@
 ;-----------------------------------------------------------------------
 ; Adds or replaces a job within the scheduler.
 ;-----------------------------------------------------------------------
-(defn save-job! [{:keys [command-line job-id execution-directory]}]
-  (add-job (make-shell-job job-id command-line execution-directory)))
+;(defn save-job! [{:keys [command-line job-id execution-directory]}]
+;  (add-job (make-shell-job job-id command-line execution-directory)))
 
 
 ;-----------------------------------------------------------------------

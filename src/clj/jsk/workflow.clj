@@ -4,7 +4,6 @@
             [clojure.stacktrace :as st]
             [jsk.graph :as g]
             [jsk.ds :as ds]
-            [jsk.quartz :as q]
             [jsk.schedule :as s]
             [jsk.util :as ju]
             [jsk.db :as db]
