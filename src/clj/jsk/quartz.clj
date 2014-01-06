@@ -105,10 +105,9 @@
 ;-----------------------------------------------------------------------
 (j/defjob JskTriggerJob
   [ctx]
-  (let [{:strs [node-id node-type]} (qc/from-job-data ctx)
-        event (if (ju/workflow-type? node-type) :trigger-wf :trigger-job)]
-    (log/info "Triggering job with id " node-id)
-    (put! @quartz-channel {:event event :node-id node-id})))
+  (let [{:strs [node-id]} (qc/from-job-data ctx)]
+    (log/info "Quartz triggering job with id " node-id)
+    (put! @quartz-channel {:event :trigger-node :node-id node-id})))
 
 
 ;-----------------------------------------------------------------------
@@ -132,9 +131,9 @@
 ;               (j/store-durably))))
 
 ; NB node-id has to be unique across jobs *and* workflows
-(defn- make-triggerable-job [node-id node-type]
+(defn- make-triggerable-job [node-id]
   (j/build (j/of-type JskTriggerJob)
-           (j/using-job-data {"node-id" node-id "node-type" node-type "ignore-execution?" true}) ; string keys for quartz
+           (j/using-job-data {"node-id" node-id}) ; string keys for quartz
            (j/with-identity (make-trigger-job-key node-id))
            (j/store-durably)))
 
@@ -155,7 +154,7 @@
 ;-----------------------------------------------------------------------
 (defn- make-cron-trigger
   "Makes a cron trigger instance based on the schedule specified."
-  [trigger-id cron-expr node-id node-type]
+  [trigger-id cron-expr node-id]
 
   (log/info "make-cron-trigger id " trigger-id ", cron: " cron-expr ", node-id:" node-id)
 
@@ -163,7 +162,7 @@
         trigger-key (make-trigger-key trigger-id)
         job-key (make-trigger-job-key node-id)]
 
-    (add-job (make-triggerable-job node-id node-type))
+    (add-job (make-triggerable-job node-id))
 
     (t/build
      (t/with-identity trigger-key)
@@ -171,9 +170,9 @@
      (t/start-now)
      (t/with-schedule cron-sched))))
 
-(defn schedule-cron-job! [trigger-id node-id node-type cron-expr]
-  (log/info "Scheduling: trigger:" trigger-id ", node-id:" node-id ", node-type:" node-type ", cron:" cron-expr)
-  (schedule-trigger (make-cron-trigger trigger-id cron-expr node-id node-type)))
+(defn schedule-cron-job! [trigger-id node-id cron-expr]
+  (log/info "Scheduling: trigger:" trigger-id ", node-id:" node-id ", cron:" cron-expr)
+  (schedule-trigger (make-cron-trigger trigger-id cron-expr node-id)))
 
 ;-----------------------------------------------------------------------
 ; Deletes triggers specified by the trigger-ids.
@@ -186,8 +185,8 @@
 ;-----------------------------------------------------------------------
 ; Update triggers.
 ;-----------------------------------------------------------------------
-(defn update-trigger! [node-schedule-id node-id node-type cron-expression]
-  (reschedule-job (make-cron-trigger node-schedule-id cron-expression node-id node-type)))
+(defn update-trigger! [node-schedule-id node-id cron-expression]
+  (reschedule-job (make-cron-trigger node-schedule-id cron-expression node-id)))
 
 
 

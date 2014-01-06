@@ -1,7 +1,7 @@
 (ns jsk.conductor
   "Coordination of workflows."
   (:require
-            [jsk.quartz :as q]
+            [jsk.quartz :as quartz]
             [jsk.workflow :as w]
             [jsk.messaging :as msg]
             [jsk.notification :as notify]
@@ -13,6 +13,7 @@
             [jsk.job :as j]
             [jsk.ps :as ps]
             [jsk.tracker :as track]
+            [jsk.cache :as cache]
             [clojure.string :as string]
             [clojure.core.async :refer [chan go-loop put! <!]]
             [taoensso.timbre :as log]))
@@ -35,39 +36,13 @@
 (def ^:private publish-chan (chan))
 
 (def ^:private tracker (atom (track/new-tracker)))
+(def ^:private node-sched-cache (atom nil))
 
 (defn- publish [topic data]
   (put! publish-chan {:topic topic :data data}))
 
 (defn- publish-event [data]
   (publish "status-update" data))
-
-
-;-----------------------------------------------------------------------
-; Quartz related items
-;-----------------------------------------------------------------------
-(defn- update-schedule-quartz!
-  "When the schedule is updated find all the jobs/wfs tied to them and update the quartz trigger."
-  [schedule-id]
-  (doseq [{:keys[node-schedule-id node-id node-type-id cron-expression]} (db/nodes-for-schedule schedule-id)]
-    (q/update-trigger! node-schedule-id node-id node-type-id cron-expression)))
-
-
-(defn- assoc-schedules!
-  "Removes any node schedule id associations from quartz and recreates them."
-  [node-id]
-  (log/info "Creating triggers for node " node-id)
-
-  (let [node-schedule-ids (db/node-schedules-for-node node-id)
-        {:keys[node-type-id]} (db/get-node-by-id node-id)
-        ss-infos (db/get-node-schedule-info node-id)]
-
-    (q/rm-triggers! node-schedule-ids)
-
-    (doseq [{:keys[node-schedule-id cron-expression]} ss-infos]
-      (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression))))
-
-
 
 ;-----------------------------------------------------------------------
 ; Execution Info interactions
@@ -535,28 +510,7 @@
 
 
 (defn destroy []
-  (q/stop))
-
-;-----------------------------------------------------------------------
-; Read jobs from database and creates them in quartz.
-;-----------------------------------------------------------------------
-;(defn- populate-quartz-jobs []
-;  (let [jj (j/ls-jobs)]
-;    (log/info "Setting up " (count jj) " jobs in Quartz.")
-;    (doseq [j jj]
-;      (q/save-job! j))))
-
-;-----------------------------------------------------------------------
-; Read schedules from database and associates them to jobs in quartz.
-;-----------------------------------------------------------------------
-(defn- populate-quartz-triggers []
-  (doseq [{:keys[cron-expression node-id node-schedule-id node-type-id]}
-          (db/enabled-nodes-schedule-info)]
-    (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression)))
-
-(defn- populate-quartz []
-  ;(populate-quartz-jobs)
-  (populate-quartz-triggers))
+  (quartz/stop))
 
 
 (defn- zero-agents?
@@ -605,14 +559,39 @@
 (defmethod dispatch :job-finished [data]
   (when-job-finished data))
 
-(defmethod dispatch :node-save [data]
-  (log/error "Implement node save: " data))
+; TODO: send an ack
+(defmethod dispatch :node-save [{:keys[node-id]}]
+  (let [n (db/get-node-by-id node-id)]
+    (swap! node-sched-cache cache/put-node n)))
 
-(defmethod dispatch :schedule-save [data]
-  (log/error "Implement schedule save: " data))
+; TODO: send an ack,
+; Cron expr could have changed, so update the triggers.
+; Though you can check to see if they're different before you do.
+(defmethod dispatch :schedule-save [{:keys[schedule-id]}]
+  (let [{:keys[cron-expression] :as s} (db/get-schedule schedule-id)
+        c (swap! node-sched-cache cache/put-schedule s)
+        aa (cache/schedule-assocs-for-schedule c schedule-id)]
+    (doseq [{:keys[node-schedule-id node-id]} aa]
+      (quartz/update-trigger! node-schedule-id node-id cron-expression))))
 
-(defmethod dispatch :schedule-assoc [data]
-  (log/error "Implement schedule assoc: " data))
+; TODO: send an ack
+; Remove existing assoc from the cache
+; add the new ones
+; schedule new ones w/ quartz
+(defmethod dispatch :schedule-assoc [{:keys[node-id]}]
+  (let [orig-assoc-ids (cache/schedule-assocs-for-node @node-sched-cache node-id)
+        new-assocs (db/node-schedules-for-node node-id)
+        assoc-upd-fn (fn[c]
+                       (-> c
+                           (cache/rm-assocs orig-assoc-ids)
+                           (cache/put-assocs new-assocs)))
+        c (swap! node-sched-cache assoc-upd-fn)]
+
+    (doseq [{:keys[node-schedule-id schedule-id]} new-assocs
+            :let [{:keys[cron-expression]} (cache/schedule c schedule-id)]]
+      (quartz/update-trigger! node-schedule-id node-id cron-expression))))
+
+
 
 (defmethod dispatch :ping [{:keys[reply-to] :as data}]
   (publish reply-to {:msg :pong}))
@@ -696,15 +675,16 @@
   [ch]
   (go-loop [{:keys[event node-id]} (<! ch)]
      (try
-       (case event
-         :trigger-wf (start-workflow-execution node-id)
-         :trigger-job (run-job-as-synthetic-wf node-id))
+       (let [{:keys[node-type-id]} (cache/node @node-sched-cache node-id)]
+         (if (util/workflow-type? node-type-id)
+           (start-workflow-execution node-id)
+           (run-job-as-synthetic-wf node-id)))
        (catch Exception ex
          (log/error ex)))
      (recur (<! ch))))
 
 
-(defn run-heartbeats
+(defn- run-heartbeats
   "Starts a new thread to put heartbeat messages on to ch everty t millisecs."
   [ch t]
   (util/start-thread "heartbeats"
@@ -713,6 +693,25 @@
                          (put! ch {:topic "broadcast" :data {:msg :heartbeat}})
                          (Thread/sleep t)))))
 
+
+(defn- populate-cache
+  "Loads all nodes, schedules and associations from the db.
+   Doesn't load job data ie command-line, execution-directory etc.
+   Probably should?"
+  []
+  (let [c (-> (cache/new-cache)
+              (cache/put-nodes (db/ls-nodes))
+              (cache/put-schedules (db/ls-schedules))
+              (cache/put-assocs (db/ls-node-schedules)))]
+    (reset! node-sched-cache c)))
+
+;-----------------------------------------------------------------------
+; Read node-schedules assocs and populate quartz.
+;-----------------------------------------------------------------------
+(defn- populate-quartz-triggers []
+  (doseq [{:keys[node-schedule-id schedule-id node-id]} (cache/schedule-assocs @node-sched-cache)
+         :let [{:keys[cron-expression]} (cache/schedule @node-sched-cache schedule-id)]]
+    (quartz/schedule-cron-job! node-schedule-id node-id cron-expression)))
 
 (defn init [pub-port sub-port]
   (log/info "Connecting to database.")
@@ -730,25 +729,25 @@
   (run-request-processing sub-port)
   (util/start-thread "dead-agent-checker" #(run-dead-agent-check (conf/heartbeats-dead-after-ms)))
 
+  (log/info "Populating cache.")
+  (populate-cache)
+
   (ensure-one-agent-connected)
 
+
   (log/info "Initializing Quartz.")
-  (q/init quartz-chan)
+  (quartz/init quartz-chan)
   ; quartz puts stuff on the quartz-chan when a trigger is fired
   (run-quartz-processing quartz-chan)
 
 
   (log/info "Populating Quartz.")
-  (populate-quartz)
+  (populate-quartz-triggers)
 
 
   (log/info "Starting Quartz.")
-  (q/start)
+  (quartz/start)
   (log/info "Conductor started successfully."))
-
-
-
-
 
 
 

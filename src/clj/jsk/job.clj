@@ -74,9 +74,3 @@
     (let [job-id (db/save-job j user-id)]
       (put! @out-chan {:topic "" :data {:msg :save-node :node-id job-id}})
       {:success? true :job-id job-id})))
-
-;-----------------------------------------------------------------------
-; Schedule ids associated with the specified job id.
-;-----------------------------------------------------------------------
-(defn schedules-for-job [job-id]
-  (db/schedules-for-node job-id))

@@ -157,7 +157,7 @@
        (-> id u/str->int db/get-node-by-id edn-response))
 
   (GET "/nodes/schedules/:id" [id]
-       (-> id u/str->int db/schedules-for-node edn-response)))
+       (-> id u/str->int db/schedule-ids-for-node edn-response)))
 
 
 

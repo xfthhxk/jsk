@@ -90,7 +90,7 @@
     (assoc-schedules! node-id schedule-ids user-id))
 
   ([node-id schedule-ids user-id]
-     (let [node-schedule-ids (db/node-schedules-for-node node-id)]
+     (let [node-schedule-ids (db/node-schedule-ids-for-node node-id)]
        (log/info "user-id " user-id " requests job-id " node-id " be associated with schedules " schedule-ids)
 
        (k/transaction

@@ -226,6 +226,9 @@
   [nm]
   (first (select schedule (where {:schedule-name nm}))))
 
+(defn ls-node-schedules []
+  (select node-schedule))
+
 (defn nodes-for-schedule
   "Lookup nodes tied to a schedule"
   [schedule-id]
@@ -339,15 +342,24 @@
 ; Schedule ids associated with the specified node id.
 ;-----------------------------------------------------------------------
 (defn schedules-for-node [node-id]
-  (->> (select node-schedule (where {:node-id node-id}))
+  (select node-schedule (where {:node-id node-id})))
+
+(defn schedule-ids-for-node [node-id]
+  (->> node-id
+       schedules-for-node
        (map :schedule-id)
        set))
 
 ;-----------------------------------------------------------------------
 ; Job schedule ids associated with the specified node id.
 ;-----------------------------------------------------------------------
+
 (defn node-schedules-for-node [node-id]
-  (->> (select node-schedule (where {:node-id node-id}))
+  (select node-schedule (where {:node-id node-id})))
+
+(defn node-schedule-ids-for-node [node-id]
+  (->> node-id
+       node-schedules-for-node
        (map :node-schedule-id)
        set))
 
@@ -392,7 +404,7 @@
         (insert node-schedule (values insert-maps))))))
 
 ;-----------------------------------------------------------------------
-; Gets all enabled jobs with schedules.
+; Gets all enabled nodes with schedules.
 ;-----------------------------------------------------------------------
 (defn enabled-nodes-schedule-info []
   (exec-raw ["select

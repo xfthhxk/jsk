@@ -15,65 +15,105 @@
                           :node-id node-id
                           :schedule-id schedule-id})
 
+(def test-nodes #{test-node {:node-id 91 :node-nm "SomeOtherNode"}})
+(def test-schedules #{test-schedule {:schedule-id 231 :node-nm "SomeOtherSchedule"}})
+
+(def test-schedule-assocs #{test-schedule-assoc
+                            {:node-schedule-id 829
+                             :node-id 91
+                             :schedule-id 99}})
+
 ;-----------------------------------------------------------------------
 ; Nodes
 ;-----------------------------------------------------------------------
-(fact "Put node."
-  (-> (cache/new-cache)
-      (cache/put-node test-node)) => truthy)
+(facts "Nodes"
+  (fact "Put node."
+    (-> (cache/new-cache)
+        (cache/put-node test-node)) => truthy)
 
-(fact "Retrieve node."
-  (-> (cache/new-cache)
-      (cache/put-node test-node)
-      (cache/node node-id)) => test-node)
 
-(fact "Remove node."
-  (let [c (-> (cache/new-cache)
-              (cache/put-node test-node))
-        c' (cache/rm-node c node-id)]
+  (fact "Retrieve node."
+    (-> (cache/new-cache)
+        (cache/put-node test-node)
+        (cache/node node-id)) => test-node)
 
-    (cache/node c  node-id) => test-node
-    (cache/node c' node-id) => nil))
+  (fact "Remove node."
+    (let [c (-> (cache/new-cache)
+                (cache/put-node test-node))
+          c' (cache/rm-node c node-id)]
+
+      (cache/node c  node-id) => test-node
+      (cache/node c' node-id) => nil))
+
+  (fact "Put multiple nodes."
+    (-> (cache/new-cache)
+        (cache/put-nodes test-nodes)) => truthy)
+
+  (fact "Retrieve all nodes."
+    (let [c (-> (cache/new-cache)
+                (cache/put-nodes test-nodes))]
+      (set (cache/nodes c)) => test-nodes)))
 
 ;-----------------------------------------------------------------------
 ; Schedules
 ;-----------------------------------------------------------------------
-(fact "Put schedule."
-  (-> (cache/new-cache)
-      (cache/put-schedule test-schedule)) => truthy)
+(facts "Schedules"
+  (fact "Put schedule."
+    (-> (cache/new-cache)
+        (cache/put-schedule test-schedule)) => truthy)
 
-(fact "Retrieve schedule."
-  (-> (cache/new-cache)
-      (cache/put-schedule test-schedule)
-      (cache/schedule schedule-id)) => test-schedule)
+  (fact "Retrieve schedule."
+    (-> (cache/new-cache)
+        (cache/put-schedule test-schedule)
+        (cache/schedule schedule-id)) => test-schedule)
 
-(fact "Remove schedule."
-  (let [c (-> (cache/new-cache)
-              (cache/put-schedule test-schedule))
-        c' (cache/rm-schedule c schedule-id)]
+  (fact "Remove schedule."
+    (let [c (-> (cache/new-cache)
+                (cache/put-schedule test-schedule))
+          c' (cache/rm-schedule c schedule-id)]
 
-    (cache/schedule c  schedule-id) => test-schedule
-    (cache/schedule c' schedule-id) => nil))
+      (cache/schedule c  schedule-id) => test-schedule
+      (cache/schedule c' schedule-id) => nil))
+
+  (fact "Put multiple schedules."
+    (-> (cache/new-cache)
+        (cache/put-schedules test-schedules)) => truthy)
+
+  (fact "Retrieve all schedules."
+    (let [c (-> (cache/new-cache)
+                (cache/put-schedules test-schedules))]
+      (set (cache/schedules c)) => test-schedules)))
+
 
 ;-----------------------------------------------------------------------
 ; Associations
 ;-----------------------------------------------------------------------
-(fact "Put assoc."
-  (-> (cache/new-cache)
-      (cache/put-assoc test-schedule-assoc)) => truthy)
+(facts "Node Schedule Associations"
+  (fact "Put assoc."
+    (-> (cache/new-cache)
+        (cache/put-assoc test-schedule-assoc)) => truthy)
 
-(fact "Retrieve assoc."
-  (-> (cache/new-cache)
-      (cache/put-assoc test-schedule-assoc)
-      (cache/schedule-assoc node-schedule-id)) => test-schedule-assoc)
+  (fact "Retrieve assoc."
+    (-> (cache/new-cache)
+        (cache/put-assoc test-schedule-assoc)
+        (cache/schedule-assoc node-schedule-id)) => test-schedule-assoc)
 
-(fact "Remove assoc."
-  (let [c (-> (cache/new-cache)
-              (cache/put-assoc test-schedule-assoc))
-        c' (cache/rm-assoc c node-schedule-id)]
+  (fact "Remove assoc."
+    (let [c (-> (cache/new-cache)
+                (cache/put-assoc test-schedule-assoc))
+          c' (cache/rm-assoc c node-schedule-id)]
 
-    (cache/schedule-assoc c  node-schedule-id) => test-schedule-assoc
-    (cache/schedule-assoc c' node-schedule-id) => nil))
+      (cache/schedule-assoc c  node-schedule-id) => test-schedule-assoc
+      (cache/schedule-assoc c' node-schedule-id) => nil))
+
+  (fact "Put multiple schedule associations."
+    (-> (cache/new-cache)
+        (cache/put-assoc test-schedule-assoc)) => truthy)
+
+  (fact "Retrieve all schedules associations."
+    (let [c (-> (cache/new-cache)
+                (cache/put-assocs test-schedule-assocs))]
+      (set (cache/schedule-assocs c)) => test-schedule-assocs)))
 
 
 
