@@ -1,5 +1,5 @@
 (ns jsk.workflow
-  (:require [taoensso.timbre :as timbre :refer (debug info warn error)]
+  (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [clojure.stacktrace :as st]
             [jsk.graph :as g]
@@ -9,6 +9,13 @@
             [jsk.db :as db]
             [korma.db :as k]
             [clojure.core.async :refer [put!]]))
+
+(def ^:private out-chan (atom nil))
+
+(defn init
+  "Sets the channel to use when updates are made to workflows."
+  [ch]
+  (reset! out-chan ch))
 
 ;-----------------------------------------------------------------------
 ; Workflows lookups
@@ -94,16 +101,19 @@
     (db/rm-workflow-graph workflow-id) ; rm existing and add new
     (let [workflow-id* (db/save-workflow w user-id)]
       (save-graph (assoc w :workflow-id workflow-id*) layout)
-      {:success? true :workflow-id workflow-id})))
+      workflow-id*)))
 
 (defn save-workflow!
   "Saves the workflow to the database and the scheduler."
   [{:keys [layout workflow]} user-id]
-  (debug "layout: " layout)
-  (debug "wf: " workflow)
+
+  (log/debug "layout: " layout)
+  (log/debug "wf: " workflow)
   (if-let [errors (validate-save workflow)]
     (ju/make-error-response errors)
-    (save-workflow* workflow layout user-id)))
+    (let [wf-id (save-workflow* workflow layout user-id)]
+      (put! @out-chan {:topic "" :data {:msg :node-save :node-id wf-id}}) ; to notify conductor
+      {:success? true :workflow-id wf-id})))
 
 ;-----------------------------------------------------------------------
 ; Produce the graph and make usable for quartz.
@@ -119,7 +129,7 @@
   (let [root-wfs (parse-root-exec-wf data)
         root-wf (first root-wfs)]
 
-    (debug "root-wfs: " root-wfs)
+    (log/debug "root-wfs: " root-wfs)
 
     (assert (= 1 (count root-wfs)) (str "Only 1 wf can be the root wf. Got: " root-wfs))
 
@@ -233,7 +243,7 @@
   [exec-id initial-run?]
   (let [data (db/get-execution-graph exec-id)
         tbl (data->exec-tbl data initial-run?)]
-    (debug "tbl is " tbl)
+    (log/debug "tbl is " tbl)
     {:execution-id exec-id :info tbl}))
 
 

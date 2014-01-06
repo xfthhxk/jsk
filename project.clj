@@ -14,7 +14,6 @@
                  [com.taoensso/timbre "2.7.1"]       ; logging
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
                  [org.clojure/tools.nrepl "0.2.3"]
-                 [swiss-arrows "1.0.0"]              ; syntactic sugar
                  [bouncer "0.3.0-alpha1"]            ; validation lib
                  [com.h2database/h2 "1.3.174"]       ; embedded db
                  [korma "0.3.0-RC5"]                 ; sql dsl
@@ -22,12 +21,9 @@
                  [compojure "1.1.5"]                 ; routing library for ring
                  [com.keminglabs/jetty7-websockets-async "0.1.0"]
                  [ring "1.2.0"]
-                 ;[ring-server "0.2.8"]
                  [fogus/ring-edn "0.2.0"]
                  [javax.mail/mail "1.4.7"
                   :exclusions [javax.activation/activation]]
-                 ;[javax.mail/javax.mail-api "1.5.0"
-                 ; :exclusions [javax.activation/activation]]
                  [enfocus "2.0.2"]
                  [jayq "2.5.0"]
                  [clj-time "0.6.0"]
@@ -44,8 +40,7 @@
                  ]
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}
-             :dev {:ring {:port 8080 :nrepl {:start? true :port 8081}}
-                   :dependencies [[midje "1.6.0"]
+             :dev {:dependencies [[midje "1.6.0"]
                                   [ring-mock "0.1.5"]
                                   [ring/ring-devel "1.1.8"]]}}
   :plugins [[lein-ring "0.8.7"]

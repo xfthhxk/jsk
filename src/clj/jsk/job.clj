@@ -1,11 +1,18 @@
 (ns jsk.job
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
-            [clojure.stacktrace :as st]
-            [jsk.schedule :as s]
+            [clojure.core.async :refer [put!]]
             [jsk.util :as ju]
             [jsk.db :as db]
             [korma.db :as k]))
+
+(def ^:private out-chan (atom nil))
+
+(defn init
+  "Sets the channel to use when updates are made to jobs."
+  [ch]
+  (reset! out-chan ch))
+
 
 ;-----------------------------------------------------------------------
 ; Job lookups
@@ -57,12 +64,6 @@
          :job-name [v/required [(partial unique-name? job-id) :message "Job name must be unique."]])
       first))
 
-(defn- save-job*
-  "Saves the job to the database."
-  [j user-id]
-  (let [job-id (db/save-job j user-id)]
-    {:success? true :job-id job-id}))
-
 ;-----------------------------------------------------------------------
 ; Saves the job either inserting or updating depending on the
 ; job-id.  If it is negative insert otherwise update.
@@ -70,7 +71,9 @@
 (defn save-job! [j user-id]
   (if-let [errors (validate-save j)]
     (ju/make-error-response errors)
-    (save-job* j user-id)))
+    (let [job-id (db/save-job j user-id)]
+      (put! @out-chan {:topic "" :data {:msg :save-node :node-id job-id}})
+      {:success? true :job-id job-id})))
 
 ;-----------------------------------------------------------------------
 ; Schedule ids associated with the specified job id.

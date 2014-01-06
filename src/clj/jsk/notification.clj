@@ -1,5 +1,6 @@
 (ns jsk.notification
-  (:require [taoensso.timbre :refer (info warn error)]
+  (:require [taoensso.timbre :as log]
+            [clojure.string :as string]
             [jsk.conf :as conf])
   (:import (javax.mail Message Message$RecipientType MessagingException PasswordAuthentication Session Transport)
            (javax.mail.internet InternetAddress MimeMessage)
@@ -53,4 +54,21 @@
   (try
     (mail* to subject body)
     (catch Exception ex
-      (error ex))))
+      (log/error ex))))
+
+(defn job-error [{:keys [job-name execution-id error]}]
+  (if error
+    (let [to (conf/error-email-to)
+          subject (str "[JSK ERROR] " job-name)
+          body (str "Job execution ID: " execution-id "\n\n" error)]
+      (log/info "Sending error email for execution: " execution-id)
+      (mail to subject body))))
+
+(defn dead-agents [agent-ids vertex-ids]
+  "Sends an email about the agent disconnect."
+  [agent-ids vertex-ids]
+  (let [to (conf/error-email-to)
+        subject "[JSK AGENT DISCONNECT]"
+        body (str "Agents: " (string/join ", " agent-ids)
+                  "\n\n Execution job-ids:" (string/join ", " vertex-ids))]
+    (mail to subject body)))

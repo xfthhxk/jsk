@@ -322,10 +322,14 @@
     (insert workflow (values {:workflow-id node-id}))
     node-id))
 
-(defn- update-workflow! [{:keys [workflow-id] :as m} user-id]
+(defn- update-workflow! [{:keys [workflow-id workflow-name workflow-desc is-enabled] :as m} user-id]
+  (update-node! workflow-id workflow-name workflow-desc is-enabled user-id)
   workflow-id)
 
-(defn save-workflow [{:keys [workflow-id] :as w} user-id]
+(defn save-workflow
+  "This must be called from within a korma transaction. This doesn't set one up
+   because workflow dependcy graph also needs to be saved at the same time."
+  [{:keys [workflow-id] :as w} user-id]
   (if (id? workflow-id)
     (update-workflow! w user-id)
     (insert-workflow! w user-id)))

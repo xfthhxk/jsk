@@ -2,10 +2,9 @@
   "Coordination of workflows."
   (:require
             [jsk.quartz :as q]
-            [clojurewerkz.quartzite.conversion :as qc]
             [jsk.workflow :as w]
             [jsk.messaging :as msg]
-            [jsk.notification :as n]
+            [jsk.notification :as notify]
             [jsk.db :as db]
             [jsk.ds :as ds]
             [jsk.conf :as conf]
@@ -15,21 +14,10 @@
             [jsk.ps :as ps]
             [jsk.tracker :as track]
             [clojure.string :as string]
-            [clojurewerkz.quartzite.scheduler :as qs]
-            [clojure.core.async :refer [chan go go-loop put! >! <! thread]]
-            [taoensso.timbre :as log])
-  (:import (org.quartz JobDataMap JobDetail JobExecutionContext JobKey Scheduler)))
+            [clojure.core.async :refer [chan go-loop put! <!]]
+            [taoensso.timbre :as log]))
 
 (declare start-workflow-execution when-job-finished)
-
-
-(defn notify-error [{:keys [job-name execution-id error]}]
-  (if error
-    (let [to (conf/error-email-to)
-          subject (str "[JSK ERROR] " job-name)
-          body (str "Job execution ID: " execution-id "\n\n" error)]
-      (log/info "Sending error email for execution: " execution-id)
-      (n/mail to subject body))))
 
 
 ;-----------------------------------------------------------------------
@@ -44,12 +32,42 @@
 
 (def ^:private quartz-chan (chan))
 
-(def ^:private info-chan (atom (chan)))
-
-(def ^:private pub-sock (atom nil))
-(def ^:private sub-sock (atom nil))
+(def ^:private publish-chan (chan))
 
 (def ^:private tracker (atom (track/new-tracker)))
+
+(defn- publish [topic data]
+  (put! publish-chan {:topic topic :data data}))
+
+(defn- publish-event [data]
+  (publish "status-update" data))
+
+
+;-----------------------------------------------------------------------
+; Quartz related items
+;-----------------------------------------------------------------------
+(defn- update-schedule-quartz!
+  "When the schedule is updated find all the jobs/wfs tied to them and update the quartz trigger."
+  [schedule-id]
+  (doseq [{:keys[node-schedule-id node-id node-type-id cron-expression]} (db/nodes-for-schedule schedule-id)]
+    (q/update-trigger! node-schedule-id node-id node-type-id cron-expression)))
+
+
+(defn- assoc-schedules!
+  "Removes any node schedule id associations from quartz and recreates them."
+  [node-id]
+  (log/info "Creating triggers for node " node-id)
+
+  (let [node-schedule-ids (db/node-schedules-for-node node-id)
+        {:keys[node-type-id]} (db/get-node-by-id node-id)
+        ss-infos (db/get-node-schedule-info node-id)]
+
+    (q/rm-triggers! node-schedule-ids)
+
+    (doseq [{:keys[node-schedule-id cron-expression]} ss-infos]
+      (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression))))
+
+
 
 ;-----------------------------------------------------------------------
 ; Execution Info interactions
@@ -171,7 +189,7 @@
 
     (log/info "Sending job: " job "to agent" agent-id " for execution-id:" execution-id ", vertex-id:" exec-vertex-id)
     (swap! tracker #(track/run-job %1 agent-id exec-vertex-id (util/now)))
-    (msg/publish @pub-sock agent-id data)))
+    (publish agent-id data)))
 
 
 (defn- run-jobs
@@ -249,10 +267,10 @@
            {:keys[execution-id info]} (w/setup-execution wf-id)]
 
        (add-exec-info! execution-id info wf-name start-ts)
-       (put! @info-chan {:event :execution-started
-                         :execution-id execution-id
-                         :start-ts start-ts
-                         :wf-name wf-name})
+       (publish-event {:event :execution-started
+                       :execution-id execution-id
+                       :start-ts start-ts
+                       :wf-name wf-name})
 
        ; pass in nil for exec-vertex-id since the actual workflow is represented
        ; by the execution and is not a vertex in itself
@@ -271,11 +289,11 @@
      (if exec-vertex-id
        (db/execution-vertex-started exec-vertex-id nil ts))
 
-     (put! @info-chan {:event :wf-started
-                       :exec-vertex-id exec-vertex-id
-                       :exec-wf-id exec-wf-id
-                       :start-ts ts
-                       :execution-id exec-id})
+     (publish-event {:event :wf-started
+                     :exec-vertex-id exec-vertex-id
+                     :exec-wf-id exec-wf-id
+                     :start-ts ts
+                     :execution-id exec-id})
      (run-nodes roots exec-id))))
 
 ;-----------------------------------------------------------------------
@@ -336,13 +354,13 @@
 
     (db/execution-aborted exec-id ts)
 
-    (put! @info-chan {:event :execution-finished
-                      :execution-id exec-id
-                      :success? false
-                      :status db/aborted-status
-                      :finish-ts ts
-                      :start-ts start-ts
-                      :wf-name exec-name})
+    (publish-event {:event :execution-finished
+                    :execution-id exec-id
+                    :success? false
+                    :status db/aborted-status
+                    :finish-ts ts
+                    :start-ts start-ts
+                    :wf-name exec-name})
 
     (rm-exec-info! exec-id))
   (log/info "all done cleaning up execution: " exec-id)
@@ -368,12 +386,15 @@
   (let [wf-name (db/get-execution-name exec-id)
         start-ts (db/now)
         {:keys[info]} (w/resume-workflow-execution-data exec-id)]
+
     (add-exec-info! exec-id info wf-name start-ts)
     (db/update-execution-status exec-id db/started-status start-ts)
-    (put! @info-chan {:event :execution-started
-                      :execution-id exec-id
-                      :start-ts start-ts
-                      :wf-name wf-name})
+
+    (publish-event {:event :execution-started
+                    :execution-id exec-id
+                    :start-ts start-ts
+                    :wf-name wf-name})
+
     (run-nodes [exec-vertex-id] exec-id)))
 
 (defn resume-execution [exec-id exec-vertex-id]
@@ -390,20 +411,15 @@
         start-ts (get-execution-start-ts exec-id)
         ts (db/now)]
     (db/workflow-finished root-wf-id success? ts)
-    ; root wf doesn't have a vertex (it's the execution)
-    ;(put! @info-chan {:event :wf-finished
-    ;                  :execution-id exec-id
-    ;                  :execution-vertices [root-wf-id]
-    ;                  :success? success?})
 
     (db/execution-finished exec-id success? ts)
-    (put! @info-chan {:event :execution-finished
-                      :execution-id exec-id
-                      :success? success?
-                      :status (if success? db/finished-success db/finished-error)
-                      :finish-ts ts
-                      :start-ts start-ts
-                      :wf-name exec-name})
+    (publish-event {:event :execution-finished
+                    :execution-id exec-id
+                    :success? success?
+                    :status (if success? db/finished-success db/finished-error)
+                    :finish-ts ts
+                    :start-ts start-ts
+                    :wf-name exec-name})
 
     (rm-exec-info! exec-id)))
 
@@ -430,13 +446,13 @@
     (log/info "Marking finished for execution-id:" execution-id ", Vertices:" vertices ", wfs:" wfs)
     (db/workflows-and-vertices-finished vertices wfs success? ts)
 
-    ; FIXME: need to iterate over all the vertices and put on info-chan
+    ; FIXME: need to iterate over all the vertices and publish-event
     (if vertices
-      (put! @info-chan {:event :wf-finished
-                        :execution-id execution-id
-                        :execution-vertices vertices
-                        :finish-ts ts
-                        :success? success?}))))
+      (publish-event {:event :wf-finished
+                      :execution-id execution-id
+                      :execution-vertices vertices
+                      :finish-ts ts
+                      :success? success?}))))
 
 
 (defn- when-wf-finished [execution-id exec-wf-id exec-vertex-id]
@@ -463,7 +479,7 @@
   (swap! tracker #(track/agent-started-job %1 agent-id exec-vertex-id (util/now)))
 
   ; FIXME: this doesn't have all the info like the job name, start-ts see old execution.clj
-  (put! @info-chan data))
+  (publish-event data))
 
 
 ; FIXME: update-running-jobs-count! is updating an atom and so is the code below put in dosync or what not
@@ -473,33 +489,45 @@
    Determines next set of jobs to run.
    Determines if the workflow is finished and/or errored.
    Sends job-finished-ack to agent.
-   Publishes status on info-chan for distribution."
-  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id success? forced-by-conductor?] :as msg}]
+   publish for distribution."
+  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id success? forced-by-conductor? error-msg] :as msg}]
   (log/debug "job-finished: " msg)
 
   ; update status in db
-  (db/execution-vertex-finished exec-vertex-id (if success? db/finished-success db/finished-error) (db/now))
+  (let [fin-status (if success? db/finished-success db/finished-error)
+        fin-ts (db/now)]
 
-  ; update status memory and ack the agent so it can clear it's memory
-  ; agent-id can be null if the conductor is calling this method directly eg when no agent is available
-  (when (not forced-by-conductor?)
-    (swap! tracker #(track/rm-job %1 agent-id exec-vertex-id))
-    (msg/publish @pub-sock agent-id {:msg :job-finished-ack :execution-id execution-id :exec-vertex-id exec-vertex-id}))
+    (db/execution-vertex-finished exec-vertex-id fin-status fin-ts)
 
-  (let [new-count (if forced-by-conductor?
-                    (running-jobs-count execution-id exec-wf-id)
-                    (update-running-jobs-count! execution-id exec-wf-id dec))
-        next-nodes (successor-nodes execution-id exec-vertex-id success?)
-        exec-wf-fail? (and (not success?) (empty? next-nodes))
-        exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
+    ; update status memory and ack the agent so it can clear it's memory
+    ; agent-id can be null if the conductor is calling this method directly eg when no agent is available
+    (when (not forced-by-conductor?)
+      (swap! tracker #(track/rm-job %1 agent-id exec-vertex-id))
+      (publish agent-id {:msg :job-finished-ack
+                         :execution-id execution-id
+                         :exec-vertex-id exec-vertex-id}))
 
+    (let [new-count (if forced-by-conductor?
+                      (running-jobs-count execution-id exec-wf-id)
+                      (update-running-jobs-count! execution-id exec-wf-id dec))
+          next-nodes (successor-nodes execution-id exec-vertex-id success?)
+          exec-wf-fail? (and (not success?) (empty? next-nodes))
+          exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
 
-    (if exec-wf-fail?
-      (mark-exec-wf-failed! execution-id exec-wf-id))
+      (publish-event {:event :job-finished
+                      :execution-id execution-id
+                      :exec-vertex-id exec-vertex-id
+                      :finish-ts fin-ts
+                      :success? success?
+                      :status fin-status
+                      :error error-msg})
 
-    (if exec-wf-finished?
-      (when-wf-finished execution-id exec-wf-id exec-vertex-id)
-      (run-nodes next-nodes execution-id))))
+      (if exec-wf-fail?
+        (mark-exec-wf-failed! execution-id exec-wf-id))
+
+      (if exec-wf-finished?
+        (when-wf-finished execution-id exec-wf-id exec-vertex-id)
+        (run-nodes next-nodes execution-id)))))
 
 ;-----------------------------------------------------------------------
 ; -- Networked agents --
@@ -547,7 +575,7 @@
 (defmethod dispatch :agent-registering [{:keys[agent-id]}]
   (log/info "Agent registering: " agent-id)
   (swap! tracker #(track/add-agent %1 agent-id (util/now)))
-  (msg/publish @pub-sock agent-id {:msg :agent-registered}))
+  (publish agent-id {:msg :agent-registered}))
 
 ;-----------------------------------------------------------------------
 ; If we know about the agent then, update the last heartbeat.
@@ -561,7 +589,7 @@
 (defmethod dispatch :heartbeat-ack [{:keys[agent-id]}]
   (if (track/agent-exists? @tracker agent-id)
     (swap! tracker #(track/agent-heartbeat-rcvd %1 agent-id (util/now)))
-    (msg/publish @pub-sock agent-id {:msg :agents-register})))
+    (publish agent-id {:msg :agents-register})))
 
 ;-----------------------------------------------------------------------
 ; Agent received the :run-job request, do what's required when a job
@@ -577,42 +605,41 @@
 (defmethod dispatch :job-finished [data]
   (when-job-finished data))
 
+(defmethod dispatch :node-save [data]
+  (log/error "Implement node save: " data))
+
+(defmethod dispatch :schedule-save [data]
+  (log/error "Implement schedule save: " data))
+
+(defmethod dispatch :schedule-assoc [data]
+  (log/error "Implement schedule assoc: " data))
+
+(defmethod dispatch :ping [{:keys[reply-to] :as data}]
+  (publish reply-to {:msg :pong}))
 
 ;-----------------------------------------------------------------------
-; Infinite agent request processing loop.
+; This gets called if we don't have a handler setup for a msg type
 ;-----------------------------------------------------------------------
-(defn- run-agent-request-processing [sock]
-  (loop [data (msg/read-pub-data sock)]
-    (try
-      (dispatch data)
-      (catch Exception ex
-         (log/error ex)))
-    (recur (msg/read-pub-data sock))))
-
-
-;-----------------------------------------------------------------------
-; Infinitely runs heartbeats.
-;-----------------------------------------------------------------------
-(defn- run-heartbeats [sock t]
-  (let [hb-id (atom 1)]
-    (while true
-      (msg/publish sock "broadcast" {:msg :heartbeat})
-      ;(msg/publish sock "broadcast" {:msg :heartbeat :hb-id @hb-id})
-      ;(swap! hb-id inc)
-      (Thread/sleep t))))
+(defmethod dispatch :default [data]
+  (log/warn "No method to handle data: " data))
 
 
 ;-----------------------------------------------------------------------
-; TODO: publish on info-chan to the UI
+; Runs request processing loop
 ;-----------------------------------------------------------------------
-(defn- inform-of-dead-agents
-  "Sends an email about the agent disconnect."
-  [agent-ids vertex-ids]
-  (let [to (conf/error-email-to)
-        subject "[JSK AGENT DISCONNECT]"
-        body (str "Agents: " (string/join ", " agent-ids)
-                  "\n\n Execution job-ids:" (string/join ", " vertex-ids))]
-    (n/mail to subject body)))
+(defn- run-request-processing [subscribe-port]
+  (let [thread-name "request-processor"
+        host "*"
+        bind? true
+        ch (msg/read-channel thread-name host subscribe-port bind? msg/all-topics)]
+
+    (go-loop [data (<! ch)]
+      (try
+        (dispatch data)
+        (catch Exception ex
+          (log/error ex)))
+      (recur (<! ch)))))
+
 
 ;-----------------------------------------------------------------------
 ; Find dead agents, and mark their jobs as unknown status.
@@ -641,7 +668,7 @@
         ; remove from tracker
         (swap! tracker track/rm-agents dead-agents)
 
-        (inform-of-dead-agents dead-agents vertex-ids))
+        (notify/dead-agents dead-agents vertex-ids))
 
       (Thread/sleep interval-ms))))
 
@@ -653,62 +680,71 @@
 ;-----------------------------------------------------------------------
 (defn- ensure-one-agent-connected
   "Ensures at least one agent is connected before exiting this method.
-   Broadcasts a registration request every second so that any running agents can register.
-  sock is a publish socket."
-  [sock]
+   Broadcasts a registration request every second so that any running agents can register."
+  []
   (while (zero-agents?)
     (log/info "No agents connected. Broadcasting registration and waiting..")
-    (msg/publish sock "broadcast" {:msg :agents-register})
+    (put! publish-chan {:topic "broadcast" :data {:msg :agents-register}})
     (Thread/sleep 1000)))
+
+
+;-----------------------------------------------------------------------
+; Kicks off jobs/wfs when quartz says to.
+;-----------------------------------------------------------------------
+(defn- run-quartz-processing
+  "Quartz puts messages on ch. This reads those messages and triggers the jobs/wfs."
+  [ch]
+  (go-loop [{:keys[event node-id]} (<! ch)]
+     (try
+       (case event
+         :trigger-wf (start-workflow-execution node-id)
+         :trigger-job (run-job-as-synthetic-wf node-id))
+       (catch Exception ex
+         (log/error ex)))
+     (recur (<! ch))))
+
+
+(defn run-heartbeats
+  "Starts a new thread to put heartbeat messages on to ch everty t millisecs."
+  [ch t]
+  (util/start-thread "heartbeats"
+                     (fn[]
+                       (while true
+                         (put! ch {:topic "broadcast" :data {:msg :heartbeat}})
+                         (Thread/sleep t)))))
 
 
 (defn init [pub-port sub-port]
   (log/info "Connecting to database.")
   (conf/init-db)
-  (let [p-sock (msg/make-socket "tcp" "*" pub-port true :pub)
-        s-sock (msg/make-socket "tcp" "*" sub-port true :sub)]
-
-    (reset! pub-sock p-sock)
-    (reset! sub-sock s-sock)
 
 
-    ; handle agent request messages in another thread
-    (msg/subscribe-everything @sub-sock)
+  (let [host "*" bind? true]
+   (msg/relay-writes publish-chan host pub-port bind?))
 
-    ; FIXME:
-    ; start heartbeats -- for some reason if heartbeats are started first
-    ; then everything else works ok
-    ; switching the order
-    (util/start-thread "heartbeats" #(run-heartbeats p-sock (conf/heartbeats-interval-ms)))
-    (util/start-thread "agent-request-processor" #(run-agent-request-processing s-sock))
+  ;----------------------------------------------------------------------
+  ; REVIEW
+  ; for some reason if heartbeats are started first things work otherwise not
+  ;----------------------------------------------------------------------
+  (run-heartbeats publish-chan (conf/heartbeats-interval-ms))
+  (run-request-processing sub-port)
+  (util/start-thread "dead-agent-checker" #(run-dead-agent-check (conf/heartbeats-dead-after-ms)))
 
-    (ensure-one-agent-connected p-sock)
+  (ensure-one-agent-connected)
 
-    (q/init quartz-chan)
-    (log/info "Quartz initialized.")
+  (log/info "Initializing Quartz.")
+  (q/init quartz-chan)
+  ; quartz puts stuff on the quartz-chan when a trigger is fired
+  (run-quartz-processing quartz-chan)
 
-    (populate-quartz)
-    (log/info "Quartz populated.")
 
-    (q/start)
-    (log/info "Quartz started.")
+  (log/info "Populating Quartz.")
+  (populate-quartz)
 
-    (util/start-thread "dead-agent-checker" #(run-dead-agent-check (conf/heartbeats-dead-after-ms)))
 
-    ; quartz puts stuff on the quartz-chan when a trigger is fired
-    (go-loop [{:keys[event node-id]} (<! quartz-chan)]
-       (try
-         (case event
-           :trigger-wf (start-workflow-execution node-id)
-           :trigger-job (run-job-as-synthetic-wf node-id))
-         (catch Exception ex
-           (log/error ex)))
-       (recur (<! quartz-chan)))
-
-    (go-loop [info (<! @info-chan)]
-      (log/info "::INFO::" info)
-      (recur (<! @info-chan)))))
-
+  (log/info "Starting Quartz.")
+  (q/start)
+  (log/info "Conductor started successfully."))
 
 
 

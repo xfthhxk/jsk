@@ -89,12 +89,13 @@
   (n/init)
   (log/info "Notifications initialized."))
 
-(defn run-as-web-app [port]
+(defn run-as-web-app [hostname publish-port subscribe-port web-port]
   (common-init)
-  (jsk/init)
+  (jsk/init hostname publish-port subscribe-port)
   (jetty/run-jetty #'jsk/app {:configurator jsk/ws-configurator
-                              :port port
-                              :join? false}))
+                              :port web-port
+                              :join? false})
+  (log/info "JSK web-app started successfully."))
 
 (defn run-as-conductor [cmd-port status-port]
   (common-init)
@@ -124,7 +125,7 @@
     (case (:mode options)
       "agent" (run-as-agent hostname cmd-port status-port)
       "conductor" (run-as-conductor cmd-port status-port)
-      "web" (run-as-web-app web-app-port)
+      "web" (run-as-web-app hostname cmd-port status-port web-app-port)
       (exit 1 (usage summary)))))
 
 

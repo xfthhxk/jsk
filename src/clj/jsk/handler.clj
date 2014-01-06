@@ -3,8 +3,12 @@
   (:require
             [jsk.conf :as conf]
             [jsk.routes :as routes]
-            [jsk.util :as ju]
-            [jsk.user :as juser]
+            [jsk.util :as util]
+            [jsk.job :as job]
+            [jsk.schedule :as schedule]
+            [jsk.workflow :as workflow]
+            [jsk.user :as user]
+            [jsk.messaging :as msg]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -27,47 +31,95 @@
 ; how do we know when they disconnect.
 (def ws-connect-channel (chan))
 
+; Channel used for messages going to the conductor
+(def conductor-write-chan (chan))
 
-; Channel used to communicate events for clients (users etc.)
-(def info-channel (chan))
+(def app-id (util/jvm-instance-name))
 
-(defn broadcast-execution [data]
-  (doseq [c @ws-clients]
-    (put! c (pr-str data))))
-
-
-; FIXME: this needs to listen to conductor's published
-;        notifications and fwd to web sockets
-(defn- setup-job-execution-recorder []
-
-  ; (execution/register-event-channels! info-channel conductor-channel)
-
-  ; (q/register-job-execution-recorder!
-  ; (execution/make-job-recorder "JSK-Job-Execution-Listener"))
-
-  (go-loop [exec-map (<! info-channel)]
-    (log/debug "Read from execution event channel: " exec-map)
-    (broadcast-execution exec-map)
-    (recur (<! info-channel))))
-
-
+;-----------------------------------------------------------------------
+; websocket configuration and handling of clients
+;-----------------------------------------------------------------------
 (def ws-configurator
   (configurator ws-connect-channel {:path "/executions"}))
 
-(defn init-ws []
-  (go-loop []
-    (let [{:keys[in out] :as ws-req} (<! ws-connect-channel)]
-      ; (info "read off of ws-socket-channel: " ws-req)
-      (swap! ws-clients conj in)
-      ;(>! in (pr-str {:greeting "hello"}))
-      (recur))))
+(defn init-ws [ch]
+  (go-loop [{:keys[in out] :as ws-req} (<! ch)]
+    (swap! ws-clients conj in)
+    (recur (<! ch))))
 
+
+(defn- broadcast-to-clients [data]
+  (let [data-str (pr-str data)]
+    (doseq [c @ws-clients]
+      (put! c data-str))))
+
+
+(def last-conductor-hb (atom 0))
+
+(defmulti dispatch :msg)
+
+(defmethod dispatch :default [data]
+  (comment "this is a no-op method"))
+
+;-----------------------------------------------------------------------
+; Reads status-updates from conductor and forwardst to all websockets
+;-----------------------------------------------------------------------
+(defn- run-conductor-msg-loop
+  "Starts the conductor msg loop"
+  [host port]
+  (let [sock (msg/make-socket "tcp" host port false :sub)
+        topics ["status-updates" "broadcast" app-id]]
+
+    (log/info "Subscribing to conductor topics" topics "on" host ":" port)
+    (msg/subscribe sock topics)
+
+    ;  read from pub socket and write to all the clients
+    (loop [data (msg/read-pub-data sock)]
+
+      (try
+        (if (:event data)
+          (broadcast-to-clients data))
+
+        (if (:msg data)
+          (dispatch data))
+
+        (catch Exception ex
+          (log/error ex)))
+
+      (reset! last-conductor-hb (util/now))
+
+      (recur (msg/read-pub-data sock)))))
+
+
+;-----------------------------------------------------------------------
+; Message processing loop to publish messages to conductor.
+;-----------------------------------------------------------------------
+(defn- run-conductor-writes [ch host port]
+  (let [sock (msg/make-socket "tcp" host port false :pub)
+        topic ""]
+    (go-loop [msg (<! ch)]
+      (try
+        (msg/publish sock topic msg)
+        (catch Exception ex
+          (log/error ex)))
+      (recur (<! ch)))))
+
+(defn- time-since-last-hb []
+  (- (util/now) @last-conductor-hb))
+
+(defn- ensure-conductor-connection [ch time-ms]
+  (while true
+    (while (> (time-since-last-hb) time-ms)
+      (log/info "Pinging conductor, last msg received" @last-conductor-hb)
+      (put! ch {:msg :ping :reply-to app-id})
+      (Thread/sleep 1000))
+    (Thread/sleep time-ms)))
 
 
 ;-----------------------------------------------------------------------
 ; App starts ticking here.
 ;-----------------------------------------------------------------------
-(defn init []
+(defn init [conductor-host cmd-port req-port]
   "init will be called once when the app is deployed as a servlet
    on an app server such as Tomcat"
 
@@ -76,15 +128,34 @@
   (conf/init-db)
 
   (log/info "Initializing websockets.")
-  (init-ws)
+  (init-ws ws-connect-channel)
 
-  (log/info "JSK web app started successfully."))
+  ; schedule or schedule assoc changes need to be published to conductor
+
+  (log/debug "Setting conductor write chan")
+  (schedule/init conductor-write-chan)
+  (job/init conductor-write-chan)
+  (workflow/init conductor-write-chan)
+
+  (log/info "Starting conductor-msg-processor thread.")
+  (util/start-thread "conductor-msg-processor"
+                     #(run-conductor-msg-loop conductor-host cmd-port))
+
+  (util/start-thread "ensure-conductor-connected"
+                     #(ensure-conductor-connection conductor-write-chan (conf/heartbeats-dead-after-ms)))
+
+  (log/info "Initializing publication to conductor.")
+  (run-conductor-writes conductor-write-chan conductor-host req-port)
+
+  (log/info "JSK web app init finished."))
 
 ;-----------------------------------------------------------------------
 ; App shutdown procedure.
 ;-----------------------------------------------------------------------
-(defn destroy []
-  "destroy will be called when the app is shut down")
+(defn destroy
+  "destroy will be called when the app is shut down"
+  []
+  (log/info "Destroy called."))
 
 
 
@@ -100,7 +171,7 @@
       (handler request)
       (catch Exception ex
         (log/error ex)
-        (-> [(.getMessage ex)] ju/make-error-response routes/edn-response (rr/status 500))))))
+        (-> [(.getMessage ex)] util/make-error-response routes/edn-response (rr/status 500))))))
 
 ;-----------------------------------------------------------------------
 ; Serve up index.html when nothing specified.
@@ -117,8 +188,8 @@
 
 
 (defn- friend-credential-fn [m]
-  (log/info "friend-credential-fn input map is: " m)
-  (if-let [app-user (juser/get-by-email (:email m))]
+  (log/debug "friend-credential-fn input map is: " m)
+  (if-let [app-user (user/get-by-email (:email m))]
     (assoc m :jsk-user app-user)
     m))
 
@@ -138,7 +209,7 @@
                                               :max-nonce-age (* 1000 60 5) ; 5 minutes in milliseconds
                                               :credential-fn friend-credential-fn)]}))
 
-(def unauth-ring-response (-> ["Unauthenticated."] ju/make-error-response routes/edn-response (rr/status 401)))
+(def unauth-ring-response (-> ["Unauthenticated."] util/make-error-response routes/edn-response (rr/status 401)))
 
 (defn- send-unauth-ring-response [msg app-user edn?]
   (log/warn "send-unauth-ring: " msg)
@@ -153,7 +224,7 @@
 (defn- wrap-api-unauthenticated [handler]
   (fn[request]
     (let [app-user (-> request friend/current-authentication :jsk-user)
-          edn? (ju/edn-request? request)]
+          edn? (util/edn-request? request)]
       (if (and edn? (nil? app-user))
         (send-unauth-ring-response "Before calling handler" app-user edn?)
         (let [resp (handler request)

@@ -39,7 +39,7 @@ lein run --mode conductor --hostname localhost --cmd-port 9000 --status-port 900
 lein run --mode agent --hostname localhost --cmd-port 9000 --status-port 9001 --nrepl-port 7002
 
 # To run the web app
-lein run --mode web --web-app-port 8080 --nrepl-port 7003
+lein run --mode web --hostname localhost --cmd-port 9000 --status-port 9001 --web-app-port 8080 --nrepl-port 7003
 ```
 
 ## License

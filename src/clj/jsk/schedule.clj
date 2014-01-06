@@ -2,11 +2,18 @@
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [jsk.db :as db]
+            [jsk.quartz :as quartz]
             [korma.db :as k]
-            [jsk.util :as ju]
-            [jsk.quartz :as q])
-  (:use [bouncer.validators :only [defvalidator]]
-        [swiss arrows]))
+            [jsk.util :as util]
+            [clojure.core.async :refer [put!]])
+  (:use [bouncer.validators :only [defvalidator]]))
+
+(def ^:private out-chan (atom nil))
+
+(defn init
+  "Sets the channel to use when updates are made to schedules or associations."
+  [ch]
+  (reset! out-chan ch))
 
 
 ;-----------------------------------------------------------------------
@@ -52,25 +59,15 @@
   (-> s
     (b/validate
        :schedule-name [v/required [(partial unique-name? schedule-id) :message "Schedule name must be unique."]]
-       :cron-expression [v/required [q/cron-expr? :message "Invalid cron expression."]])
+       :cron-expression [v/required [quartz/cron-expr? :message "Invalid cron expression."]])
     first))
 
 
-(defn- update-schedule-quartz! [schedule-id]
-  (doseq [{:keys[node-schedule-id node-id node-type-id cron-expression]} (db/nodes-for-schedule schedule-id)]
-    (q/update-trigger! node-schedule-id node-id node-type-id cron-expression)))
-
-(defn- update-schedule! [{:keys [schedule-id] :as s} user-id]
-  (db/update-schedule! s user-id)
-  (update-schedule-quartz! schedule-id))
-
 
 (defn- save-schedule* [{:keys [schedule-id] :as s} user-id]
-  (-<>  (if (db/id? schedule-id)
-          (update-schedule! s user-id)
-          (db/insert-schedule! s user-id))
-        {:success? true :schedule-id <>}))
-
+  (if (db/id? schedule-id)
+      (db/update-schedule! s user-id)
+      (db/insert-schedule! s user-id)))
 
 ;-----------------------------------------------------------------------
 ; Saves the schedule either inserting or updating depending on the
@@ -78,16 +75,11 @@
 ;-----------------------------------------------------------------------
 (defn save-schedule! [s user-id]
   (if-let [errors (validate-save s)]
-    (ju/make-error-response errors)
-    (save-schedule* s user-id)))
+    (util/make-error-response errors)
+    (let [s-id (save-schedule* s user-id)]
+      (put! @out-chan {:msg :schedule-save :schedule-id s-id}) ; this will be published to conductor
+      {:success? true :schedule-id s-id})))
 
-(defn- create-triggers [node-id]
-  (log/info "Creating triggers for node " node-id)
-
-  (let [{:keys[node-type-id]} (db/get-node-by-id node-id)
-        ss-infos (db/get-node-schedule-info node-id)]
-    (doseq [{:keys[node-schedule-id cron-expression]} ss-infos]
-      (q/schedule-cron-job! node-schedule-id node-id node-type-id cron-expression))))
 
 ;-----------------------------------------------------------------------
 ; Associates a job to a set of schedule-ids.
@@ -105,8 +97,7 @@
          (db/rm-node-schedules! node-schedule-ids)
          (db/assoc-schedules! node-id schedule-ids user-id))
 
-       (q/rm-triggers! node-schedule-ids)
-       (create-triggers node-id)          ; add new schedules if any
+       (put! @out-chan {:msg :schedule-assoc :node-id node-id})
 
        (log/info "job schedule associations made for job-id: " node-id)
        true)))
