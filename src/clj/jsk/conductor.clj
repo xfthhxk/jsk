@@ -572,14 +572,15 @@
         c (swap! node-sched-cache cache/put-schedule s)
         aa (cache/schedule-assocs-for-schedule c schedule-id)]
     (doseq [{:keys[node-schedule-id node-id]} aa]
-      (quartz/update-trigger! node-schedule-id node-id cron-expression))))
+      (quartz/schedule-cron-job! node-schedule-id node-id cron-expression))))
 
 ; TODO: send an ack
 ; Remove existing assoc from the cache
 ; add the new ones
 ; schedule new ones w/ quartz
 (defmethod dispatch :schedule-assoc [{:keys[node-id]}]
-  (let [orig-assoc-ids (cache/schedule-assocs-for-node @node-sched-cache node-id)
+  (let [orig-assocs (cache/schedule-assocs-for-node @node-sched-cache node-id)
+        orig-assoc-ids (map :node-schedule-id orig-assocs)
         new-assocs (db/node-schedules-for-node node-id)
         assoc-upd-fn (fn[c]
                        (-> c
@@ -587,9 +588,11 @@
                            (cache/put-assocs new-assocs)))
         c (swap! node-sched-cache assoc-upd-fn)]
 
+    (quartz/rm-triggers! orig-assoc-ids)
+
     (doseq [{:keys[node-schedule-id schedule-id]} new-assocs
             :let [{:keys[cron-expression]} (cache/schedule c schedule-id)]]
-      (quartz/update-trigger! node-schedule-id node-id cron-expression))))
+      (quartz/schedule-cron-job! node-schedule-id node-id cron-expression))))
 
 
 

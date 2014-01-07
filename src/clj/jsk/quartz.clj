@@ -14,6 +14,24 @@
   (:import (org.quartz CronExpression JobDetail JobExecutionContext
                        JobKey Scheduler Trigger TriggerBuilder TriggerKey)))
 
+(def quartz-channel (atom nil))
+
+(defprotocol IKeyPredicates
+  (exists? [item-key]
+    "Answers if the item with item-key exists in the scheduler."))
+
+(extend-protocol IKeyPredicates
+
+  JobKey
+
+  (exists? [jk]
+    (.checkExists ^Scheduler @qs/*scheduler* jk))
+
+  TriggerKey
+
+  (exists? [tk]
+    (.checkExists ^Scheduler @qs/*scheduler* tk)))
+
 ;-----------------------------------------------------------------------
 ; Quartz interop section.
 ;-----------------------------------------------------------------------
@@ -24,8 +42,8 @@
 (defn- schedule-trigger [^Trigger trigger]
   (.scheduleJob ^Scheduler @qs/*scheduler* trigger))
 
-(defn- reschedule-job
-  ([^Trigger new-trigger] (reschedule-job (.getKey new-trigger) new-trigger))
+(defn- reschedule-trigger
+  ([^Trigger new-trigger] (reschedule-trigger (.getKey new-trigger) new-trigger))
   ([^TriggerKey tkey ^Trigger new-trigger]
    (.rescheduleJob ^Scheduler @qs/*scheduler* tkey new-trigger)))
 
@@ -58,11 +76,6 @@
     false))
 
 
-;(defn register-job-execution-recorder! [job-execution-recorder]
-;  (-> ^Scheduler @qs/*scheduler* .getListenerManager (.addJobListener job-execution-recorder (EverythingMatcher/allJobs))))
-
-(def quartz-channel (atom nil))
-
 (defn init [quartz-ch]
   (reset! quartz-channel quartz-ch)
   (qs/initialize))
@@ -72,30 +85,6 @@
 
 (defn stop []
   (qs/shutdown))
-
-
-;(defn ignore-execution?
-;  "Answers if the execution should be ignored. Quartz triggers are used
-;   to put msgs on the quartz-channel.  Quartz triggered jobs will
-;   have this property set to true. Not a 'real' job being executed."
-;  [^JobExecutionContext ctx]
-;  (let [{:strs [ignore-execution?]} (qc/from-job-data ctx)]
-;    (if ignore-execution?
-;      true
-;      false)))
-
-
-;-----------------------------------------------------------------------
-; Didn't know about NativeJob. Maybe use that instead.
-;-----------------------------------------------------------------------
-;(j/defjob ShellJob
-;  [ctx]
-;  (let [{:strs [cmd-line exec-dir exec-vertex-id execution-id timeout]} (qc/from-job-data ctx)
-;        log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")]
-;
-;    (log/info "cmd-line: " cmd-line ", exec-dir: " exec-dir ", log-file: " log-file-name)
-;    (ps/exec1 execution-id exec-vertex-id timeout cmd-line exec-dir log-file-name)))
-
 
 
 ;-----------------------------------------------------------------------
@@ -110,41 +99,12 @@
     (put! @quartz-channel {:event :trigger-node :node-id node-id})))
 
 
-;-----------------------------------------------------------------------
-; Creates a ShellJob instance by specifying JobData
-; ie the arguments and the key
-;
-; Returns a job instance
-;-----------------------------------------------------------------------
-; -- may not be necessary anymore since agent handles the execution and we look up the
-; -- actual job from the database when it comes time to execute the job
-
-;(defn- make-shell-job
-;  [job-id cmd-line exec-dir]
-;    (let [job-map {"cmd-line" cmd-line "exec-dir" exec-dir} ; have to use string keys for quartz
-;          job-key (make-job-key job-id)]
-;
-;      ; NB. j/build is a macro which creates and passes a job builder in using ->
-;      (j/build (j/of-type ShellJob)
-;               (j/using-job-data job-map)
-;               (j/with-identity job-key)
-;               (j/store-durably))))
-
 ; NB node-id has to be unique across jobs *and* workflows
-(defn- make-triggerable-job [node-id]
+(defn- make-triggerable-job [node-id job-key]
   (j/build (j/of-type JskTriggerJob)
            (j/using-job-data {"node-id" node-id}) ; string keys for quartz
-           (j/with-identity (make-trigger-job-key node-id))
+           (j/with-identity job-key)
            (j/store-durably)))
-
-
-
-
-;-----------------------------------------------------------------------
-; Adds or replaces a job within the scheduler.
-;-----------------------------------------------------------------------
-;(defn save-job! [{:keys [command-line job-id execution-directory]}]
-;  (add-job (make-shell-job job-id command-line execution-directory)))
 
 
 ;-----------------------------------------------------------------------
@@ -154,25 +114,45 @@
 ;-----------------------------------------------------------------------
 (defn- make-cron-trigger
   "Makes a cron trigger instance based on the schedule specified."
-  [trigger-id cron-expr node-id]
+  [trigger-key cron-sched job-key]
+  (t/build
+    (t/with-identity trigger-key)
+    (trigger-for-job-key job-key)
+    (t/start-now)
+    (t/with-schedule cron-sched)))
 
-  (log/info "make-cron-trigger id " trigger-id ", cron: " cron-expr ", node-id:" node-id)
+(defn- make-cron-schedule
+  "Makes a cron schedule for the cron-expr"
+  [cron-expr]
+  (-> cron-expr cron/cron-schedule cron/schedule))
 
-  (let [cron-sched (cron/schedule (cron/cron-schedule cron-expr))
-        trigger-key (make-trigger-key trigger-id)
-        job-key (make-trigger-job-key node-id)]
 
-    (add-job (make-triggerable-job node-id))
+(defn- persist-job
+  "Saves the job to quartz if it doesn't already exist."
+  [node-id job-key]
+  (if (-> job-key exists? not)
+      (add-job (make-triggerable-job node-id job-key))))
 
-    (t/build
-     (t/with-identity trigger-key)
-     (trigger-for-job-key job-key)
-     (t/start-now)
-     (t/with-schedule cron-sched))))
 
-(defn schedule-cron-job! [trigger-id node-id cron-expr]
+(defn- persist-trigger
+  "Schedules the job in quartz either by adding the trigger or rescheduling the trigger."
+  [t-key j-key cron-sched]
+  (let [ct (make-cron-trigger t-key cron-sched j-key)
+        f (if (exists? t-key) reschedule-trigger schedule-trigger)]
+    (f ct)))
+
+
+(defn schedule-cron-job!
+  "Schedules the job using the arguments specified."
+  [trigger-id node-id cron-expr]
+
   (log/info "Scheduling: trigger:" trigger-id ", node-id:" node-id ", cron:" cron-expr)
-  (schedule-trigger (make-cron-trigger trigger-id cron-expr node-id)))
+
+  (let [t-key (make-trigger-key trigger-id)
+        j-key (make-trigger-job-key node-id)
+        cron-sched (make-cron-schedule cron-expr)]
+    (persist-job node-id j-key) ; saves node if necessary
+    (persist-trigger t-key j-key cron-sched)))
 
 ;-----------------------------------------------------------------------
 ; Deletes triggers specified by the trigger-ids.
@@ -180,19 +160,6 @@
 (defn rm-triggers! [trigger-ids]
   (log/info "Deleting triggers: " trigger-ids)
   (qs/delete-triggers (map make-trigger-key trigger-ids)))
-
-
-;-----------------------------------------------------------------------
-; Update triggers.
-;-----------------------------------------------------------------------
-(defn update-trigger! [node-schedule-id node-id cron-expression]
-  (reschedule-job (make-cron-trigger node-schedule-id cron-expression node-id)))
-
-
-
-
-
-
 
 
 
