@@ -4,11 +4,10 @@
             [compojure.route :as route]
             [ring.util.response :as rr]
             [cemerick.friend :as friend]
-            [taoensso.timbre :as timbre :refer (info warn error)]
+            [taoensso.timbre :as log]
             [jsk.job :as j]
             [jsk.db :as db]
-            [jsk.util :as u]
-            [jsk.conductor :as conductor]
+            [jsk.util :as util]
             [jsk.workflow :as w]
             [jsk.quartz :as q]
             [jsk.search :as search]
@@ -77,10 +76,10 @@
        (edn-response (j/ls-jobs)))
 
   (GET "/jobs/:id" [id]
-       (-> id u/str->int j/get-job edn-response))
+       (-> id util/str->int j/get-job edn-response))
 
   (GET "/jobs/trigger-now/:id" [id]
-       (-> id u/str->int conductor/trigger-job-now edn-response))
+       (-> id util/str->int j/trigger-now edn-response))
 
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) (j/save-job! (uid request)) edn-response)))
@@ -93,13 +92,12 @@
        (edn-response (s/ls-schedules)))
 
   (GET "/schedules/:id" [id]
-       (-> id u/str->int s/get-schedule edn-response))
+       (-> id util/str->int s/get-schedule edn-response))
 
   (POST "/schedules/save" [_ :as request]
        (-> (:params request) (s/save-schedule! (uid request)) edn-response))
 
   (POST "/schedules/assoc" [_ :as request]
-        (info "request is: " request)
         (-> (:edn-params request) (s/assoc-schedules! (uid request)) edn-response)))
 
 
@@ -111,16 +109,15 @@
        (edn-response (w/ls-workflows)))
 
   (GET "/workflows/:id" [id]
-       (-> id u/str->int w/get-workflow edn-response))
+       (-> id util/str->int w/get-workflow edn-response))
 
   (GET "/workflows/graph/:id" [id]
-       (-> id u/str->int w/workflow-nodes edn-response))
+       (-> id util/str->int w/workflow-nodes edn-response))
 
   (GET "/workflows/trigger-now/:id" [id]
-       (-> id u/str->int conductor/trigger-workflow-now edn-response))
+       (-> id util/str->int w/trigger-now edn-response))
 
   (POST "/workflows/save" [_ :as request]
-       (info "workflow save: " (:params request))
        (-> (:params request) (w/save-workflow! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
@@ -128,22 +125,21 @@
 ;-----------------------------------------------------------------------
 (defroutes execution-routes
   (GET "/executions/:id" [id]
-       (-> id u/str->int db/get-execution-details edn-response))
+       (-> id util/str->int db/get-execution-details edn-response))
 
   (GET "/executions/workflows/:id" [id]
-       (-> id u/str->int db/get-execution-workflow-details edn-response))
+       (-> id util/str->int db/get-execution-workflow-details edn-response))
 
   (POST "/executions/search/q" [_ :as request]
-        (info "executions search: " (:params request))
         (-> (:params request) search/executions edn-response))
 
   (GET "/executions/abort/:id" [id]
-       (-> id u/str->int conductor/abort-execution edn-response))
+       (-> id util/str->int w/abort-execution edn-response))
 
   (GET "/executions/resume/:id/:vid" [id vid]
-       (let [execution-id (u/str->int id)
-             vertex-id (u/str->int vid)]
-         (edn-response (conductor/resume-execution execution-id vertex-id)))))
+       (let [execution-id (util/str->int id)
+             vertex-id (util/str->int vid)]
+         (edn-response (w/resume-execution execution-id vertex-id)))))
 
 
 ;-----------------------------------------------------------------------
@@ -154,10 +150,10 @@
        (edn-response (db/ls-nodes)))
 
   (GET "/nodes/:id" [id]
-       (-> id u/str->int db/get-node-by-id edn-response))
+       (-> id util/str->int db/get-node-by-id edn-response))
 
   (GET "/nodes/schedules/:id" [id]
-       (-> id u/str->int db/schedule-ids-for-node edn-response)))
+       (-> id util/str->int db/schedule-ids-for-node edn-response)))
 
 
 

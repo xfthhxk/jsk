@@ -65,13 +65,14 @@
 
 (defn- make-async-cb-handler [ch]
   (fn [event]
-    (let [{:keys [status response]} (rpc-event->response-map event)]
+    (let [{:keys [status response]} (rpc-event->response-map event)
+          safe-response (if (nil? response) "" response)] ; can't put nil on a chan
       (if (success? status)
         (do
-          (put! ch response)
+          (put! ch safe-response)
           (close! ch))
         (do
-          (@error-handler status response)
+          (@error-handler status safe-response)
           (close! ch))))))
 
 (defn rpc-call [method url data cb]

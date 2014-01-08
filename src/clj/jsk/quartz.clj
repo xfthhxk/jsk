@@ -137,9 +137,10 @@
 (defn- persist-trigger
   "Schedules the job in quartz either by adding the trigger or rescheduling the trigger."
   [t-key j-key cron-sched]
-  (let [ct (make-cron-trigger t-key cron-sched j-key)
-        f (if (exists? t-key) reschedule-trigger schedule-trigger)]
-    (f ct)))
+  (let [ct (make-cron-trigger t-key cron-sched j-key)]
+    (if (exists? t-key)
+      (reschedule-trigger ct)
+      (schedule-trigger ct))))
 
 
 (defn schedule-cron-job!

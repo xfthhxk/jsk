@@ -68,7 +68,7 @@
   "Starts the conductor msg loop"
   [host port]
   (let [sock (msg/make-socket "tcp" host port false :sub)
-        topics ["status-updates" "broadcast" app-id]]
+        topics [util/status-updates-topic "broadcast" app-id]]
 
     (log/info "Subscribing to conductor topics" topics "on" host ":" port)
     (msg/subscribe sock topics)
@@ -114,7 +114,6 @@
       (put! ch {:msg :ping :reply-to app-id})
       (Thread/sleep 1000))
     (Thread/sleep time-ms)))
-
 
 ;-----------------------------------------------------------------------
 ; App starts ticking here.

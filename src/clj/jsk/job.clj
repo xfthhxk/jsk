@@ -72,5 +72,11 @@
   (if-let [errors (validate-save j)]
     (ju/make-error-response errors)
     (let [job-id (db/save-job j user-id)]
-      (put! @out-chan {:topic "" :data {:msg :save-node :node-id job-id}})
+      (put! @out-chan {:msg :save-node :node-id job-id})
       {:success? true :job-id job-id})))
+
+
+(defn trigger-now
+  "Puts a message on the conductor channel to trigger the job now."
+  [job-id]
+  (put! @out-chan {:msg :trigger-node :node-id job-id}))

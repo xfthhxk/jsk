@@ -68,3 +68,4 @@
 
 
 
+(def status-updates-topic "status-updates")

@@ -67,12 +67,12 @@
 ; Returns {:success? false :src-node-id 1 :tgt-node-id 2}
 ;----------------------------------------------------------------------
 (defn- parse-connection-info [{:keys [src tgt]}]
-  (u/log (str "src: " src ", tgt: " tgt))
+  ;(u/log (str "src: " src ", tgt: " tgt))
   (let [tt (-> src (string/split #"-"))
         status (second tt)
         src-id (last tt)
         tgt-id (-> tgt (string/split #"-") last)]
-    (u/log (str "status: " status ", src-id: " src-id ", tgt-id: " tgt-id))
+    ;(u/log (str "status: " status ", src-id: " src-id ", tgt-id: " tgt-id))
     {:success? (= "success" status)
      :src-node-id (u/str->int src-id)
      :tgt-node-id (u/str->int tgt-id)}))
@@ -83,7 +83,7 @@
   (let [form (ef/from "#workflow-save-form" (ef/read-form))
         data (u/update-str->int form :workflow-id)
         data1 (assoc data :is-enabled (u/element-checked? "workflow-is-enabled"))]
-    (u/log (str "Form data is: " form))
+    ;(u/log (str "Form data is: " form))
     data1))
 
 
@@ -272,7 +272,7 @@
   (let [node-id (-> ui .-helper (.data "node-id") u/str->int)
         pos (-> ui .-position)
         layout (gstring/format "top: %spx; left: %spx" (.-top pos) (.-left pos))]
-    (u/log (str "layout in add-node-via-ui: " layout))
+    ;(u/log (str "layout in add-node-via-ui: " layout))
     (visualizer-add-node* node-id layout)))
 
 
@@ -312,7 +312,7 @@
 
   (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
         src-ep-id (id-mkr src-id)]
-    (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
+    ; (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
     (plumb/connect src-ep-id dest-div-id))))
 
 (defn- reconstruct-ui [data]
@@ -480,7 +480,7 @@
     (if dest-vertex-id
       (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
             src-ep-id (id-mkr src-vertex-id)]
-        (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
+        ; (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
         (plumb/connect src-ep-id dest-div-id)))))
 
 
@@ -532,7 +532,7 @@
 
 
 (defn- show-execution-workflow-details [exec-wf-id]
-  (u/log (str"exec-wf-id is:" exec-wf-id))
+  ;(u/log (str"exec-wf-id is:" exec-wf-id))
   (go
    (let [{:keys[wf-info nodes] :as exec-wf-info} (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
 
@@ -551,7 +551,7 @@
 
 (defn show-execution-visualizer
   [execution-id]
-  (u/log (str "execution-id is:" execution-id))
+  ;(u/log (str "execution-id is:" execution-id))
 
 
   (reset! current-execution-id execution-id)

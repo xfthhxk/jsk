@@ -112,7 +112,7 @@
   (if-let [errors (validate-save workflow)]
     (ju/make-error-response errors)
     (let [wf-id (save-workflow* workflow layout user-id)]
-      (put! @out-chan {:topic "" :data {:msg :node-save :node-id wf-id}}) ; to notify conductor
+      (put! @out-chan {:msg :node-save :node-id wf-id}) ; to notify conductor
       {:success? true :workflow-id wf-id})))
 
 ;-----------------------------------------------------------------------
@@ -276,6 +276,30 @@
 (defn setup-synthetic-execution [job-id]
   (populate-synthetic-wf-data (db/synthetic-workflow-started job-id)))
 
+
+;-----------------------------------------------------------------------
+; TODO: Move this handles both jobs and workflows and yet we have
+;       two namespaces.
+;-----------------------------------------------------------------------
+(defn trigger-now
+  "Puts a message on the conductor channel to trigger the node now."
+  [node-id]
+  (put! @out-chan {:msg :trigger-node
+                   :node-id node-id}))
+
+(defn abort-execution
+  "Puts a message on the conductor channel to abort the execution."
+  [execution-id]
+  (put! @out-chan {:msg :abort-execution
+                   :execution-id execution-id}))
+
+
+(defn resume-execution
+  "Puts a message on the conductor channel to resume the execution."
+  [execution-id exec-vertex-id]
+  (put! @out-chan {:msg :abort-execution
+                   :execution-id execution-id
+                   :exec-vertex-id exec-vertex-id}))
 
 
 

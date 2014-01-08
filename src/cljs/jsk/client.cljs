@@ -15,10 +15,11 @@
     (:require-macros [cljs.core.async.macros :refer [go]])
     (:use-macros [enfocus.macros :only [deftemplate defsnippet defaction]]))
 
+
 ;-----------------------------------------------------------------------
 ; Dev stuff
 ;-----------------------------------------------------------------------
-(def dev-mode true)
+(def dev-mode false)
 
 (defn repl-connect []
  (when dev-mode

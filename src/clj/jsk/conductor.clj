@@ -42,7 +42,7 @@
   (put! publish-chan {:topic topic :data data}))
 
 (defn- publish-event [data]
-  (publish "status-update" data))
+  (publish util/status-updates-topic data))
 
 ;-----------------------------------------------------------------------
 ; Execution Info interactions
@@ -298,23 +298,12 @@
     (run-nodes (ds/vertices (get-exec-info execution-id))
                execution-id)))
 
-
-;-----------------------------------------------------------------------
-; Schedule job to be triggered now.
-;-----------------------------------------------------------------------
-(defn trigger-job-now [job-id]
-  (log/info "job-id is " job-id)
-  (run-job-as-synthetic-wf job-id)
-  true)
-
-;-----------------------------------------------------------------------
-; Schedule workflow to be triggered now.
-;-----------------------------------------------------------------------
-(defn trigger-workflow-now
-  [wf-id]
-  (log/info "Triggering workflow with id: " wf-id)
-  (start-workflow-execution wf-id)
-  true)
+(defn- trigger-node-execution
+  [node-id]
+  (let [{:keys[node-type-id]} (cache/node @node-sched-cache node-id)]
+    (if (util/workflow-type? node-type-id)
+      (start-workflow-execution node-id)
+      (run-job-as-synthetic-wf node-id))))
 
 
 (defn- abort-execution* [exec-id]
@@ -599,6 +588,15 @@
 (defmethod dispatch :ping [{:keys[reply-to] :as data}]
   (publish reply-to {:msg :pong}))
 
+(defmethod dispatch :trigger-node [{:keys[node-id]}]
+  (trigger-node-execution node-id))
+
+(defmethod dispatch :abort-execution [{:keys[execution-id]}]
+  (abort-execution execution-id))
+
+(defmethod dispatch :resume-execution [{:keys[execution-id exec-vertex-id]}]
+  (resume-execution execution-id exec-vertex-id))
+
 ;-----------------------------------------------------------------------
 ; This gets called if we don't have a handler setup for a msg type
 ;-----------------------------------------------------------------------
@@ -676,12 +674,9 @@
 (defn- run-quartz-processing
   "Quartz puts messages on ch. This reads those messages and triggers the jobs/wfs."
   [ch]
-  (go-loop [{:keys[event node-id]} (<! ch)]
+  (go-loop [{:keys[node-id]} (<! ch)]
      (try
-       (let [{:keys[node-type-id]} (cache/node @node-sched-cache node-id)]
-         (if (util/workflow-type? node-type-id)
-           (start-workflow-execution node-id)
-           (run-job-as-synthetic-wf node-id)))
+       (trigger-node-execution node-id)
        (catch Exception ex
          (log/error ex)))
      (recur (<! ch))))
