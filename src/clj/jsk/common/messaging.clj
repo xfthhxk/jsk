@@ -83,17 +83,22 @@
     (util/start-thread thread-name  #(relay-from-sub-socket host port bind? topics ch))
     ch))
 
+(defn process-read-channel
+  "Reads from channel ch and calls f with the data read off of ch"
+  [ch f]
+  (go-loop [data (<! ch)]
+    (try
+      (f data)
+      (catch Exception ex
+        (log/error ex)))
+    (recur (<! ch))))
+
 (defn relay-reads
   "Relays reads to the function f whenever a message is read from the socket
    created by this method based on input params."
   [thread-name host port bind? topics f]
   (let [ch (read-channel thread-name host port bind? topics)]
-    (go-loop [data (<! ch)]
-      (try
-        (f data)
-        (catch Exception ex
-          (log/error ex)))
-      (recur (<! ch)))))
+    (process-read-channel ch f)))
 
 (defn relay-writes
   "Creates a socket relays writes to the channel.

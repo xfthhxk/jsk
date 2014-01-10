@@ -69,48 +69,19 @@
 
    (reset! last-conductor-hb (util/now)))
       
-
-;-----------------------------------------------------------------------
-; Reads status-updates from conductor and forwardst to all websockets
-;-----------------------------------------------------------------------
-(defn- run-conductor-msg-loop
-  "Starts the conductor msg loop"
-  [host port]
-  (let [sock (msg/make-socket "tcp" host port false :sub)
-        topics [msg/status-updates-topic msg/broadcast-topic (msg/make-topic app-id)]]
-
-    (log/info "Subscribing to conductor topics" topics "on" host ":" port)
-    (msg/relay-reads "conductor-msg-loop" host port false topics  on-data)))
-
-;-----------------------------------------------------------------------
-; Message processing loop to publish messages to conductor.
-;-----------------------------------------------------------------------
-(defn- run-conductor-writes [ch host port]
-  (let [sock (msg/make-socket "tcp" host port false :pub)
-        topic ""]
-    (go-loop [msg (<! ch)]
-      (try
-        (msg/publish sock topic msg)
-        (catch Exception ex
-          (log/error ex)))
-      (recur (<! ch)))))
-
 (defn- time-since-last-hb []
   (- (util/now) @last-conductor-hb))
 
 (defn- ensure-conductor-connection [ch time-ms]
-  (while true
-    (when (> (time-since-last-hb) time-ms)
+  (when (> (time-since-last-hb) time-ms)
 
-      (log/info "Conductor ping started. Last msg received at" @last-conductor-hb)
+    (log/info "Conductor ping started. Last msg received at" @last-conductor-hb)
 
-      (while (> (time-since-last-hb) time-ms)
-        (put! ch {:msg :ping :reply-to app-id})
-        (Thread/sleep 1000))
+    (while (> (time-since-last-hb) time-ms)
+      (put! ch {:msg :ping :reply-to app-id})
+      (Thread/sleep 1000))
 
-      (log/info "Conductor ping ceased. Latest msg received at" @last-conductor-hb))
-
-    (Thread/sleep time-ms)))
+    (log/info "Conductor ping ceased. Latest msg received at" @last-conductor-hb)))
 
 ;-----------------------------------------------------------------------
 ; App starts ticking here.
@@ -133,15 +104,17 @@
   (job/init conductor-write-chan)
   (workflow/init conductor-write-chan)
 
-  (log/info "Starting conductor-msg-processor thread.")
-  (util/start-thread "conductor-msg-processor"
-                     #(run-conductor-msg-loop conductor-host cmd-port))
+  (log/info "Setting up conductor-msg-processor.")
 
-  (util/start-thread "ensure-conductor-connected"
-                     #(ensure-conductor-connection conductor-write-chan (conf/heartbeats-dead-after-ms)))
+  (let [topics [msg/status-updates-topic msg/broadcast-topic (msg/make-topic app-id)]]
+    (msg/relay-reads "conductor-msg-processor" conductor-host cmd-port false topics on-data))
+
+  (let [hb-ts (conf/heartbeats-dead-after-ms)
+        f (partial ensure-conductor-connection conductor-write-chan hb-ts)]
+    (util/periodically "ensure-conductor-connected" hb-ts f))
 
   (log/info "Initializing publication to conductor.")
-  (run-conductor-writes conductor-write-chan conductor-host req-port)
+  (msg/relay-writes conductor-write-chan conductor-host req-port false)
 
   (log/info "JSK web app init finished."))
 
