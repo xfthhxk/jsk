@@ -632,23 +632,6 @@
 
 
 ;-----------------------------------------------------------------------
-; Runs request processing loop
-;-----------------------------------------------------------------------
-(defn- run-request-processing [subscribe-port]
-  (let [thread-name "request-processor"
-        host "*"
-        bind? true
-        ch (msg/read-channel thread-name host subscribe-port bind? msg/all-topics)]
-
-    (go-loop [data (<! ch)]
-      (try
-        (dispatch data)
-        (catch Exception ex
-          (log/error ex)))
-      (recur (<! ch)))))
-
-
-;-----------------------------------------------------------------------
 ; Find dead agents, and mark their jobs as unknown status.
 ;-----------------------------------------------------------------------
 (defn- run-dead-agent-check
@@ -745,6 +728,7 @@
 
 
   (let [host "*" bind? true]
+   (msg/relay-reads "request-processor" host sub-port bind? msg/all-topics dispatch)
    (msg/relay-writes publish-chan host pub-port bind?))
 
   ;----------------------------------------------------------------------
@@ -752,7 +736,7 @@
   ; for some reason if heartbeats are started first things work otherwise not
   ;----------------------------------------------------------------------
   (run-heartbeats publish-chan (conf/heartbeats-interval-ms))
-  (run-request-processing sub-port)
+  
   (util/start-thread "dead-agent-checker" #(run-dead-agent-check (conf/heartbeats-dead-after-ms)))
 
   (log/info "Populating cache.")

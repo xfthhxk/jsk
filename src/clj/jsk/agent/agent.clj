@@ -90,38 +90,13 @@
   [host cmd-port req-port]
 
   (let [agent-id (util/jvm-instance-name)
-        topics [msg/broadcast-topic (msg/make-topic agent-id)]]
+        topics [msg/broadcast-topic (msg/make-topic agent-id)]
+        bind? false
+        write-ch (chan)]
 
     (log/info "Agent id is: " agent-id)
     (log/info "Listening to messages for topics: " topics)
 
-
-    ; infinite message loop
-    (let [read-ch (msg/read-channel "agent-sock-reader" host cmd-port false topics)
-          write-ch (chan)]
-
-      ; on startup agent needs to register with the conductor
-      ; so the conductor knows it is available
-      ; TODO: this should be in a loop at startup
-      (msg/relay-writes write-ch host req-port false)
-      (register-with-conductor write-ch agent-id)
-
-      (go-loop [data (<! read-ch)]
-        (try
-          (dispatch data agent-id write-ch)
-          (catch Exception ex
-            (notification/sys-error (str agent-id ": " ex))
-            (log/error ex)))
-        (recur (<! read-ch))))))
-
-
-
-
-
-
-
-
-
-
-
-
+    (msg/relay-writes write-ch host req-port false)
+    (msg/relay-reads "request-processor" host cmd-port bind? topics #(dispatch %1 agent-id write-ch))
+    (register-with-conductor write-ch agent-id)))
