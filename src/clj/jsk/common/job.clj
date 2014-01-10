@@ -1,9 +1,9 @@
-(ns jsk.job
+(ns jsk.common.job
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [clojure.core.async :refer [put!]]
-            [jsk.util :as ju]
-            [jsk.db :as db]
+            [jsk.common.util :as util]
+            [jsk.common.db :as db]
             [korma.db :as k]))
 
 (def ^:private out-chan (atom nil))
@@ -70,7 +70,7 @@
 ;-----------------------------------------------------------------------
 (defn save-job! [j user-id]
   (if-let [errors (validate-save j)]
-    (ju/make-error-response errors)
+    (util/make-error-response errors)
     (let [job-id (db/save-job j user-id)]
       (put! @out-chan {:msg :save-node :node-id job-id})
       {:success? true :job-id job-id})))

@@ -1,8 +1,7 @@
-(ns jsk.quartz
+(ns jsk.conductor.quartz
   "JSK quartz"
-  (:require [jsk.ps :as ps]
-            [jsk.conf :as conf]
-            [jsk.util :as ju]
+  (:require 
+            [jsk.common.conf :as conf]
             [clojure.core.async :refer [put!]]
             [taoensso.timbre :as log]
             [clojurewerkz.quartzite.scheduler :as qs]
@@ -11,7 +10,7 @@
             [clojurewerkz.quartzite.jobs :as j]
             [clojurewerkz.quartzite.schedule.cron :as cron])
   (:import (org.quartz.impl.matchers GroupMatcher EverythingMatcher))
-  (:import (org.quartz CronExpression JobDetail JobExecutionContext
+  (:import (org.quartz JobDetail JobExecutionContext
                        JobKey Scheduler Trigger TriggerBuilder TriggerKey)))
 
 (def quartz-channel (atom nil))
@@ -66,14 +65,6 @@
 
 (defn get-job-triggers [id]
   (.getTriggersOfJob ^Scheduler @qs/*scheduler* (make-trigger-job-key id)))
-
-;-----------------------------------------------------------------------
-; Answers if the cron expression is valid or not.
-;-----------------------------------------------------------------------
-(defn cron-expr? [expr]
-  (if expr
-    (CronExpression/isValidExpression expr)
-    false))
 
 
 (defn init [quartz-ch]

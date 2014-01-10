@@ -1,6 +1,6 @@
-(ns jsk.ps-test
+(ns jsk.common.graph-test
   (:use midje.sweet)
-  (:require [jsk.graph :as g]))
+  (:require [jsk.common.graph :as g]))
 
 
 (fact "Empty graph is acyclic"

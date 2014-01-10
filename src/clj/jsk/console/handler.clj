@@ -1,14 +1,14 @@
-(ns jsk.handler
+(ns jsk.console.handler
   "JSK handler"
   (:require
-            [jsk.conf :as conf]
-            [jsk.routes :as routes]
-            [jsk.util :as util]
-            [jsk.job :as job]
-            [jsk.schedule :as schedule]
-            [jsk.workflow :as workflow]
-            [jsk.user :as user]
-            [jsk.messaging :as msg]
+            [jsk.common.conf :as conf]
+            [jsk.console.routes :as routes]
+            [jsk.common.util :as util]
+            [jsk.common.job :as job]
+            [jsk.common.schedule :as schedule]
+            [jsk.common.workflow :as workflow]
+            [jsk.console.user :as user]
+            [jsk.common.messaging :as msg]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
             [compojure.handler :as ch]
@@ -61,6 +61,15 @@
 (defmethod dispatch :default [data]
   (comment "this is a no-op method"))
 
+
+(defn- on-data [data]
+  (cond
+   (:event data) (broadcast-to-clients data)
+   (:msg data) (dispatch data))
+
+   (reset! last-conductor-hb (util/now)))
+      
+
 ;-----------------------------------------------------------------------
 ; Reads status-updates from conductor and forwardst to all websockets
 ;-----------------------------------------------------------------------
@@ -68,28 +77,10 @@
   "Starts the conductor msg loop"
   [host port]
   (let [sock (msg/make-socket "tcp" host port false :sub)
-        topics [util/status-updates-topic "broadcast" app-id]]
+        topics [msg/status-updates-topic msg/broadcast-topic (msg/make-topic app-id)]]
 
     (log/info "Subscribing to conductor topics" topics "on" host ":" port)
-    (msg/subscribe sock topics)
-
-    ;  read from pub socket and write to all the clients
-    (loop [data (msg/read-pub-data sock)]
-
-      (try
-        (if (:event data)
-          (broadcast-to-clients data))
-
-        (if (:msg data)
-          (dispatch data))
-
-        (catch Exception ex
-          (log/error ex)))
-
-      (reset! last-conductor-hb (util/now))
-
-      (recur (msg/read-pub-data sock)))))
-
+    (msg/relay-reads "conductor-msg-loop" host port false topics  on-data)))
 
 ;-----------------------------------------------------------------------
 ; Message processing loop to publish messages to conductor.
@@ -109,10 +100,16 @@
 
 (defn- ensure-conductor-connection [ch time-ms]
   (while true
-    (while (> (time-since-last-hb) time-ms)
-      (log/info "Pinging conductor, last msg received" @last-conductor-hb)
-      (put! ch {:msg :ping :reply-to app-id})
-      (Thread/sleep 1000))
+    (when (> (time-since-last-hb) time-ms)
+
+      (log/info "Conductor ping started. Last msg received at" @last-conductor-hb)
+
+      (while (> (time-since-last-hb) time-ms)
+        (put! ch {:msg :ping :reply-to app-id})
+        (Thread/sleep 1000))
+
+      (log/info "Conductor ping ceased. Latest msg received at" @last-conductor-hb))
+
     (Thread/sleep time-ms)))
 
 ;-----------------------------------------------------------------------

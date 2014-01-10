@@ -57,5 +57,5 @@
                                    :pretty-print true}}]}
   ; :core.typed {:check [jsk.core jsk.handler jsk.ps jsk.repl jsk.quartz]}
   :min-lein-version "2.0.0"
-  :main jsk.main
+  :main jsk.core
   :aot :all)

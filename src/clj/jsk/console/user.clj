@@ -1,5 +1,5 @@
-(ns jsk.user
-  (:require [jsk.db :as db]))
+(ns jsk.console.user
+  (:require [jsk.common.db :as db]))
 
 (defrecord AppUser [app-user-id first-name last-name email])
 

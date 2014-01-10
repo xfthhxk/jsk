@@ -1,8 +1,7 @@
-(ns jsk.search
+(ns jsk.console.search
   "Search for executions and other things."
   (:require
-            [jsk.db :as db]
-            [jsk.ds :as ds]
+            [jsk.common.db :as db]
             [clj-time.core :as ctime]
             [clj-time.coerce :as coerce]
             [clojure.string :as string]

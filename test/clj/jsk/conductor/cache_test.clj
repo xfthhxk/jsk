@@ -1,6 +1,6 @@
-(ns jsk.cache-test
+(ns jsk.conductor.cache-test
   (:use midje.sweet)
-  (:require [jsk.cache :as cache]))
+  (:require [jsk.conductor.cache :as cache]))
 
 (def node-id 42)
 (def schedule-id 23)

@@ -1,45 +1,43 @@
-(ns jsk.agent
+(ns jsk.agent.agent
   (:require
-            [jsk.util :as util]
-            [jsk.ps :as ps]
-            [jsk.conf :as conf]
-            [jsk.messaging :as msg]
-            [nanomsg :as nn]
-            [taoensso.timbre :as log]
-            [clojure.string :as string]
-            [clojure.core.async :refer [<!! thread go put!]]))
-
-; topic is emtpy string because conductor listens to everything
-(def ^:private pub-topic "")
-
-
-(defn- register-with-conductor
-  "Register this agent with the conductor."
-  [sock agent-id]
-  (msg/publish sock pub-topic {:msg :agent-registering :agent-id agent-id}))
+            [jsk.common.util :as util]
+            [jsk.common.notification :as notification]
+            [jsk.agent.ps :as ps]
+            [jsk.common.conf :as conf]
+            [jsk.common.messaging :as msg]
+            [clojure.core.async :refer [put! <! go-loop chan]]
+            [taoensso.timbre :as log]))
 
 
 ; map of exec-vertex-id to the msg sent to the conductor
 (def finished-jobs (atom {}))
 
+(defn- ch-put [ch data]
+  (put! ch {:topic msg/root-topic :data data}))
+
+(defn- register-with-conductor
+  "Register this agent with the conductor."
+  [ch agent-id]
+  (ch-put ch {:msg :agent-registering :agent-id agent-id}))
+
 (defn- when-job-finished
   "Adds it to the finished jobs atom and sends the msg to the conductor.
    Things are removed from finished-jobs when the conductor sends an ack."
-  [{:keys[exec-vertex-id] :as msg} agent-id sock]
+  [{:keys[exec-vertex-id] :as msg} agent-id ch]
 
   (swap! finished-jobs #(assoc %1 exec-vertex-id msg))
-  (msg/publish sock pub-topic msg))
+  (ch-put ch msg))
 
 
 (defmulti dispatch (fn [m _ _] (:msg m)))
 
 ; sent from conductor to have agents register themselves
-(defmethod dispatch :agents-register [m agent-id sock]
-  (register-with-conductor sock agent-id))
+(defmethod dispatch :agents-register [m agent-id ch]
+  (register-with-conductor ch agent-id))
 
 ; sent from conductor, let conductor know of any finished
 ; jobs we haven't gotten acks for
-(defmethod dispatch :agent-registered [m agent-id sock]
+(defmethod dispatch :agent-registered [m agent-id ch]
   (log/info "Agent is now registered.")
 
   (let [msgs (vals @finished-jobs)]
@@ -48,14 +46,14 @@
     (when (-> msgs empty? not)
       (log/info "Unackd finished jobs: " msgs)
       (doseq [msg msgs]
-        (msg/publish sock pub-topic msg)))))
+        (ch-put ch msg)))))
 
 
 ; sent from conductor to have agents check in ie a heartbeat
-(defmethod dispatch :heartbeat [m agent-id sock]
-  (msg/publish sock pub-topic {:agent-id agent-id :msg :heartbeat-ack}))
+(defmethod dispatch :heartbeat [m agent-id ch]
+  (ch-put {:agent-id agent-id :msg :heartbeat-ack}))
 
-(defmethod dispatch :run-job [{:keys [job exec-vertex-id execution-id exec-wf-id timeout]} agent-id sock]
+(defmethod dispatch :run-job [{:keys [job exec-vertex-id execution-id exec-wf-id timeout]} agent-id ch]
   (future
    (let [{:keys[command-line execution-directory]} job
          log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")
@@ -68,22 +66,22 @@
 
      (log/info "cmd-line: " command-line ", exec-dir: " execution-directory ", log-file: " log-file-name ", timeout:" timeout ", exec-wf-id:" exec-wf-id)
      ; send ack
-     (msg/publish sock pub-topic ack-resp)
+     (ch-put ch ack-resp)
 
      (try
        (let [exit-code (ps/exec1 execution-id exec-vertex-id timeout command-line execution-directory log-file-name)
              success? (zero? exit-code)]
-         (when-job-finished (assoc base-resp :success? success?) agent-id sock))
+         (when-job-finished (assoc base-resp :success? success?) agent-id ch))
        (catch Exception ex
          (log/error ex)
-         (when-job-finished (assoc base-resp :success? false) agent-id sock))))))
+         (when-job-finished (assoc base-resp :success? false) agent-id ch))))))
 
 
-(defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id]} agent-id sock]
+(defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
   (log/debug "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
   (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
 
-(defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id]} agent-d sock]
+(defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id]} agent-id ch]
   )
 
 (defn init
@@ -92,26 +90,30 @@
   [host cmd-port req-port]
 
   (let [agent-id (util/jvm-instance-name)
-        topics ["broadcast" agent-id]
-        sock (msg/make-socket "tcp" host cmd-port false :sub)
-        pub-sock (msg/make-socket "tcp" host req-port false :pub)]
+        topics [msg/broadcast-topic (msg/make-topic agent-id)]]
 
     (log/info "Agent id is: " agent-id)
     (log/info "Listening to messages for topics: " topics)
 
-    (msg/subscribe sock topics)
 
-    ; on startup agent needs to register with the conductor
-    ; so the conductor knows it is available
-    (register-with-conductor pub-sock agent-id)
+    ; infinite message loop
+    (let [read-ch (msg/read-channel "agent-sock-reader" host cmd-port false topics)
+          write-ch (chan)]
 
-    ; main infinite message loop
-    (loop [data (msg/read-pub-data sock)]
-      (dispatch data agent-id pub-sock)
-      (recur (msg/read-pub-data sock)))
+      ; on startup agent needs to register with the conductor
+      ; so the conductor knows it is available
+      ; TODO: this should be in a loop at startup
+      (msg/relay-writes write-ch host req-port false)
+      (register-with-conductor write-ch agent-id)
 
-    ; never get here but cleanup anyway
-    (msg/close! [sock pub-sock])))
+      (go-loop [data (<! read-ch)]
+        (try
+          (dispatch data agent-id write-ch)
+          (catch Exception ex
+            (notification/sys-error (str agent-id ": " ex))
+            (log/error ex)))
+        (recur (<! read-ch))))))
+
 
 
 

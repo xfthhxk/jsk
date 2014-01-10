@@ -1,17 +1,12 @@
-(ns jsk.db
+(ns jsk.common.db
   "Database access"
-  (:require [clojure.string :as string]
+  (:require
+            [jsk.common.data :as data]
+            [jsk.common.util :as util]
+            [clojure.string :as string]
             [clj-time.core :as ctime]
             [taoensso.timbre :as log])
   (:use [korma core db]))
-
-
-(def synthetic-workflow-id 1)
-
-
-; current date time
-(defn now [] (java.util.Date.))
-
 
 ;-----------------------------------------------------------------------
 ; Extracts the id for the last inserted row
@@ -29,9 +24,6 @@
 
 (defn user-for-email [email]
   (first (select app-user (where {:email email}))))
-
-(def job-type-id 1)
-(def workflow-type-id 2)
 
 (defentity node
   (pk :node-id)
@@ -196,7 +188,7 @@
 ; Answers with the schedule-id if update is successful.
 ;-----------------------------------------------------------------------
 (defn update-schedule! [{:keys [schedule-id] :as m} user-id]
-  (let [merged-map (merge m {:updater-id user-id :update-ts (now)})]
+  (let [merged-map (merge m {:updater-id user-id :update-ts (util/now)})]
     (log/info "Updating schedule: " m)
     (update schedule (set-fields (dissoc m :schedule-id))
       (where {:schedule-id schedule-id})))
@@ -268,14 +260,14 @@
               :node-desc node-desc
               :is-enabled enabled?
               :updater-id user-id
-              :update-ts (now)}]
+              :update-ts (util/now)}]
     (update node (set-fields data)
       (where {:node-id node-id}))
     node-id))
 
 
-(def insert-job-node! (partial insert-node! job-type-id))
-(def insert-workflow-node! (partial insert-node! workflow-type-id))
+(def insert-job-node! (partial insert-node! data/job-type-id))
+(def insert-workflow-node! (partial insert-node! data/workflow-type-id))
 
 
 ;-----------------------------------------------------------------------
@@ -502,13 +494,6 @@
 ; Job execution stuff should be in another place likely
 ; schedule-ids is a set of integer ids
 ;-----------------------------------------------------------------------
-; These are tied to what is in the job_execution_status table
-(def unexecuted-status 1)
-(def started-status 2)
-(def finished-success 3)
-(def finished-error 4)
-(def aborted-status 5)
-(def unknown-status 6)
 
 (defentity execution
   (pk :execution-id)
@@ -567,7 +552,7 @@
                    (values {:execution-id exec-id
                             :workflow-id id
                             :root (= id wf)
-                            :status-id unexecuted-status}))
+                            :status-id data/unexecuted-status}))
                 extract-identity (assoc ans id)))
           {}
           (conj child-wfs wf)))
@@ -593,7 +578,7 @@
          from execution_workflow ew
          join workflow_vertex    wv
            on ew.workflow_id  = wv.workflow_id
-        where ew.execution_id = ? " [unexecuted-status exec-id]])
+        where ew.execution_id = ? " [data/unexecuted-status exec-id]])
 
   (exec-raw
    ["insert into execution_edge (execution_id, vertex_id, next_vertex_id, success)
@@ -622,8 +607,8 @@
   "Sets up a new execution returning the newly created execution-id."
   []
   (-> (insert execution
-        (values {:status-id started-status
-                 :start-ts  (now)}))
+        (values {:status-id data/started-status
+                 :start-ts  (util/now)}))
       extract-identity))
 
 
@@ -651,19 +636,19 @@
   "Sets up an synthetic workflow for the job specified."
   [job-id]
   (let [exec-id (new-execution*)
-        id-map  (insert-execution-workflows exec-id synthetic-workflow-id [])
-        exec-wf-id (id-map synthetic-workflow-id)
-        exec-vertex-id (snapshot-synthetic-workflow exec-id exec-wf-id job-id unexecuted-status)
+        id-map  (insert-execution-workflows exec-id data/synthetic-workflow-id [])
+        exec-wf-id (id-map data/synthetic-workflow-id)
+        exec-vertex-id (snapshot-synthetic-workflow exec-id exec-wf-id job-id data/unexecuted-status)
         job-name (get-job-name job-id)]
 
     {:execution-id exec-id
-     :wf-id synthetic-workflow-id
+     :wf-id data/synthetic-workflow-id
      :exec-wf-id exec-wf-id
      :exec-vertex-id exec-vertex-id
-     :status unexecuted-status
+     :status data/unexecuted-status
      :job-nm job-name
      :job-id job-id
-     :node-type job-type-id}))
+     :node-type data/job-type-id}))
 
 
 (defn execution-vertices
@@ -719,19 +704,19 @@
   ; execution tbl
   (transaction
    (update execution-vertex
-           (set-fields {:status-id aborted-status :finish-ts ts})
+           (set-fields {:status-id data/aborted-status :finish-ts ts})
            (where (and (= :execution-id exec-id)
                        (not= :start-ts nil)
                        (= :finish-ts nil))))
 
    (update execution-workflow
-           (set-fields {:status-id aborted-status :finish-ts ts})
+           (set-fields {:status-id data/aborted-status :finish-ts ts})
            (where (and (= :execution-id exec-id)
                        (not= :start-ts nil)
                        (= :finish-ts nil))))
 
    (update execution
-           (set-fields {:status-id aborted-status :finish-ts ts})
+           (set-fields {:status-id data/aborted-status :finish-ts ts})
            (where {:execution-id exec-id}))))
 
 
@@ -746,13 +731,13 @@
   "Marks the execution as finished and sets the status."
   [execution-id success? finish-ts]
   (update-execution-status execution-id
-                           (if success? finished-success finished-error)
+                           (if success? data/finished-success data/finished-error)
                            finish-ts))
 
 
 (defn execution-vertex-started [exec-vertex-id agent-id ts]
   (update execution-vertex
-    (set-fields {:status-id started-status :agent agent-id :start-ts ts})
+    (set-fields {:status-id data/started-status :agent agent-id :start-ts ts})
     (where {:execution-vertex-id exec-vertex-id})))
 
 
@@ -769,7 +754,7 @@
   "Marks the workflow as finished and sets the status in both the execution-workflow
    table and in execution-vertex."
   [exec-wf-id success? finish-ts]
-  (let [status (if success? finished-success finished-error)]
+  (let [status (if success? data/finished-success data/finished-error)]
     (update execution-workflow
       (set-fields {:status-id status :finish-ts finish-ts})
       (where {:execution-workflow-id exec-wf-id}))))
@@ -779,7 +764,7 @@
    execution-workflow and execution-vertex tables."
   [exec-wf-id start-ts]
   (update execution-workflow
-    (set-fields {:status-id started-status :start-ts start-ts})
+    (set-fields {:status-id data/started-status :start-ts start-ts})
     (where {:execution-workflow-id exec-wf-id})))
 
 
@@ -787,7 +772,7 @@
   "Marks the workflow and the execution vertex which represents the
    workflow as finished with the supplied status."
   [exec-vertex-ids exec-wf-ids success? ts]
-  (let [status-id (if success? finished-success finished-error)]
+  (let [status-id (if success? data/finished-success data/finished-error)]
     (transaction
       (update execution-workflow
         (set-fields {:status-id status-id :finish-ts ts})
@@ -899,7 +884,7 @@
       and ew.workflow_id = ? ")
 
 (defn synthetic-workflow-execution? [exec-id]
-  (-> (exec-raw [is-synthetic-wf-sql [exec-id synthetic-workflow-id]] :results)
+  (-> (exec-raw [is-synthetic-wf-sql [exec-id data/synthetic-workflow-id]] :results)
       count
       (= 1)))
 

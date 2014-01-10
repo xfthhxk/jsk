@@ -1,4 +1,4 @@
-(ns jsk.cache
+(ns jsk.conductor.cache
   "Cache of jobs and schedules")
 
 (defn new-cache [] {:nodes {}

@@ -1,4 +1,4 @@
-(ns jsk.ps
+(ns jsk.agent.ps
   "JSK process handling"
   (:require [clojure.java.io :as io]
             [taoensso.timbre :as log])
@@ -84,6 +84,7 @@
     (end-execution-tracking* exec-id)))
 
 
+; clojure java shell2 lib
 (defn- create
   "Makes the proc executor instance required"
   [^String cmd-with-args ^String exec-dir ^FileOutputStream os]

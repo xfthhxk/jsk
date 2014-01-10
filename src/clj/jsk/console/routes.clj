@@ -1,17 +1,16 @@
-(ns jsk.routes
+(ns jsk.console.routes
   (:require [compojure.core :refer [defroutes DELETE GET PUT POST]]
             [compojure.core :as cc]
             [compojure.route :as route]
             [ring.util.response :as rr]
             [cemerick.friend :as friend]
             [taoensso.timbre :as log]
-            [jsk.job :as j]
-            [jsk.db :as db]
-            [jsk.util :as util]
-            [jsk.workflow :as w]
-            [jsk.quartz :as q]
-            [jsk.search :as search]
-            [jsk.schedule :as s]))
+            [jsk.common.job :as job]
+            [jsk.common.db :as db]
+            [jsk.common.util :as util]
+            [jsk.common.workflow :as wf]
+            [jsk.console.search :as search]
+            [jsk.common.schedule :as schedule]))
 
 
 ;-----------------------------------------------------------------------
@@ -40,7 +39,7 @@
   (content-type "application/edn; charset=utf-8"
                 (pr-str data)))
 
-
+; put edn-response in middleware
 ;-----------------------------------------------------------------------
 ; Pulling user out of session.
 ;-----------------------------------------------------------------------
@@ -73,32 +72,32 @@
 ;-----------------------------------------------------------------------
 (defroutes job-routes
   (GET "/jobs" [_ :as request]
-       (edn-response (j/ls-jobs)))
+       (edn-response (job/ls-jobs)))
 
   (GET "/jobs/:id" [id]
-       (-> id util/str->int j/get-job edn-response))
+       (-> id util/str->int job/get-job edn-response))
 
   (GET "/jobs/trigger-now/:id" [id]
-       (-> id util/str->int j/trigger-now edn-response))
+       (-> id util/str->int job/trigger-now edn-response))
 
   (POST "/jobs/save" [_ :as request]
-        (-> (:params request) (j/save-job! (uid request)) edn-response)))
+        (-> (:params request) (job/save-job! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to schedules
 ;-----------------------------------------------------------------------
 (defroutes schedule-routes
   (GET "/schedules" []
-       (edn-response (s/ls-schedules)))
+       (edn-response (schedule/ls-schedules)))
 
   (GET "/schedules/:id" [id]
-       (-> id util/str->int s/get-schedule edn-response))
+       (-> id util/str->int schedule/get-schedule edn-response))
 
   (POST "/schedules/save" [_ :as request]
-       (-> (:params request) (s/save-schedule! (uid request)) edn-response))
+       (-> (:params request) (schedule/save-schedule! (uid request)) edn-response))
 
   (POST "/schedules/assoc" [_ :as request]
-        (-> (:edn-params request) (s/assoc-schedules! (uid request)) edn-response)))
+        (-> (:edn-params request) (schedule/assoc-schedules! (uid request)) edn-response)))
 
 
 ;-----------------------------------------------------------------------
@@ -106,19 +105,19 @@
 ;-----------------------------------------------------------------------
 (defroutes workflow-routes
   (GET "/workflows" []
-       (edn-response (w/ls-workflows)))
+       (edn-response (wf/ls-workflows)))
 
   (GET "/workflows/:id" [id]
-       (-> id util/str->int w/get-workflow edn-response))
+       (-> id util/str->int wf/get-workflow edn-response))
 
   (GET "/workflows/graph/:id" [id]
-       (-> id util/str->int w/workflow-nodes edn-response))
+       (-> id util/str->int wf/workflow-nodes edn-response))
 
   (GET "/workflows/trigger-now/:id" [id]
-       (-> id util/str->int w/trigger-now edn-response))
+       (-> id util/str->int wf/trigger-now edn-response))
 
   (POST "/workflows/save" [_ :as request]
-       (-> (:params request) (w/save-workflow! (uid request)) edn-response)))
+       (-> (:params request) (wf/save-workflow! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to execution data
@@ -134,12 +133,12 @@
         (-> (:params request) search/executions edn-response))
 
   (GET "/executions/abort/:id" [id]
-       (-> id util/str->int w/abort-execution edn-response))
+       (-> id util/str->int wf/abort-execution edn-response))
 
   (GET "/executions/resume/:id/:vid" [id vid]
        (let [execution-id (util/str->int id)
              vertex-id (util/str->int vid)]
-         (edn-response (w/resume-execution execution-id vertex-id)))))
+         (edn-response (wf/resume-execution execution-id vertex-id)))))
 
 
 ;-----------------------------------------------------------------------

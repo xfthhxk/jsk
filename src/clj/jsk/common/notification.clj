@@ -1,7 +1,7 @@
-(ns jsk.notification
+(ns jsk.common.notification
   (:require [taoensso.timbre :as log]
             [clojure.string :as string]
-            [jsk.conf :as conf])
+            [jsk.common.conf :as conf])
   (:import (javax.mail Message Message$RecipientType MessagingException PasswordAuthentication Session Transport)
            (javax.mail.internet InternetAddress MimeMessage)
            (java.util Properties)))
@@ -55,6 +55,11 @@
     (mail* to subject body)
     (catch Exception ex
       (log/error ex))))
+
+(defn sys-error [msg]
+  (let [to (conf/error-email-to)
+        subject "[JSK ERROR]"]
+      (mail to subject msg)))
 
 (defn job-error [{:keys [job-name execution-id error]}]
   (if error

@@ -1,10 +1,9 @@
-(ns jsk.schedule
+(ns jsk.common.schedule
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
-            [jsk.db :as db]
-            [jsk.quartz :as quartz]
+            [jsk.common.db :as db]
             [korma.db :as k]
-            [jsk.util :as util]
+            [jsk.common.util :as util]
             [clojure.core.async :refer [put!]])
   (:use [bouncer.validators :only [defvalidator]]))
 
@@ -59,7 +58,7 @@
   (-> s
     (b/validate
        :schedule-name [v/required [(partial unique-name? schedule-id) :message "Schedule name must be unique."]]
-       :cron-expression [v/required [quartz/cron-expr? :message "Invalid cron expression."]])
+       :cron-expression [v/required [util/cron-expr? :message "Invalid cron expression."]])
     first))
 
 

@@ -1,16 +1,23 @@
-(ns jsk.messaging
-  (:refer-clojure :exclude [read])
+(ns jsk.common.messaging
   (:require [nanomsg :as nn]
             [clojure.string :as string]
-            [jsk.util :as util]
+            [jsk.common.util :as util]
             [clojure.core.async :refer [put! <! go-loop chan]]
             [taoensso.timbre :as log]))
 
+(def root-topic "/jsk")
+
+(defn make-topic [s]
+  (str root-topic "/" s))
+
+(def status-updates-topic (make-topic "/status-updates"))
+
+(def broadcast-topic (make-topic "/broadcast"))
+
+(def all-topics [root-topic])
+
 (defn- ->end-point [transport host port]
   (str transport "://" host ":" port))
-
-(def all-topics [""])
-
 
 (defn make-socket
   "Bind or connect to the end point specified by transport, host and port.
@@ -45,21 +52,22 @@
   [msg]
   (second (string/split msg #"\u0000")))
 
-(defn read-pub-string [socket]
+(defn- read-pub-string [socket]
   (-> socket nn/recv parse-data-string))
 
-(defn read-pub-data [socket]
+(defn- read-pub-data [socket]
   (-> socket read-pub-string read-string))
 
 
 (defn close!
-  "Close all sockets present in socks seq."
-  [sockets]
-  (doseq [s sockets]
+  "Close all sockets present in ss seq."
+  [ss]
+  (doseq [s ss]
     (nn/close s)))
 
 
 (defn- relay-from-sub-socket
+  "Inifinite loop of reading from sub socket and puting on ch."
   [host port bind? topics ch]
   (let [sock (make-socket "tcp" host port bind? :sub)]
     (subscribe sock topics)
@@ -74,6 +82,18 @@
   (let [ch (chan)]
     (util/start-thread thread-name  #(relay-from-sub-socket host port bind? topics ch))
     ch))
+
+(defn relay-reads
+  "Relays reads to the function f whenever a message is read from the socket
+   created by this method based on input params."
+  [thread-name host port bind? topics f]
+  (let [ch (read-channel thread-name host port bind? topics)]
+    (go-loop [data (<! ch)]
+      (try
+        (f data)
+        (catch Exception ex
+          (log/error ex)))
+      (recur (<! ch)))))
 
 (defn relay-writes
   "Creates a socket relays writes to the channel.

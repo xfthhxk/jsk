@@ -1,10 +1,10 @@
-(ns jsk.conf
+(ns jsk.common.conf
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [korma.db :as k]
             [korma.config :as kc ]))
 
-(def config (atom {}))
+(def config (atom nil))
 
 (defn- load-config
   "Reads the config file from the classpath and returns the data as a clojure map."
