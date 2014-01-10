@@ -643,25 +643,22 @@
    If agent doesn't know anything, timeout will have to kick in and fail the job.
    Email users about agent disconnect and affected exec-vertex ids"
   [interval-ms]
-  (while true
-    (let [ts-threshold (- (util/now) interval-ms)
-          agent-job-map (track/dead-agents-job-map @tracker ts-threshold)
-          dead-agents (keys agent-job-map)
-          vertex-ids (reduce into #{} (vals agent-job-map))]
+  (let [ts-threshold (- (util/now) interval-ms)
+        agent-job-map (track/dead-agents-job-map @tracker ts-threshold)
+        dead-agents (keys agent-job-map)
+        vertex-ids (reduce into #{} (vals agent-job-map))]
 
+    (when (-> vertex-ids empty? not)
+      (log/info "Dead agent check, dead agents:" dead-agents ", affected vertex-ids:" vertex-ids)
 
-      (when (-> vertex-ids empty? not)
-        (log/info "Dead agent check, dead agents:" dead-agents ", affected vertex-ids:" vertex-ids)
+      ; mark status as unknown in db
+      (db/update-execution-vertices-status vertex-ids data/unknown-status (util/now))
 
-        ; mark status as unknown in db
-        (db/update-execution-vertices-status vertex-ids data/unknown-status (util/now))
+      ; remove from tracker
+      (swap! tracker track/rm-agents dead-agents)
 
-        ; remove from tracker
-        (swap! tracker track/rm-agents dead-agents)
+      (notify/dead-agents dead-agents vertex-ids))))
 
-        (notify/dead-agents dead-agents vertex-ids))
-
-      (Thread/sleep interval-ms))))
 
 
 ;-----------------------------------------------------------------------
@@ -677,30 +674,6 @@
     (log/info "No agents connected. Broadcasting registration and waiting..")
     (put! publish-chan {:topic "broadcast" :data {:msg :agents-register}})
     (Thread/sleep 1000)))
-
-
-;-----------------------------------------------------------------------
-; Kicks off jobs/wfs when quartz says to.
-;-----------------------------------------------------------------------
-(defn- run-quartz-processing
-  "Quartz puts messages on ch. This reads those messages and triggers the jobs/wfs."
-  [ch]
-  (go-loop [{:keys[node-id]} (<! ch)]
-     (try
-       (trigger-node-execution node-id)
-       (catch Exception ex
-         (log/error ex)))
-     (recur (<! ch))))
-
-
-(defn- run-heartbeats
-  "Starts a new thread to put heartbeat messages on to ch everty t millisecs."
-  [ch t]
-  (util/start-thread "heartbeats"
-                     (fn[]
-                       (while true
-                         (put! ch {:topic "broadcast" :data {:msg :heartbeat}})
-                         (Thread/sleep t)))))
 
 
 (defn- populate-cache
@@ -735,9 +708,10 @@
   ; REVIEW
   ; for some reason if heartbeats are started first things work otherwise not
   ;----------------------------------------------------------------------
-  (run-heartbeats publish-chan (conf/heartbeats-interval-ms))
-  
-  (util/start-thread "dead-agent-checker" #(run-dead-agent-check (conf/heartbeats-dead-after-ms)))
+  (let [hb-ms (conf/heartbeats-interval-ms)
+        dead-after-ms (conf/heartbeats-dead-after-ms)]
+    (util/periodically "heartbeats" hb-ms #(publish msg/broadcast-topic {:msg :heartbeat}))
+    (util/periodically "dead-agent-checker" dead-after-ms (partial run-dead-agent-check dead-after-ms)))
 
   (log/info "Populating cache.")
   (populate-cache)
@@ -748,7 +722,7 @@
   (log/info "Initializing Quartz.")
   (quartz/init quartz-chan)
   ; quartz puts stuff on the quartz-chan when a trigger is fired
-  (run-quartz-processing quartz-chan)
+  (msg/process-read-channel quartz-chan #(-> :node-id %1 trigger-node-execution))
 
 
   (log/info "Populating Quartz.")
