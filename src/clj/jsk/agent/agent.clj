@@ -51,7 +51,7 @@
 
 ; sent from conductor to have agents check in ie a heartbeat
 (defmethod dispatch :heartbeat [m agent-id ch]
-  (ch-put {:agent-id agent-id :msg :heartbeat-ack}))
+  (ch-put ch {:agent-id agent-id :msg :heartbeat-ack}))
 
 (defmethod dispatch :run-job [{:keys [job exec-vertex-id execution-id exec-wf-id timeout]} agent-id ch]
   (future

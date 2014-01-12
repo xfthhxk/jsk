@@ -10,9 +10,9 @@
 (defn make-topic [s]
   (str root-topic "/" s))
 
-(def status-updates-topic (make-topic "/status-updates"))
+(def status-updates-topic (make-topic "status-updates"))
 
-(def broadcast-topic (make-topic "/broadcast"))
+(def broadcast-topic (make-topic "broadcast"))
 
 (def all-topics [root-topic])
 

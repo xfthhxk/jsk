@@ -67,10 +67,10 @@
    (:event data) (broadcast-to-clients data)
    (:msg data) (dispatch data))
 
-   (reset! last-conductor-hb (util/now)))
+   (reset! last-conductor-hb (util/now-ms)))
       
 (defn- time-since-last-hb []
-  (- (util/now) @last-conductor-hb))
+  (- (util/now-ms) @last-conductor-hb))
 
 (defn- ensure-conductor-connection [ch time-ms]
   (when (> (time-since-last-hb) time-ms)

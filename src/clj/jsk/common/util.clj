@@ -37,6 +37,8 @@
 (defn ensure-directory [dir]
   (-> dir io/file .mkdirs))
 
+(def present? (complement nil?))
+
 
 (defn str->int [s]
   (Integer/parseInt s))
@@ -80,3 +82,16 @@
                               (while true
                                 (f)
                                 (Thread/sleep period)))))
+
+(defn select-filter
+  "Selects entries from a map m based on predicate pred.
+   pred is a two arg function which is passed the key and value for
+   each map entry.  Returns a map with only those entries that
+   satisfied pred."
+  [pred m]
+  (reduce (fn [ans [k v]]
+            (if (pred k v)
+              (assoc ans k v)
+              ans))
+          {}
+          (seq m)))

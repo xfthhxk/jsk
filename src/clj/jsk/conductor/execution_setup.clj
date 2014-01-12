@@ -2,7 +2,7 @@
   (:require [taoensso.timbre :as log]
             [jsk.common.graph :as graph]
             [jsk.common.workflow :as wf]
-            [jsk.conductor.execution-model :as model]
+            [jsk.conductor.execution-model :as exm]
             [jsk.common.util :as util]
             [jsk.common.db :as db]))
 
@@ -26,12 +26,12 @@
     (assert (= 1 (count root-wfs)) (str "Only 1 wf can be the root wf. Got: " root-wfs))
 
     (-> tbl
-        (model/set-root-workflow root-wf)
-        (model/add-workflows (map :execution-workflow-id data)))))
+        (exm/set-root-workflow root-wf)
+        (exm/add-workflows (map :execution-workflow-id data)))))
 
 (defn- populate-wf-mappings [tbl data]
   (reduce (fn[ans {:keys[workflow-id execution-workflow-id]}]
-            (model/add-workflow-mapping ans execution-workflow-id workflow-id))
+            (exm/add-workflow-mapping ans execution-workflow-id workflow-id))
           tbl
           data))
 
@@ -41,13 +41,13 @@
   [tbl data]
   (let [v-fn (juxt :src-exec-vertex-id :dest-exec-vertex-id)
         vv (into #{} (mapcat v-fn data))]
-  (model/add-vertices tbl vv)))
+  (exm/add-vertices tbl vv)))
 
 (defn- add-deps
   "Adds in dependency information in tbl pulled from data."
   [tbl data]
   (reduce (fn [ans {:keys[execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success]}]
-            (model/add-dependency ans execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success))
+            (exm/add-dependency ans execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success))
           tbl
           data))
 
@@ -58,8 +58,8 @@
                          dest-id dest-exec-vertex-id dest-name dest-type
                          workflow-id execution-workflow-id]}]
             (-> ans
-               (model/set-vertex-attrs src-exec-vertex-id src-id src-name src-type workflow-id execution-workflow-id)
-               (model/set-vertex-attrs dest-exec-vertex-id dest-id dest-name dest-type workflow-id execution-workflow-id)))
+               (exm/set-vertex-attrs src-exec-vertex-id src-id src-name src-type workflow-id execution-workflow-id)
+               (exm/set-vertex-attrs dest-exec-vertex-id dest-id dest-name dest-type workflow-id execution-workflow-id)))
           tbl
           data))
 
@@ -69,7 +69,7 @@
             (let [vertex (vertex-key m)
                   runs-wf (runs-wf-key m)]
               (if runs-wf
-                (model/set-vertex-runs-workflow ans vertex runs-wf)
+                (exm/set-vertex-runs-workflow ans vertex runs-wf)
                 ans)))
           tbl
           data))
@@ -84,7 +84,7 @@
 (defn- data->exec-tbl*
   "data is a seq of maps which is turned into an execution info table."
   [data]
-  (-> (model/new-execution-table)
+  (-> (exm/new-execution-table)
       (populate-wf-mappings data)
       (populate-exec-wfs data)
       (populate-vertices data)
@@ -98,7 +98,7 @@
   [data initial-run?]
   (let [tbl (data->exec-tbl* data)]
     (if initial-run?
-      (model/finalize tbl)
+      (exm/finalize tbl)
       (use-previous-finalization tbl data))))
 
 
@@ -132,36 +132,41 @@
   "Fetches a map with keys :execution-id :info. :info is the workflow
    execution data and returns it as a data structure which conforms
    to the IExecutionTable protocol."
-  [exec-id initial-run?]
+  [exec-id initial-run? wf-nm]
   (let [data (db/get-execution-graph exec-id)
-        tbl (data->exec-tbl data initial-run?)]
-    (log/debug "tbl is " tbl)
-    {:execution-id exec-id :info tbl}))
+        model (data->exec-tbl data initial-run?)]
+    {:execution-id exec-id
+     :model
+     (-> model
+         (exm/set-execution-name wf-nm)
+         (exm/set-start-time (util/now)))}))
 
 
 (defn- populate-synthetic-wf-data [{:keys[execution-id exec-wf-id wf-id exec-vertex-id job-id job-nm node-type]}]
     {:execution-id execution-id
-     :info
-      (-> (model/new-execution-table)
-          (model/add-workflows [exec-wf-id])
-          (model/add-workflow-mapping exec-wf-id wf-id)
-          (model/set-root-workflow exec-wf-id)
-          (model/add-vertices [exec-vertex-id])
-          (model/set-vertex-attrs exec-vertex-id job-id job-nm node-type wf-id exec-wf-id)
-          (model/finalize))})
+     :model
+      (-> (exm/new-execution-table)
+          (exm/set-start-time (util/now))
+          (exm/set-execution-name job-nm)
+          (exm/add-workflows [exec-wf-id])
+          (exm/add-workflow-mapping exec-wf-id wf-id)
+          (exm/set-root-workflow exec-wf-id)
+          (exm/add-vertices [exec-vertex-id])
+          (exm/set-vertex-attrs exec-vertex-id job-id job-nm node-type wf-id exec-wf-id)
+          (exm/finalize))})
 
 (defn resume-workflow-execution-data
   "Fetches an existing execution's data."
   [exec-id]
   (if (db/synthetic-workflow-execution? exec-id)
     (populate-synthetic-wf-data (db/synthetic-workflow-resumption exec-id))
-    (workflow-execution-data exec-id false)))
+    (workflow-execution-data exec-id false "FixmeResumeWfExecData")))
 
 
-(defn setup-execution [wf-id]
+(defn setup-execution [wf-id wf-name]
   (let [exec-id (db/new-execution! wf-id)
-        {:keys[info] :as ans} (workflow-execution-data exec-id true)
-        vertex-wf-map (model/vertex-workflow-to-run-map info)]
+        {:keys[info] :as ans} (workflow-execution-data exec-id true wf-name)
+        vertex-wf-map (exm/vertex-workflow-to-run-map info)]
     (db/set-vertex-runs-execution-workflow-mapping vertex-wf-map)
     ans))
 

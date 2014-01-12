@@ -1,5 +1,6 @@
 (ns jsk.conductor.execution-model
   (:require [jsk.common.graph :as graph]
+            [jsk.common.data :as data]
             [jsk.common.util :as util]))
 
 (def ^:private initial-vertex-info
@@ -14,8 +15,11 @@
 (defn new-execution-table
   "Answers with a new representation of an empty execution table."
   []
-  {:vertices {}
+  {:execution-name nil
+   :start-time nil
+   :vertices {}
    :graphs {}
+   :failed-exec-wfs #{}
    :wf-mappings {:exec-wf-to-wf {}
                  :wf-to-exec-wf {}}
    :root-wf nil})
@@ -25,7 +29,25 @@
   [success?]
   (if success? :on-success :on-failure))
 
+(defn set-execution-name
+  "Sets the execution name for model"
+  [model nm]
+  (assoc model :execution-name nm))
 
+(defn execution-name
+  "Answers with the name for this execution"
+  [model]
+  (:execution-name model))
+
+(defn set-start-time
+  "Sets the execution's start."
+  [model time]
+  (assoc model :start-time time))
+
+(defn start-time
+  "Gets the execution's start."
+  [model]
+  (:start-time model))
 
 
 (defn set-root-workflow
@@ -60,7 +82,7 @@
           vertices))
 
 (defn vertices
-  "Answers with all vertices in this model."
+  "Answers with all vertex-ids in this model."
   [model]
   (set (keys (get-in model [:vertices]))))
 
@@ -163,14 +185,20 @@
           model
           (flatten vertex-ids)))
 
-(defn status-count
-  "Count of vertices which have the specified status."
-  [model status]
+(defn filter-vertices
+  [model pred]
   (->> model
        vertices
-       (map :status)
-       (filter (partial = status))
-       count))
+       (filter pred)))
+
+(defn status-count
+  "Count of vertices which have the specified status."
+  [model status-id exec-wf-id]
+  (-> model
+      (filter-vertices (fn [{:keys [status belongs-to-wf]}]
+                         (and (= status status-id)
+                              (= belongs-to-wf exec-wf-id))))
+      count))
 
 (defn parent-vertex
   "vertex-id's parent vertex id or nil when vertex-id is the root."
@@ -211,3 +239,31 @@
             (process-wf-vertex ans v))
           model
           (workflow-vertices model)))
+
+(defn partition-by-node-type
+  "Partitions the node-ids by node-type and returns a two element vector.
+   The first element is a set of job vertices, the second a set of workflow vertices."
+  [model node-ids]
+  (let [f (fn [id] (->> id (vertex-attrs model) :node-type))
+        type-map (group-by f node-ids)]
+    [(-> data/job-type-id type-map set)
+     (-> data/workflow-type-id type-map set)]))
+
+
+(defn single-workflow-context-for-vertices
+  "Ensures the vertex-ids belong to the same wf-id and returns that wf-id."
+  [model vertex-ids]
+  (let [wf-ids (-> model (workflow-context vertex-ids) vals distinct)]
+    (assert (= 1 (count wf-ids))
+          (str "Not all vertices are in the same workflow: " vertex-ids))
+    (first wf-ids)))
+
+(defn mark-exec-wf-failed
+  "Marks the execution workflow specified by exec-wf-id as failed."
+  [model exec-wf-id]
+  (update-in model [:failed-exec-wfs] conj exec-wf-id))
+
+(defn failed-exec-wf?
+  "Answers if the exec-wf-id has failed."
+  [model exec-wf-id]
+  (-> model (get-in [:failed-exec-wfs]) (contains? exec-wf-id)))

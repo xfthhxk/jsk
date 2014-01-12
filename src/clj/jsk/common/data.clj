@@ -16,4 +16,4 @@
 (def finished-error 4)
 (def aborted-status 5)
 (def unknown-status 6)
-(def runnable-status 7)
+(def pending-status 7)

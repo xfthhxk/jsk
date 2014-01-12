@@ -5,144 +5,166 @@
                     :schedules {}
                     :node-schedules {} })
 
-(defprotocol ICache
-  "Cache of nodes and schedules and their associations."
-
-  (put-node [c n]
-    "Puts the node n in cache c.")
-
-  (put-nodes [c nn]
-    "Puts each node in nn into cache c.")
-
-  (node [c id]
-    "Gets the node for the id or nil")
-
-  (nodes [c]
-    "Gets all nodes.")
-
-  (rm-node [c id]
-    "Removes the node with id from the cache c.")
-
-  (put-schedule [c s]
-    "Puts the schedule s in cache c.")
-
-  (put-schedules [c ss]
-    "Puts each schedule in ss into cache c.")
-
-  (schedule [c id]
-    "Gets the schedule for the id or nil")
-
-  (schedules [c]
-    "Gets all schedules")
-
-  (rm-schedule [c id]
-    "Removes the schedule with id from the cache c.")
-
-  (put-assoc [c node-schedule]
-    "Puts the association in the cache.")
-
-  (put-assocs [c node-schedules]
-    "Puts the associations in the cache.")
-
-  (schedule-assoc [c id]
-    "Gets the schedule-assoc for the id or nil")
-
-  (schedule-assocs [c]
-    "Gets the schedule-assoc for the id or nil")
-
-  (rm-assoc [c node-schedule-id]
-    "Removes the schedule association")
-
-  (rm-assocs [c node-schedule-ids]
-    "Removes the schedule associations")
-
-  (schedule-assocs-for-node [c node-id]
-    "Gets the schedule-assocs for the node-id")
-
-  (schedule-assocs-for-schedule [c schedule-id]
-    "Gets the schedule-assocs for the schedule-id")
-
-  (schedules-for-node [c node-id]
-    "Gets the schedules for the node-id")
-
-  (nodes-for-schedule [c schedule-id]
-    "Gets the schedules for the node-id"))
-
-
-(extend-protocol ICache
-
-  clojure.lang.IPersistentMap
-
-  (put-node [c {:keys [node-id] :as node}]
+;-----------------------------------------------------------------------
+; Nodes
+;-----------------------------------------------------------------------
+(defn put-node
+  "Puts node in cache c."
+  [c {:keys [node-id] :as node}]
     (assoc-in c [:nodes node-id] node))
 
-  (put-nodes [c nn]
-    (reduce #(put-node %1 %2) c nn))
+(defn put-nodes
+  "Puts nodes in the collection nn in cache c."
+  [c nn]
+  (reduce #(put-node %1 %2) c nn))
 
-  (node [c node-id]
-    (get-in c [:nodes node-id]))
+(defn node
+  "Gets the node for the id. Can return nil if node-id is unknown."
+  [c node-id]
+  (get-in c [:nodes node-id]))
 
-  (nodes [c]
-    (-> c :nodes vals))
+(defn nodes
+  "Gets all nodes in cache c."
+  [c]
+  (-> c :nodes vals))
 
-  (rm-node [c node-id]
-    (update-in c [:nodes] dissoc node-id))
+(defn rm-node
+  "Removes the node specified by the node-id."
+  [c node-id]
+  (update-in c [:nodes] dissoc node-id))
 
+;-----------------------------------------------------------------------
+; Schedules
+;-----------------------------------------------------------------------
+(defn put-schedule
+  "Puts schedule in cache c" 
+  [c {:keys [schedule-id] :as schedule}]
+  (assoc-in c [:schedules schedule-id] schedule))
 
+(defn put-schedules
+  "Puts all schedule in collection ss in cache c" 
+  [c ss]
+  (reduce #(put-schedule %1 %2) c ss))
 
-  (put-schedule [c {:keys [schedule-id] :as schedule}]
-    (assoc-in c [:schedules schedule-id] schedule))
+(defn schedule
+  "Gets the schedule by id or returns nil."
+  [c schedule-id]
+  (get-in c [:schedules schedule-id]))
 
-  (put-schedules [c ss]
-    (reduce #(put-schedule %1 %2) c ss))
+(defn schedule-cron-expr
+  "Gets the cron expression associated with the schedule"
+  [c schedule-id]
+  (:cron-expression (schedule c schedule-id)))
 
-  (schedule [c schedule-id]
-    (get-in c [:schedules schedule-id]))
+(defn schedules
+  "Gets all schedules."
+  [c]
+  (-> c :schedules vals))
 
-  (schedules [c]
-    (-> c :schedules vals))
-
-  (rm-schedule [c schedule-id]
-    (update-in c [:schedules] dissoc schedule-id))
-
-
-
-  (put-assoc [c {:keys [node-schedule-id] :as node-sched}]
-    (assoc-in c [:node-schedules node-schedule-id] node-sched))
-
-  (put-assocs [c node-schedule-associations]
-    (reduce #(put-assoc %1 %2) c node-schedule-associations))
-
-  (schedule-assoc [c node-schedule-id]
-    (get-in c [:node-schedules node-schedule-id]))
-
-  (schedule-assocs [c]
-    (-> c :node-schedules vals))
-
-  (rm-assoc [c node-schedule-id]
-    (update-in c [:node-schedules] dissoc node-schedule-id))
-
-  (rm-assocs [c node-schedule-ids]
-    (reduce #(rm-assoc %1 %2) c node-schedule-ids))
-
-
-  (schedule-assocs-for-node [c node-id]
-    (let [matches-id? #(= node-id (:node-id %1))]
-      (->> c :node-schedules vals (filter matches-id?))))
-
-  (schedule-assocs-for-schedule [c schedule-id]
-    (let [matches-id? #(= schedule-id (:schedule-id %1))]
-      (->> c :node-schedules vals (filter matches-id?))))
-
-  (schedules-for-node [c node-id]
-    (let [schedule-ids (->> (schedule-assocs-for-node c node-id) (map :schedule-id))]
-      (map (partial schedule c) schedule-ids)))
-
-  (nodes-for-schedule [c schedule-id]
-    (let [node-ids (->> (schedule-assocs-for-schedule c schedule-id) (map :node-id))]
-      (map (partial node c) node-ids))))
+(defn rm-schedule
+  "Removes the schedule by id"
+  [c schedule-id]
+  (update-in c [:schedules] dissoc schedule-id))
 
 
+
+;-----------------------------------------------------------------------
+; Nodes Schedule associations
+;-----------------------------------------------------------------------
+(defn put-assoc
+  "Puts the node-sched association in to cache c."
+  [c {:keys [node-schedule-id] :as node-sched}]
+  (assoc-in c [:node-schedules node-schedule-id] node-sched))
+
+(defn put-assocs
+  "Puts all associations in node-schedule-associations in to cache c."
+  [c node-schedule-associations]
+  (reduce #(put-assoc %1 %2) c node-schedule-associations))
+
+(defn schedule-assoc
+  "Retrieves the node schedule association for the id or nil."
+  [c node-schedule-id]
+  (get-in c [:node-schedules node-schedule-id]))
+
+(defn schedule-assocs
+  "Retrieves all node schedule association."
+  [c]
+  (-> c :node-schedules vals))
+
+(defn- assoc-cron-expr
+  "Associates cron expression for each node-schedule-assoc"
+  [c node-sched-assocs]
+  (map (fn [{:keys [schedule-id] :as ns-assoc}]
+         (merge ns-assoc (-> c
+                             (schedule schedule-id)
+                             (select-keys :cron-expression))))
+         node-sched-assocs))
+
+(defn schedule-assocs-with-cron-expr
+  "Retrieves all node schedule association with the associated :cron-expression. "
+  [c]
+  (->> c schedule-assocs (assoc-cron-expr c)))
+
+(defn rm-assoc
+  "Removes the association pointed to by node-schedule-id."
+  [c node-schedule-id]
+  (update-in c [:node-schedules] dissoc node-schedule-id))
+
+(defn rm-assocs
+  "Removes all associations pointed to by node-schedule-ids."
+  [c node-schedule-ids]
+  (reduce #(rm-assoc %1 %2) c node-schedule-ids))
+
+
+;-----------------------------------------------------------------------
+; Additional query functions
+;-----------------------------------------------------------------------
+(defn- filter-schedule-assocs
+  "Filters schedule associations based on predicate fn pred.
+   pred is a function which takes a node-schedule-assoc map and returns true or false."
+  [c pred]
+  (->> c :node-schedules vals (filter pred)))
+
+(defn schedule-assocs-for-node
+  "Retrieves all schedule associations for the given node id"
+  [c node-id]
+  (filter-schedule-assocs c #(= node-id (:node-id %1))))
+
+(defn schedule-assocs-with-cron-expr-for-node
+  "Retrieves all schedule associations for the given node id"
+  [c node-id]
+  (->> (schedule-assocs-for-node c node-id)
+       (assoc-cron-expr c)))
+
+(defn schedule-assoc-ids-for-node
+  "Retrieves all schedule association ids for the given node id"
+  [c node-id]
+  (->> c (schedule-assocs-for-node c node-id) (map :node-schedule-id)))
+
+(defn schedule-assocs-for-schedule
+  "Retrieves all schedule associations for the given schedule id"
+  [c schedule-id]
+  (filter-schedule-assocs c #(= schedule-id (:schedule-id %1))))
+
+(defn schedules-for-node
+  "Retrieves all schedule for the given node id"
+  [c node-id]
+  (let [schedule-ids (->> (schedule-assocs-for-node c node-id) (map :schedule-id))]
+    (map (partial schedule c) schedule-ids)))
+
+(defn nodes-for-schedule
+  "Retrieves all nodes for the given schedule id"
+  [c schedule-id]
+  (let [node-ids (->> (schedule-assocs-for-schedule c schedule-id) (map :node-id))]
+    (map (partial node c) node-ids)))
+
+(defn replace-schedule-assocs
+  "Removes the old schedule associations if any and adds in the new ones."
+  [c node-id new-assocs]
+  (let [old-ids (schedule-assoc-ids-for-node c node-id)]
+    (-> c
+        (rm-assocs old-ids)
+        (put-assocs new-assocs))))
 
 
 

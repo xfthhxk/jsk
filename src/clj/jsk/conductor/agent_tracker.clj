@@ -2,11 +2,16 @@
 
 ;  "Tracking of jobs, agents and status."
 
+;; Data shape:
+;;
+;; {:agents
+;;  {agent-id-1 {:last-hb timestamp
+;;               :jobs #{1 829 28 74}}}}
+
 (defn new-tracker
   "Create a new tracker."
   []
-  {:agents {}
-   :jobs {}})
+  {:agents {}})
 
 (defn add-agent
   "Adds the agent specified by agent-id to the tracker t."
@@ -15,7 +20,8 @@
                                   :jobs #{}}))
 
 (defn rm-agent
-  "Removes the agent specified by agent-id from the tracker t."
+  "Removes the agent specified by agent-id from the tracker t.
+   Also removes any jobs and heartbeat information attached to this agent."
   [t agent-id]
   (update-in t [:agents] dissoc agent-id))
 
@@ -31,29 +37,24 @@
   [t agent-id ts]
   (assoc-in t [:agents agent-id :last-hb] ts))
 
-(defn run-job
-  "Mark that the agent was sent the run-job req"
-  [t agent-id job-id ts]
-  (-> t
-      (update-in [:agents agent-id :jobs] conj job-id)
-      (assoc-in [:jobs job-id] {:state :run-job :ts ts})))
+(defn- manage-agent-job-assoc [t agent-id job-id f]
+  (update-in t [:agents agent-id :jobs] f job-id))
 
-(defn agent-started-job
-  "Mark the time the agent actually started the job."
-  [t agent-id job-id ts]
-  (assoc-in t [:jobs job-id] {:state :run-job-ack :ts ts}))
+(defn add-agent-job-assoc [t agent-id & job-ids]
+  (update-in t [:agents agent-id :jobs] into (flatten job-ids)))
 
-(defn abort-job
-  "Mark that the agent was sent the abort request."
-  [t agent-id job-id ts]
-  (assoc-in [:jobs job-id] {:state :abort-job :ts ts}))
+(defn add-job-agent-assocs
+  "job-agent-map is a map of job ids to the agent"
+  [t job-agent-map]
+  (reduce (fn [ans [job-id agent-id]]
+            (update-in ans [:agents agent-id :jobs] conj job-id))
+          t
+          (seq job-agent-map)))
 
-(defn rm-job
+(defn rm-agent-job-assoc
   "Removes the job from this tracker."
   [t agent-id job-id]
-  (-> t
-      (update-in [:agents agent-id :jobs] disj job-id)
-      (update-in [:jobs] dissoc job-id)))
+  (update-in t [:agents agent-id :jobs] disj job-id))
 
 (defn agents
   "Answers with all the agent ids."
@@ -88,9 +89,3 @@
   (reduce (fn[m id] (assoc m id (agent-jobs t id)))
           {}
           (dead-agents t ts)))
-
-(defn job-exists?
-  "Answers if the job exists."
-  [t job-id]
-  (-> t (get-in [:jobs job-id]) nil? not))
-

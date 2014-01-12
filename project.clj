@@ -46,9 +46,9 @@
   :plugins [[lein-ring "0.8.7"]
             [lein-typed "0.3.0"]
             [lein-cljsbuild "0.3.3"]]
-  :ring {:handler jsk.handler/app
-         :init jsk.handler/init
-         :destroy jsk.handler/destroy
+  :ring {:handler jsk.console.handler/app
+         :init jsk.console.handler/init
+         :destroy jsk.console.handler/destroy
          :configurator jsk.handler/ws-configurator}
   :repl-options {:nrepl-middleware [lighttable.nrepl.handler/lighttable-ops]}
   :cljsbuild {:builds [{:source-paths ["src/cljs"]
