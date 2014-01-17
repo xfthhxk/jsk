@@ -1,9 +1,11 @@
 (ns jsk.conductor.cache
   "Cache of jobs and schedules"
-  (:refer-clojure :exclude [agent]))
+  (:refer-clojure :exclude [agent])
+  (:require [jsk.common.util :as util]))
 
 (defn new-cache [] {:agents {}
-                    :nodes {}
+                    :jobs {}
+                    :workflows {}
                     :schedules {}
                     :node-schedules {} })
 
@@ -36,32 +38,60 @@
   (update-in c [:agents] dissoc agent-id))
 
 ;-----------------------------------------------------------------------
-; Nodes
+; Jobs
 ;-----------------------------------------------------------------------
-(defn put-node
-  "Puts node in cache c."
-  [c {:keys [node-id] :as node}]
-    (assoc-in c [:nodes node-id] node))
+(defn put-job
+  "Puts job in cache c."
+  [c {:keys [job-id] :as job}]
+    (assoc-in c [:jobs job-id] job))
 
-(defn put-nodes
-  "Puts nodes in the collection nn in cache c."
+(defn put-jobs
+  "Puts jobs in the collection nn in cache c."
   [c nn]
-  (reduce #(put-node %1 %2) c nn))
+  (reduce #(put-job %1 %2) c nn))
 
-(defn node
-  "Gets the node for the id. Can return nil if node-id is unknown."
-  [c node-id]
-  (get-in c [:nodes node-id]))
+(defn job
+  "Gets the job for the id. Can return nil if job-id is unknown."
+  [c job-id]
+  (get-in c [:jobs job-id]))
 
-(defn nodes
-  "Gets all nodes in cache c."
+(defn jobs
+  "Gets all jobs in cache c."
   [c]
-  (-> c :nodes vals))
+  (-> c :jobs vals))
 
-(defn rm-node
-  "Removes the node specified by the node-id."
-  [c node-id]
-  (update-in c [:nodes] dissoc node-id))
+(defn rm-job
+  "Removes the job specified by the job-id."
+  [c job-id]
+  (update-in c [:jobs] dissoc job-id))
+
+;-----------------------------------------------------------------------
+; Workflows
+;-----------------------------------------------------------------------
+(defn put-workflow
+  "Puts workflow in cache c."
+  [c {:keys [workflow-id] :as workflow}]
+    (assoc-in c [:workflows workflow-id] workflow))
+
+(defn put-workflows
+  "Puts workflows in the collection nn in cache c."
+  [c nn]
+  (reduce #(put-workflow %1 %2) c nn))
+
+(defn workflow
+  "Gets the workflow for the id. Can return nil if workflow-id is unknown."
+  [c workflow-id]
+  (get-in c [:workflows workflow-id]))
+
+(defn workflows
+  "Gets all workflows in cache c."
+  [c]
+  (-> c :workflows vals))
+
+(defn rm-workflow
+  "Removes the workflow specified by the workflow-id."
+  [c workflow-id]
+  (update-in c [:workflows] dissoc workflow-id))
 
 ;-----------------------------------------------------------------------
 ; Schedules
@@ -144,7 +174,6 @@
   [c node-schedule-ids]
   (reduce #(rm-assoc %1 %2) c node-schedule-ids))
 
-
 ;-----------------------------------------------------------------------
 ; Additional query functions
 ;-----------------------------------------------------------------------
@@ -180,6 +209,18 @@
   [c node-id]
   (let [schedule-ids (->> (schedule-assocs-for-node c node-id) (map :schedule-id))]
     (map (partial schedule c) schedule-ids)))
+
+(defn node
+  "Answers with either the job or workflow for the given node-id"
+  [c node-id]
+  (or (job node-id) (workflow node-id)))
+
+(defn put-node
+  "Saves the node to either the jobs or workflows based on the node type id."
+  [c {:keys [node-type-id] :as n}]
+  (if (util/workflow-type? node-type-id)
+    (put-workflow n)
+    (put-job n)))
 
 (defn nodes-for-schedule
   "Retrieves all nodes for the given schedule id"

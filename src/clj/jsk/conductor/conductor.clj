@@ -17,6 +17,7 @@
             [jsk.conductor.agent-tracker :as track]
             [jsk.conductor.cache :as cache]
             [clojure.string :as string]
+            [clojure.set :as set]
             [clojure.core.async :refer [chan go-loop put! <!]]
             [taoensso.timbre :as log]))
 
@@ -489,14 +490,28 @@
 ;         Had to broadcast repeatedly because it seemed the first message
 ;         never made it to the agent.
 ;-----------------------------------------------------------------------
-(defn- ensure-one-agent-connected
+(defn- ensure-agents-connected1
   "Ensures at least one agent is connected before exiting this method.
    Broadcasts a registration request every second so that any running agents can register."
   []
-  (while (-> @app-state state/agent-count zero?) ; while no agents connected
-    (log/info "No agents connected. Broadcasting registration and waiting..")
-    (put! publish-chan {:topic msg/broadcast-topic :data {:msg :agents-register}})
-    (Thread/sleep 1000)))
+  (let [total (-> @app-state state/node-schedule-cache cache/agents count)]
+    (while (-> @app-state state/agent-count (not= total)) ; while not all agents connected
+      (log/info "Not all agents connected. Broadcasting registration and waiting..")
+      (put! publish-chan {:topic msg/broadcast-topic :data {:msg :agents-register}})
+      (Thread/sleep 1000))))
+
+(defn- ensure-agents-connected
+  []
+  (let [cn-fn #(->> @app-state state/agent-tracker track/agents set)
+        all-agents (->> @app-state state/node-schedule-cache cache/agents (map :agent-name) set)]
+    (loop [connected (cn-fn)]
+      (let [not-connected (set/difference all-agents connected)]
+        (when (seq not-connected)
+          (log/info "Following agents have not yet connected: " not-connected)
+          (put! publish-chan {:topic msg/broadcast-topic :data {:msg :agents-register}})
+          (Thread/sleep 1000)
+          (recur (cn-fn)))))
+    (log/info "All agents connected.")))
 
 
 (defn- populate-cache
@@ -506,7 +521,8 @@
   []
   (let [c (-> (cache/new-cache)
               (cache/put-agents (db/ls-agents))
-              (cache/put-nodes (db/ls-nodes))
+              (cache/put-jobs (db/ls-jobs))
+              (cache/put-workflows (db/ls-workflows))
               (cache/put-schedules (db/ls-schedules))
               (cache/put-assocs (db/ls-node-schedules)))]
     (swap! app-state #(state/set-node-schedule-cache %1 c))))
@@ -546,7 +562,7 @@
   (log/info "Populating cache.")
   (populate-cache)
 
-  (ensure-one-agent-connected)
+  (ensure-agents-connected)
 
 
   (log/info "Initializing Quartz.")
