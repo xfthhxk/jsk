@@ -8,6 +8,7 @@
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
+              [jsk.agent :as agent]
               [jsk.executions :as executions]
               [jsk.search :as search]
               [jsk.workflow :as w]
@@ -42,6 +43,8 @@
   "#jsk-home-action"         (events/listen :click #(ju/display-dashboard))
   "#show-dashboard-action"   (events/listen :click #(ju/display-dashboard))
   "#execution-search-action" (events/listen :click #(search/show-execution-search))
+  "#agent-list-action"       (events/listen :click #(agent/show-agents))
+  "#agent-add-action"        (events/listen :click #(agent/show-add-agent))
   "#job-list-action"         (events/listen :click #(j/show-jobs))
   "#job-add-action"          (events/listen :click #(j/show-add-job))
   "#schedule-list-action"    (events/listen :click #(s/show-schedules))

@@ -6,6 +6,7 @@
             [cemerick.friend :as friend]
             [taoensso.timbre :as log]
             [jsk.common.job :as job]
+            [jsk.common.agent :as agent]
             [jsk.common.db :as db]
             [jsk.common.util :as util]
             [jsk.common.workflow :as wf]
@@ -99,6 +100,19 @@
   (POST "/schedules/assoc" [_ :as request]
         (-> (:edn-params request) (schedule/assoc-schedules! (uid request)) edn-response)))
 
+;-----------------------------------------------------------------------
+; Routes realted to agents
+;-----------------------------------------------------------------------
+(defroutes agent-routes
+  (GET "/agents" []
+       (edn-response (agent/ls-agents)))
+
+  (GET "/agents/:id" [id]
+       (-> id util/str->int agent/get-agent edn-response))
+
+  (POST "/agents/save" [_ :as request]
+       (-> (:params request) (agent/save-agent! (uid request)) edn-response)))
+
 
 ;-----------------------------------------------------------------------
 ; Routes realted to workflows
@@ -159,7 +173,8 @@
 ;-----------------------------------------------------------------------
 ; Collection of all routes.
 ;-----------------------------------------------------------------------
-(def all-routes (cc/routes schedule-routes
+(def all-routes (cc/routes agent-routes
+                           schedule-routes
                            node-routes
                            job-routes
                            workflow-routes

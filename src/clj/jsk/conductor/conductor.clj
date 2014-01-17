@@ -16,7 +16,6 @@
             [jsk.common.job :as j]
             [jsk.conductor.agent-tracker :as track]
             [jsk.conductor.cache :as cache]
-            [clojure.set :as set]
             [clojure.string :as string]
             [clojure.core.async :refer [chan go-loop put! <!]]
             [taoensso.timbre :as log]))
@@ -335,7 +334,7 @@
     ; update status memory and ack the agent so it can clear it's memory
     ; agent-id can be null if the conductor is calling this method directly eg when no agent is available
     (when (not forced-by-conductor?)
-      (publish agent-id (-> msg (select-keys :execution-id exec-vertex-id) (assoc :msg :job-finished-ack))))
+      (publish agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg :job-finished-ack))))
 
     (let [new-count (state/count-for-job-status @app-state execution-id exec-wf-id data/started-status)
           next-nodes (state/successor-nodes @app-state execution-id exec-vertex-id success?)
@@ -343,7 +342,7 @@
           exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
 
       (publish-event (-> msg
-                         (select-keys :execution-id :exec-vertex-id :success? :error-msg)
+                         (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
                          (merge {:finish-ts fin-ts :status fin-status :event :job-finished})))
 
       (if exec-wf-fail?
@@ -402,6 +401,7 @@
 
 ; TODO: send an ack
 (defmethod dispatch :node-save [{:keys[node-id]}]
+  (log/debug "Node save for node-id: " node-id)
   (let [n (db/get-node-by-id node-id)]
     (swap! app-state #(state/save-node %1 n))))
 
@@ -409,6 +409,7 @@
 ; Cron expr could have changed, so update the triggers.
 ; Though you can check to see if they're different before you do.
 (defmethod dispatch :schedule-save [{:keys[schedule-id]}]
+  (log/debug "schedule save for schedule-id: " schedule-id)
   (let [{:keys[cron-expression] :as s} (db/get-schedule schedule-id)
         find-assocs #(-> @app-state
                          state/node-schedule-cache
@@ -424,6 +425,7 @@
 ; add the new ones
 ; schedule new ones w/ quartz
 (defmethod dispatch :schedule-assoc [{:keys[node-id]}]
+  (log/debug "schedule assoc save for node-id: " node-id)
   (let [orig-assoc-ids (-> @app-state state/node-schedule-cache (cache/schedule-assoc-ids-for-node node-id))
         new-assocs (db/node-schedules-for-node node-id)
         c (-> app-state
@@ -463,11 +465,12 @@
    Email users about agent disconnect and affected exec-vertex ids"
   [interval-ms]
   (let [ts-threshold (- (util/now-ms) interval-ms)
-        agent-job-map (-> @app-state state/agent-tracker (track/dead-agents-job-map ts-threshold))
-        dead-agents (keys agent-job-map)
-        vertex-ids (reduce into #{} (vals agent-job-map))]
+        tracker (state/agent-tracker @app-state)
+        dead-agents (track/dead-agents tracker ts-threshold)
+        agent-job-map (track/dead-agents-job-map tracker ts-threshold)
+        vertex-ids (-> agent-job-map vals set)]
 
-    (when (-> vertex-ids empty? not)
+    (when (seq dead-agents)
       (log/info "Dead agent check, dead agents:" dead-agents ", affected vertex-ids:" vertex-ids)
 
       ; mark status as unknown in db
@@ -492,7 +495,7 @@
   []
   (while (-> @app-state state/agent-count zero?) ; while no agents connected
     (log/info "No agents connected. Broadcasting registration and waiting..")
-    (put! publish-chan {:topic "broadcast" :data {:msg :agents-register}})
+    (put! publish-chan {:topic msg/broadcast-topic :data {:msg :agents-register}})
     (Thread/sleep 1000)))
 
 
@@ -502,6 +505,7 @@
    Probably should?"
   []
   (let [c (-> (cache/new-cache)
+              (cache/put-agents (db/ls-agents))
               (cache/put-nodes (db/ls-nodes))
               (cache/put-schedules (db/ls-schedules))
               (cache/put-assocs (db/ls-node-schedules)))]

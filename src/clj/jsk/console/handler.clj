@@ -1,7 +1,9 @@
 (ns jsk.console.handler
   "JSK handler"
+  (:refer-clojure :exclude [agent])
   (:require
             [jsk.common.conf :as conf]
+            [jsk.common.agent :as agent]
             [jsk.console.routes :as routes]
             [jsk.common.util :as util]
             [jsk.common.job :as job]
@@ -100,6 +102,7 @@
   ; schedule or schedule assoc changes need to be published to conductor
 
   (log/debug "Setting conductor write chan")
+  (agent/init conductor-write-chan)
   (schedule/init conductor-write-chan)
   (job/init conductor-write-chan)
   (workflow/init conductor-write-chan)

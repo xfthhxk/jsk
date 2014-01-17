@@ -87,10 +87,9 @@
 (defn init
   "Initializes this agent, sets up a message processing loop, registers with the
   conductor, and processes messages targeted for this agent."
-  [host cmd-port req-port]
+  [host cmd-port req-port agent-id]
 
-  (let [agent-id (util/jvm-instance-name)
-        topics [msg/broadcast-topic (msg/make-topic agent-id)]
+  (let [topics [msg/broadcast-topic (msg/make-topic agent-id)]
         bind? false
         write-ch (chan)]
 

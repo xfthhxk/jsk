@@ -106,6 +106,7 @@
   [ch host port bind?]
   (go-loop [sock (make-socket "tcp" host port bind? :pub)
             {:keys[topic data]} (<! ch)]
+    ;(log/debug "relaying write on topic " topic " for " data)
     (publish sock topic data)
     (recur sock (<! ch))))
 

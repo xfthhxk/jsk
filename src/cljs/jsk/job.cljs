@@ -41,18 +41,26 @@
                                                  (events/listen :click trigger-job-now))))
 
 
+(defn- gen-agent-options [agents selected-agent-id]
+  (->> agents
+    (map (fn [{:keys [agent-id agent-name]}]
+           (let [sel-txt (if (= agent-id selected-agent-id) " selected " "")]
+             (str "<option value='" agent-id "'" sel-txt ">" agent-name "</option>"))))
+    (apply str)))
+
 
 ;-----------------------------------------------------------------------
 ; Edit Job
 ;-----------------------------------------------------------------------
-(em/deftemplate edit-job :compiled "public/templates/edit-job.html" [j]
+(em/deftemplate edit-job :compiled "public/templates/edit-job.html" [j agents]
   "#job-id"                  (ef/set-attr :value (str (:job-id j)))
   "#job-id-lbl"              (ef/content (str (:job-id j)))
   "#job-name"                (ef/set-attr :value (:job-name j))
   "#job-desc"                (ef/content (:job-desc j))
   "#execution-directory"     (ef/set-attr :value (:execution-directory j))
   "#command-line"            (ef/content (:command-line j))
-  "#agent-id"                (ef/set-attr :value "1") ; FIXME: hardcoded
+  "select > option"          (ef/remove-node)
+  "#agent-id"                (ef/append (gen-agent-options agents (:agent-id j)))
   "#max-concurrent"          (ef/set-attr :value "1") ; FIXME: hardcoded
   "#max-retries"             (ef/set-attr :value "1") ; FIXME: hardcoded
   "#is-enabled"              (ef/do->
@@ -72,18 +80,25 @@
   (go
     (let [form (ef/from "#job-save-form" (ef/read-form))
           data (ju/update-str->int form :job-id)
+          agent-id (-> form :agent-id first ju/update-str->int)
           data1 (assoc data :is-enabled (ju/element-checked? "is-enabled"))
-          data2 (merge data1 {:max-concurrent 1 :max-retries 1 :agent-id 1})
+          data2 (merge data1 {:max-concurrent 1 :max-retries 1 :agent-id agent-id})
           job-id (<! (rfn/save-job data2))]
+      (ju/log (str "Form is:__>" form))
+      (ju/log (str "agent-id is " agent-id))
       (ju/log (str "Job saved with id " job-id))
       (show-jobs))))
 
 (defn job-row-clicked [e]
   (go
     (let [id (ef/from (ju/event-source e) (ef/get-attr :data-job-id))
-          j (<! (rfn/fetch-job-details id))]
-      (ju/showcase (edit-job j)))))
+          j (<! (rfn/fetch-job-details id))
+          agents (<! (rfn/fetch-all-agents))]
+      (ju/showcase (edit-job j agents)))))
 
 
 (defn show-add-job []
-  (ju/showcase (edit-job {:job-id -1 :is-enabled false})))
+  (go
+    (let [agents (<! (rfn/fetch-all-agents))]
+      (ju/showcase (edit-job {:job-id -1 :is-enabled false} agents)))))
+

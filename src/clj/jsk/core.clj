@@ -1,7 +1,7 @@
 (ns jsk.core
   (:require [ring.adapter.jetty :as jetty]
             [jsk.common.util :as util]
-            [jsk.agent.agent :as agnt]
+            [jsk.agent.agent :as agent]
             [jsk.common.conf :as conf]
             [jsk.conductor.conductor :as conductor]
             [taoensso.timbre :as log]
@@ -37,6 +37,8 @@
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
    ["-H" "--hostname HOST" "Remote host"]
+
+   ["-a" "--agent-name NAME" "Agent name"]
 
    ["-m" "--mode MODE" "Mode to run in"
     :validate [#(some #{%} allowed-modes) (str "Must be one of " (string/join ", " allowed-modes))]]
@@ -106,13 +108,13 @@
 
 (defn run-as-agent
   "Runs the process as an agent."
-  [hostname cmd-port status-port]
-  (agnt/init hostname cmd-port status-port))
+  [hostname cmd-port status-port agent-name]
+  (agent/init hostname cmd-port status-port agent-name))
 
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args cli-options)
-        {:keys [hostname status-port cmd-port web-app-port nrepl-port]} options]
+        {:keys [hostname status-port cmd-port web-app-port nrepl-port agent-name]} options]
 
     (init-logging)
     (log/info "JSK started with: " options)
@@ -129,7 +131,7 @@
     (common-init)
 
     (case (:mode options)
-      "agent" (run-as-agent hostname cmd-port status-port)
+      "agent" (run-as-agent hostname cmd-port status-port agent-name)
       "conductor" (run-as-conductor cmd-port status-port)
       "console" (run-as-console hostname cmd-port status-port web-app-port)
       (exit 1 (usage summary)))))

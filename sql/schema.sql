@@ -33,13 +33,17 @@ insert into app_user (app_user_id, first_name, last_name, email)
 /* ---------------------------- Agent --------------------------- */
 create table agent ( agent_id         int          auto_increment primary key
                    , agent_name       varchar(50)  not null
-                   , host             varchar(100) not null
-                   , port             int          not null);
+                   , creator_id       int          not null
+                   , create_ts        timestamp    not null default current_timestamp()
+                   , updater_id       int          not null 
+                   , update_ts        timestamp    not null default current_timestamp());
 
 alter table agent add constraint unq_agent_name unique(agent_name);
+alter table node add constraint fk_agent_creator_id foreign key (creator_id) references app_user(app_user_id);
+alter table node add constraint fk_agent_updater_id foreign key (updater_id) references app_user(app_user_id);
 
-insert into agent (agent_id, agent_name, host, port)
-           values (1, 'default', 'localhost', 8080);
+insert into agent (agent_id, agent_name, creator_id, updater_id)
+           values (1, 'agent-1', 2, 2);
 
 
 /* ---------------------------- Node Type  --------------------------- */
@@ -210,17 +214,20 @@ alter table execution_workflow add constraint fk_execution_workflow_execution_id
                                       , status_id
                                       , start_ts
                                       , finish_ts)
+
+  agent_id is nullable because workflow vertices don't have an agent_id (they're not actually run)                                      
+
 -----*/
 
 create table execution_vertex ( execution_vertex_id        int       auto_increment primary key
                               , execution_id               int       not null
                               , execution_workflow_id      int       not null
                               , node_id                    int       not null
+                              , agent_id                   int       null
                               , runs_execution_workflow_id int       null
                               , status_id                  int       not null
                               , start_ts                   timestamp
                               , finish_ts                  timestamp
-                              , agent                      varchar(255)
                               , layout                     varchar(255));
 
 alter table execution_vertex add constraint fk_execution_vertex_execution_workflow_id
@@ -232,6 +239,7 @@ alter table execution_vertex add constraint fk_execution_vertex_runs_execution_w
 alter table execution_vertex add constraint fk_execution_vertex_execution_id foreign key (execution_id) references execution(execution_id);
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);
+alter table execution_vertex add constraint fk_execution_vertex_agent_id foreign key (agent_id) references agent(agent_id);
 alter table execution_vertex add constraint unq_execution_vertex unique(execution_workflow_id, node_id);
 create index idx_execution_vertex_agent on execution_vertex (agent);
 

@@ -3,7 +3,6 @@
     <legend>Job Definition</legend>
 
     <input type="hidden" name="job-id" id="job-id" value=""/>
-    <input type="hidden" name="agent-id" id="agent-id" value="1"/>
 
     <div class="form-group">
       <label for="job-id-lbl" class="col-lg-2 control-label">ID</label>
@@ -38,6 +37,16 @@
       <label for="command-line" class="col-lg-2 control-label">Command Line</label>
       <div class="col-lg-10">
         <textarea class="form-control" rows="2" name="command-line" id="command-line"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="agent-id" class="col-lg-2 control-label">Agent</label>
+      <div class="col-lg-10">
+        <select id="agent-id" name="agent-id" class="form-control">
+          <option value="1">Agent 1 Name</option>
+          <option value="2">Agent 2 Name</option>
+        </select>
       </div>
     </div>
 

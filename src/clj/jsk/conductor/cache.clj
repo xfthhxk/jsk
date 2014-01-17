@@ -1,9 +1,39 @@
 (ns jsk.conductor.cache
-  "Cache of jobs and schedules")
+  "Cache of jobs and schedules"
+  (:refer-clojure :exclude [agent]))
 
-(defn new-cache [] {:nodes {}
+(defn new-cache [] {:agents {}
+                    :nodes {}
                     :schedules {}
                     :node-schedules {} })
+
+;-----------------------------------------------------------------------
+; Agents
+;-----------------------------------------------------------------------
+(defn put-agent
+  "Puts agent in cache c."
+  [c {:keys [agent-id] :as agent}]
+    (assoc-in c [:agents agent-id] agent))
+
+(defn put-agents
+  "Puts agents in the collection nn in cache c."
+  [c nn]
+  (reduce #(put-agent %1 %2) c nn))
+
+(defn agent
+  "Gets the agent for the id. Can return nil if agent-id is unknown."
+  [c agent-id]
+  (get-in c [:agents agent-id]))
+
+(defn agents
+  "Gets all agents in cache c."
+  [c]
+  (-> c :agents vals))
+
+(defn rm-agent
+  "Removes the agent specified by the agent-id."
+  [c agent-id]
+  (update-in c [:agents] dissoc agent-id))
 
 ;-----------------------------------------------------------------------
 ; Nodes
@@ -95,9 +125,8 @@
   "Associates cron expression for each node-schedule-assoc"
   [c node-sched-assocs]
   (map (fn [{:keys [schedule-id] :as ns-assoc}]
-         (merge ns-assoc (-> c
-                             (schedule schedule-id)
-                             (select-keys :cron-expression))))
+         (merge ns-assoc (-> (schedule c schedule-id)
+                             (select-keys [:cron-expression]))))
          node-sched-assocs))
 
 (defn schedule-assocs-with-cron-expr

@@ -95,6 +95,17 @@
 
 
 
+;----------------------------------------------------------------------
+; Agent functions
+;----------------------------------------------------------------------
+(defn fetch-all-agents []
+  (rpc/GET "/agents"))
+
+(defn fetch-agent-details [agent-id]
+  (rpc/GET (str "/agents/" agent-id)))
+
+(defn save-agent [data]
+  (rpc/POST "/agents/save" data))
 
 
 

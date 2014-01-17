@@ -1,5 +1,6 @@
 (ns jsk.common.db
   "Database access"
+  (:refer-clojure :exclude [agent])
   (:require
             [jsk.common.data :as data]
             [jsk.common.util :as util]
@@ -24,6 +25,11 @@
 
 (defn user-for-email [email]
   (first (select app-user (where {:email email}))))
+
+
+(defentity agent
+  (pk :agent-id)
+  (entity-fields :agent-id :agent-name :creator-id :create-ts :updater-id :update-ts))
 
 (defentity node
   (pk :node-id)
@@ -270,19 +276,14 @@
 (def insert-workflow-node! (partial insert-node! data/workflow-type-id))
 
 
+(def ^:private job-tbl-fields [:execution-directory :command-line :max-concurrent :max-retries :agent-id])
 ;-----------------------------------------------------------------------
 ; Insert a job. Answers with the inserted job's row id.
 ;-----------------------------------------------------------------------
-(defn- insert-job! [m user-id]
+(defn- insert-job! [{:keys [job-id job-name job-desc is-enabled] :as m} user-id]
   (transaction
-    (let [{:keys [job-name job-desc is-enabled execution-directory command-line max-concurrent max-retries agent-id]} m
-          node-id (insert-job-node! job-name job-desc is-enabled user-id)
-          data {:execution-directory execution-directory
-                :command-line command-line
-                :job-id node-id
-                :agent-id agent-id
-                :max-concurrent max-concurrent
-                :max-retries max-retries}]
+    (let [node-id (insert-job-node! job-name job-desc is-enabled user-id)
+          data (select-keys m job-tbl-fields)]
       (insert job (values data))
       node-id)))
 
@@ -291,12 +292,8 @@
 ; Update an existing job.
 ; Answers with the job-id if update is successful.
 ;-----------------------------------------------------------------------
-(defn- update-job! [m user-id]
-  (let [{:keys [job-id job-name job-desc is-enabled execution-directory command-line max-concurrent max-retries]} m
-        data {:execution-directory execution-directory
-              :command-line command-line
-              :max-concurrent max-concurrent
-              :max-retries max-retries}]
+(defn- update-job! [{:keys [job-id job-name job-desc is-enabled] :as m} user-id]
+  (let [data (select-keys m job-tbl-fields)]
     (transaction
       (update-node! job-id job-name job-desc is-enabled user-id)
       (update job (set-fields data)
@@ -1009,3 +1006,38 @@
 
 
 
+;-----------------------------------------------------------------------
+; Agent 
+;-----------------------------------------------------------------------
+(defn insert-agent! [m user-id]
+  (let [merged-map (merge (dissoc m :agent-id) {:creator-id user-id :updater-id user-id})]
+    (log/info "Creating new agent: " merged-map)
+    (-> (insert agent (values merged-map))
+         extract-identity)))
+
+(defn update-agent! [{:keys [agent-id] :as m} user-id]
+  (let [merged-map (merge m {:updater-id user-id :update-ts (util/now)})]
+    (log/info "Updating agent: " m)
+    (update agent (set-fields (dissoc m :agent-id))
+      (where {:agent-id agent-id})))
+  agent-id)
+
+(defn ls-agents
+  []
+  "Lists all agents"
+  (select agent))
+
+(defn get-agent
+  "Gets a agent for the id specified"
+  [id]
+  (first (select agent
+          (where {:agent-id id}))))
+
+(defn get-agents [ids]
+  (select agent
+    (where {:agent-id [in ids]})))
+
+(defn get-agent-by-name
+  "Gets a agent by name if one exists otherwise returns nil"
+  [nm]
+  (first (select agent (where {:agent-name nm}))))

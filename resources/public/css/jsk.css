@@ -1,3 +1,7 @@
+tr.agent-row {
+  cursor: pointer;
+}
+
 tr.schedule-row {
   cursor: pointer;
 }
