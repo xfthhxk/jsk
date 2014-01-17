@@ -48,10 +48,10 @@
   "Puts the execution model into the state.
    Asserts the model is new based on execution-id."
   [state execution-id execution-model]
-  (assert (execution-not-exists? execution-id)
+  (assert (execution-not-exists? state execution-id)
           (str "Execution already exists: " execution-id))
 
-  (assoc-in state [:execution-models] execution-id execution-model))
+  (assoc-in state [:execution-models execution-id] execution-model))
 
 
 (defn rm-execution-model

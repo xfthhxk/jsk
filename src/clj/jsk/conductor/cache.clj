@@ -213,14 +213,14 @@
 (defn node
   "Answers with either the job or workflow for the given node-id"
   [c node-id]
-  (or (job node-id) (workflow node-id)))
+  (or (job c node-id) (workflow c node-id)))
 
 (defn put-node
   "Saves the node to either the jobs or workflows based on the node type id."
   [c {:keys [node-type-id] :as n}]
   (if (util/workflow-type? node-type-id)
-    (put-workflow n)
-    (put-job n)))
+    (put-workflow c n)
+    (put-job c n)))
 
 (defn nodes-for-schedule
   "Retrieves all nodes for the given schedule id"

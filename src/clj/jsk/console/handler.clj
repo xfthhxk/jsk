@@ -117,7 +117,7 @@
     (util/periodically "ensure-conductor-connected" hb-ts f))
 
   (log/info "Initializing publication to conductor.")
-  (msg/relay-writes conductor-write-chan conductor-host req-port false)
+  (msg/relay-writes-to-topic conductor-write-chan conductor-host req-port false "/jsk")
 
   (log/info "JSK web app init finished."))
 

@@ -223,7 +223,6 @@ create table execution_vertex ( execution_vertex_id        int       auto_increm
                               , execution_id               int       not null
                               , execution_workflow_id      int       not null
                               , node_id                    int       not null
-                              , agent_id                   int       null
                               , runs_execution_workflow_id int       null
                               , status_id                  int       not null
                               , start_ts                   timestamp
@@ -239,7 +238,6 @@ alter table execution_vertex add constraint fk_execution_vertex_runs_execution_w
 alter table execution_vertex add constraint fk_execution_vertex_execution_id foreign key (execution_id) references execution(execution_id);
 alter table execution_vertex add constraint fk_execution_vertex_node_id foreign key (node_id) references node(node_id);
 alter table execution_vertex add constraint fk_execution_vertex_status_id foreign key (status_id) references execution_status(execution_status_id);
-alter table execution_vertex add constraint fk_execution_vertex_agent_id foreign key (agent_id) references agent(agent_id);
 alter table execution_vertex add constraint unq_execution_vertex unique(execution_workflow_id, node_id);
 create index idx_execution_vertex_agent on execution_vertex (agent);
 

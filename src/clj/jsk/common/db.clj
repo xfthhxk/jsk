@@ -502,7 +502,7 @@
 
 (defentity execution-vertex
   (pk :execution-vertex-id)
-  (entity-fields :execution-id :execution-workflow-id :node-id :runs-execution-workflow-id :status-id :start-ts :finish-ts :agent))
+  (entity-fields :execution-id :execution-workflow-id :node-id :runs-execution-workflow-id :status-id :start-ts :finish-ts))
 
 ; some strange issue with substituting params in this query
 (def ^:private child-workflow-sql
@@ -732,9 +732,9 @@
                            finish-ts))
 
 
-(defn execution-vertex-started [exec-vertex-id agent-id ts]
+(defn execution-vertex-started [exec-vertex-id ts]
   (update execution-vertex
-    (set-fields {:status-id data/started-status :agent agent-id :start-ts ts})
+    (set-fields {:status-id data/started-status :start-ts ts})
     (where {:execution-vertex-id exec-vertex-id})))
 
 

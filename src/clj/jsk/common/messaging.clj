@@ -100,6 +100,17 @@
   (let [ch (read-channel thread-name host port bind? topics)]
     (process-read-channel ch f)))
 
+(defn relay-writes-to-topic
+  "Creates a socket relays writes to the channel.
+   Each message dropped on the channel must be a map with the keys :topic and :data."
+  [ch host port bind? topic]
+  (go-loop [sock (make-socket "tcp" host port bind? :pub)
+            data (<! ch)]
+    (log/debug "relaying write on topic " topic " for " data)
+    (publish sock topic data)
+    (recur sock (<! ch))))
+
+
 (defn relay-writes
   "Creates a socket relays writes to the channel.
    Each message dropped on the channel must be a map with the keys :topic and :data."

@@ -88,31 +88,19 @@
   [exec-id exec-wf-id]
   (-> @app-state (state/execution-model exec-id) (exm/failed-exec-wf? exec-wf-id) not))
 
-;-----------------------------------------------------------------------
-; TODO: Pick agents by the jobs they can handle and which is least busy
-;-----------------------------------------------------------------------
-(defn- pick-agent-for-job
-  "Right now just picks an agent at random. Returns nil if no agent available for job."
-  [job-id]
-  (let [agents (-> @app-state state/agent-tracker track/agents)]
-    (when (seq agents)
-      (-> agents vec rand-nth))))
-
-;-----------------------------------------------------------------------
-; TODO: Accessing database to lookup the job details. Boo! This should
-;       already be available in the model
-;-----------------------------------------------------------------------
+; FIXME: timeout should just be an attr of job
 (defn- make-job-commands
-  "Returns a map with two keys :runnable and :failed.  Each key is mapped to a
-   series of commands. Items in the :failed entry are ones for which no agent exists
-   so therefore are failed automatically."
+  "Returns a sequence of maps for each job to be executed by a remote agent."
   [model vertex-ids exec-wf-id exec-id]
-  (let [run-data {:execution-id exec-id :exec-wf-id exec-wf-id :trigger-src :conductor :start-ts (util/now)}
-        job-agent-map (zipmap vertex-ids (map pick-agent-for-job vertex-ids))
-        run-fn (fn[[v-id a-id]]
-                 (merge run-data {:exec-vertex-id v-id :agent-id a-id
-                                  :job (-> model (exm/vertex-attrs v-id) :node-id j/get-job)}))]
-    (->> job-agent-map seq (map run-fn))))
+  (let [dc (-> @app-state state/node-schedule-cache) ; data-cache
+        run-data {:msg :run-job :execution-id exec-id :exec-wf-id exec-wf-id :trigger-src :conductor :start-ts (util/now)}
+        run-fn (fn[v-id]
+                 (let [job-id (-> model (exm/vertex-attrs v-id) :node-id)
+                       {:keys [agent-id] :as job} (cache/job dc job-id)
+                       agent-name (-> dc (cache/agent agent-id) :agent-name)]
+                   (merge run-data {:agent-name agent-name :exec-vertex-id v-id :job (assoc job :timeout Integer/MAX_VALUE)})))]
+    (log/debug "The data cache is: "(with-out-str (clojure.pprint/pprint dc)))
+    (map run-fn vertex-ids)))
 
 (defn- run-jobs
   "Determines the agents and the job details for each vertex-id.  Sends one job to
@@ -121,23 +109,18 @@
   (let [job-cmds (-> @app-state
                      (state/execution-model exec-id)
                      (make-job-commands vertex-ids exec-wf-id exec-id))
-        job-agent-map (reduce (fn[ans {:keys[agent-id exec-vertex-id]}]
-                                (assoc ans exec-vertex-id agent-id))
+        job-agent-map (reduce (fn[ans {:keys[agent-name exec-vertex-id]}]
+                                (assoc ans exec-vertex-id agent-name))
                               {}
                               job-cmds)]
 
     ; mark all the jobs as pending
     (swap! app-state #(state/mark-jobs-pending %1 exec-id job-agent-map (util/now-ms)))
 
-    (doseq [{:keys[agent-id] :as cmd} job-cmds] 
+    (doseq [{:keys [agent-name] :as cmd} job-cmds]
+      (log/info "Sending job command: " cmd)
+      (publish (str "/jsk/" agent-name) cmd))))
 
-      ; tell the agent identified by agent-id to run the job
-      (when agent-id
-        (log/info "Sending job command: " cmd)
-        (publish agent-id cmd))
-
-      (when (not agent-id)
-        (when-job-finished (merge cmd {:forced-by-conductor? true :success? false})))))) 
 
 
 ;-----------------------------------------------------------------------
@@ -159,7 +142,7 @@
    the exec-vertex-id which serves as the unique id for writing log files to."
   [node-ids exec-id]
   (let [model (state/execution-model @app-state exec-id)
-        [job-ids wf-ids] (exm/partition-by-node-type node-ids)
+        [job-ids wf-ids] (exm/partition-by-node-type model node-ids)
         wf-id (exm/single-workflow-context-for-vertices model node-ids)]
 
     (run-jobs job-ids wf-id exec-id)
@@ -197,7 +180,7 @@
 
 
      (if exec-vertex-id
-       (db/execution-vertex-started exec-vertex-id nil ts)) ; agent-id is nil because no agents are used to start a workflow vertex
+       (db/execution-vertex-started exec-vertex-id ts)) 
 
      (publish-event {:event :wf-started
                      :exec-vertex-id exec-vertex-id
@@ -225,7 +208,7 @@
 (defn- trigger-node-execution
   "Triggers execution of the job or workflow represented by the node-id"
   [node-id]
-  (if (-> @app-state state/node-type-id util/workflow-type?)
+  (if (-> @app-state (state/node-type-id node-id) util/workflow-type?)
     (start-workflow-execution node-id)
     (run-job-as-synthetic-wf node-id)))
 
@@ -299,7 +282,8 @@
 
     (mark-wf-and-parent-wfs-finished exec-vertex-id exec-wf-id execution-id wf-success?)
 
-    (run-nodes next-nodes execution-id)
+    (when (seq next-nodes)
+      (run-nodes next-nodes execution-id))
 
     ; execution finished?
     (if (or exec-failed? exec-success?)
@@ -309,7 +293,7 @@
   "Logs the status to the db and updates the app-state"
   [{:keys[execution-id exec-wf-id exec-vertex-id agent-id] :as data}]
   
-  (db/execution-vertex-started exec-vertex-id agent-id (util/now))
+  (db/execution-vertex-started exec-vertex-id (util/now))
   (mark-job-started! execution-id exec-vertex-id agent-id (util/now-ms))
   (publish-event data)) ; FIXME: this doesn't have all the info like the job name, start-ts see old execution.clj
 
@@ -444,6 +428,7 @@
   (publish reply-to {:msg :pong}))
 
 (defmethod dispatch :trigger-node [{:keys[node-id]}]
+  (log/info "trigger-node-execution for " node-id)
   (trigger-node-execution node-id))
 
 ;-----------------------------------------------------------------------
@@ -484,23 +469,9 @@
       (notify/dead-agents dead-agents vertex-ids))))
 
 
-
-;-----------------------------------------------------------------------
-; REVIEW: Should this be done with a watch?
-;         Had to broadcast repeatedly because it seemed the first message
-;         never made it to the agent.
-;-----------------------------------------------------------------------
-(defn- ensure-agents-connected1
-  "Ensures at least one agent is connected before exiting this method.
-   Broadcasts a registration request every second so that any running agents can register."
-  []
-  (let [total (-> @app-state state/node-schedule-cache cache/agents count)]
-    (while (-> @app-state state/agent-count (not= total)) ; while not all agents connected
-      (log/info "Not all agents connected. Broadcasting registration and waiting..")
-      (put! publish-chan {:topic msg/broadcast-topic :data {:msg :agents-register}})
-      (Thread/sleep 1000))))
-
 (defn- ensure-agents-connected
+  "Ensures all agents defined in the system are connected. Otherwise,
+   ask agents to register."
   []
   (let [cn-fn #(->> @app-state state/agent-tracker track/agents set)
         all-agents (->> @app-state state/node-schedule-cache cache/agents (map :agent-name) set)]
@@ -515,9 +486,7 @@
 
 
 (defn- populate-cache
-  "Loads all nodes, schedules and associations from the db.
-   Doesn't load job data ie command-line, execution-directory etc.
-   Probably should?"
+  "Loads all agents, jobs, workflows, schedules and associations from the db."
   []
   (let [c (-> (cache/new-cache)
               (cache/put-agents (db/ls-agents))
@@ -527,9 +496,6 @@
               (cache/put-assocs (db/ls-node-schedules)))]
     (swap! app-state #(state/set-node-schedule-cache %1 c))))
 
-;-----------------------------------------------------------------------
-; Read node-schedules assocs and populate quartz.
-;-----------------------------------------------------------------------
 (defn- populate-quartz-triggers
   "Populates quartz triggers by reading from the cache."
   []

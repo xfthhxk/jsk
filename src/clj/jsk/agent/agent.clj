@@ -53,9 +53,9 @@
 (defmethod dispatch :heartbeat [m agent-id ch]
   (ch-put ch {:agent-id agent-id :msg :heartbeat-ack}))
 
-(defmethod dispatch :run-job [{:keys [job exec-vertex-id execution-id exec-wf-id timeout]} agent-id ch]
+(defmethod dispatch :run-job [{:keys [job exec-vertex-id execution-id exec-wf-id]} agent-id ch]
   (future
-   (let [{:keys[command-line execution-directory]} job
+   (let [{:keys[command-line execution-directory timeout]} job
          log-file-name (str (conf/exec-log-dir) "/" exec-vertex-id ".log")
          ack-resp {:agent-id agent-id
                    :execution-id execution-id
@@ -83,6 +83,9 @@
 
 (defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id]} agent-id ch]
   )
+
+(defmethod dispatch :default [m agent-id ch]
+  (log/error "No handler for " m))
 
 (defn init
   "Initializes this agent, sets up a message processing loop, registers with the

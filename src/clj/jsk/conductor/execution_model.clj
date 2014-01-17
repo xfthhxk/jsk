@@ -253,9 +253,9 @@
 (defn single-workflow-context-for-vertices
   "Ensures the vertex-ids belong to the same wf-id and returns that wf-id."
   [model vertex-ids]
-  (let [wf-ids (-> model (workflow-context vertex-ids) vals distinct)]
+  (let [wf-ids (-> model (workflow-context vertex-ids) vals distinct doall)]
     (assert (= 1 (count wf-ids))
-          (str "Not all vertices are in the same workflow: " vertex-ids))
+          (str "Not all vertices are in the same workflow: " vertex-ids ", wf-ids: " wf-ids))
     (first wf-ids)))
 
 (defn mark-exec-wf-failed
