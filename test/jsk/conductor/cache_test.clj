@@ -235,6 +235,17 @@
      (count r) => 1
      (first r) => test-job)))
 
+(facts "Generic node"
+  (let [c (-> (cache/new-cache)
+              (cache/put-job test-job)
+              (cache/put-workflow test-wf))]
+
+    (fact "Lookup job"
+      (cache/node c job-id) => test-job)
+
+    (fact "Lookup wf"
+      (cache/node c wf-id) => test-wf)))
+
 
 
 

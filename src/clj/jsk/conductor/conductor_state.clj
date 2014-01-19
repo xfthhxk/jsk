@@ -133,7 +133,8 @@
 (defn node-name
   "Answers with the name for the node-id"
   [state node-id]
-  (-> state (node node-id) :node-name))
+  (let [n (node state node-id)]
+    (or (:job-name n) (:workflow-name n))))
 
 (defn node-type-id
   "Answers with the name for the node-id"

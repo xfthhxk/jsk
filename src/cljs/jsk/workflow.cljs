@@ -128,7 +128,10 @@
     2 "glyphicon-flash"             ; started-status
     3 "glyphicon-ok"                ; finished-success
     4 "glyphicon-exclamation-sign"  ; finished-error
-    6 "glyphicon-question-sign"))   ; unknown-status
+    5 "glyphicon-minus"             ; aborted
+    6 "glyphicon-question-sign"     ; unknown
+    7 "glyphicon-time"              ; pending
+    ))   ; unknown-status
 
 ;----------------------------------------------------------------------
 ; Lists all workflows.
@@ -558,7 +561,7 @@
   (reset! breadcrumb-wf-stack [])  ; clear the state
 
   (go
-   (let [{:keys[root-execution-workflow-id]:as exec-info}
+   (let [{:keys[root-execution-workflow-id] :as exec-info}
          (<! (rfn/fetch-execution-details execution-id))]
      (u/showcase (execution-visualizer exec-info))
      (show-execution-workflow-details root-execution-workflow-id))))
@@ -630,7 +633,7 @@
   (update-ui-exec-vertex-finish exec-vertex-id finish-ts status))
 
 
-(defmethod dispatch :default [msg]) ; no-op since some msgs are handles by executions (need to refactor to execution-visualizer ns)
+(defmethod dispatch :default [msg]) ; no-op since some msgs are handled by executions (need to refactor to execution-visualizer ns)
 
 (defn event-received [{:keys[execution-id] :as msg}]
   (when (= execution-id @current-execution-id)
