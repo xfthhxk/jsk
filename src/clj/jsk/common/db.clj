@@ -72,6 +72,7 @@
               :node.creator-id
               :node.update-ts
               :node.updater-id
+              :node.node-type-id
               [:node.node-name :job-name] [:node.node-desc :job-desc])
       (join :inner :node (= :job-id :node.node-id))))
 
@@ -84,6 +85,7 @@
               :node.creator-id
               :node.update-ts
               :node.updater-id
+              :node.node-type-id
               [:node.node-name :workflow-name] [:node.node-desc :workflow-desc])
       (join :inner :node (= :workflow-id :node.node-id))))
 

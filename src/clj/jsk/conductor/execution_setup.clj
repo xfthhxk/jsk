@@ -168,6 +168,7 @@
         {:keys[info] :as ans} (workflow-execution-data exec-id true wf-name)
         vertex-wf-map (exm/vertex-workflow-to-run-map info)]
     (db/set-vertex-runs-execution-workflow-mapping vertex-wf-map)
+    (log/debug "The ans is:\n " (with-out-str (clojure.pprint/pprint ans)))
     ans))
 
 (defn setup-synthetic-execution [job-id]

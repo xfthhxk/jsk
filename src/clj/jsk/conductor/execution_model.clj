@@ -1,7 +1,8 @@
 (ns jsk.conductor.execution-model
   (:require [jsk.common.graph :as graph]
             [jsk.common.data :as data]
-            [jsk.common.util :as util]))
+            [jsk.common.util :as util]
+            [taoensso.timbre :as log]))
 
 (def ^:private initial-vertex-info
   {:node-id 0
@@ -243,9 +244,10 @@
 (defn partition-by-node-type
   "Partitions the node-ids by node-type and returns a two element vector.
    The first element is a set of job vertices, the second a set of workflow vertices."
-  [model node-ids]
+  [model vertex-ids]
   (let [f (fn [id] (->> id (vertex-attrs model) :node-type))
-        type-map (group-by f node-ids)]
+        type-map (group-by f vertex-ids)]
+    (log/debug "vertex-ids: " vertex-ids ", type-map: " type-map)
     [(-> data/job-type-id type-map set)
      (-> data/workflow-type-id type-map set)]))
 

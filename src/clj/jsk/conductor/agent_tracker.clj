@@ -16,6 +16,7 @@
 (defn add-agent
   "Adds the agent specified by agent-id to the tracker t."
   [t agent-id ts]
+  (assert (-> agent-id nil? not) "nil agent-id")
   (assoc-in t [:agents agent-id] {:last-hb ts
                                   :jobs #{}}))
 

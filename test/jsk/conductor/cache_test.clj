@@ -2,21 +2,27 @@
   (:use midje.sweet)
   (:require [jsk.conductor.cache :as cache]))
 
-(def node-id 42)
+(def job-id 42)
+(def node-id job-id)
 (def schedule-id 23)
 (def node-schedule-id 31)
 
+(def wf-id 123)
 
-(def test-node {:node-id node-id :node-nm "NodeName"})
+(def test-job {:job-id job-id :job-nm "Job Name"})
+(def test-wf {:workflow-id wf-id :workflow-nm "Workflow Name"})
 
 (def test-schedule {:schedule-id schedule-id :sched-nm "SchedName"})
 
 (def test-schedule-assoc {:node-schedule-id node-schedule-id
-                          :node-id node-id
+                          :node-id job-id
                           :schedule-id schedule-id})
 
-(def test-nodes #{test-node {:node-id 91 :node-nm "SomeOtherNode"}})
-(def test-schedules #{test-schedule {:schedule-id 231 :node-nm "SomeOtherSchedule"}})
+(def test-jobs #{test-job {:job-id 91 :jobs-nm "SomeOtherJob"}})
+(def test-wfs #{test-wf {:workflow-id 234 :workflow-nm "Other Workflow Name"}})
+
+
+(def test-schedules #{test-schedule {:schedule-id 231 :sched-nm "SomeOtherSchedule"}})
 
 (def test-schedule-assocs #{test-schedule-assoc
                             {:node-schedule-id 829
@@ -24,35 +30,66 @@
                              :schedule-id 99}})
 
 ;-----------------------------------------------------------------------
-; Nodes
+; Jobs
 ;-----------------------------------------------------------------------
-(facts "Nodes"
-  (fact "Put node."
+(facts "Jobs"
+  (fact "Put job."
     (-> (cache/new-cache)
-        (cache/put-node test-node)) => truthy)
+        (cache/put-job test-job)) => truthy)
 
 
-  (fact "Retrieve node."
+  (fact "Retrieve job."
     (-> (cache/new-cache)
-        (cache/put-node test-node)
-        (cache/node node-id)) => test-node)
+        (cache/put-job test-job)
+        (cache/job job-id)) => test-job)
 
-  (fact "Remove node."
+  (fact "Remove job."
     (let [c (-> (cache/new-cache)
-                (cache/put-node test-node))
-          c' (cache/rm-node c node-id)]
+                (cache/put-job test-job))
+          c' (cache/rm-job c job-id)]
 
-      (cache/node c  node-id) => test-node
-      (cache/node c' node-id) => nil))
+      (cache/job c  job-id) => test-job
+      (cache/job c' job-id) => nil))
 
-  (fact "Put multiple nodes."
+  (fact "Put multiple jobs."
     (-> (cache/new-cache)
-        (cache/put-nodes test-nodes)) => truthy)
+        (cache/put-jobs test-jobs)) => truthy)
 
-  (fact "Retrieve all nodes."
+  (fact "Retrieve all jobs."
     (let [c (-> (cache/new-cache)
-                (cache/put-nodes test-nodes))]
-      (set (cache/nodes c)) => test-nodes)))
+                (cache/put-jobs test-jobs))]
+      (set (cache/jobs c)) => test-jobs)))
+
+;-----------------------------------------------------------------------
+; Workflows
+;-----------------------------------------------------------------------
+(facts "Workflows"
+  (fact "Put workflow."
+    (-> (cache/new-cache)
+        (cache/put-workflow test-wf)) => truthy)
+
+
+  (fact "Retrieve workflow."
+    (-> (cache/new-cache)
+        (cache/put-workflow test-wf)
+        (cache/workflow wf-id)) => test-wf)
+
+  (fact "Remove workflow."
+    (let [c (-> (cache/new-cache)
+                (cache/put-workflow test-wf))
+          c' (cache/rm-workflow c wf-id)]
+
+      (cache/workflow c  wf-id) => test-wf
+      (cache/workflow c' wf-id) => nil))
+
+  (fact "Put multiple workflows."
+    (-> (cache/new-cache)
+        (cache/put-workflows test-wfs)) => truthy)
+
+  (fact "Retrieve all workflows."
+    (let [c (-> (cache/new-cache)
+                (cache/put-workflows test-wfs))]
+      (set (cache/workflows c)) => test-wfs)))
 
 ;-----------------------------------------------------------------------
 ; Schedules
@@ -163,14 +200,14 @@
 
  (fact "Empty coll when assoc not in cache."
    (-> (cache/new-cache)
-       (cache/put-node test-node)
+       (cache/put-job test-job)
        (cache/put-schedule test-schedule)
        (cache/put-assoc test-schedule-assoc)
        (cache/schedules-for-node (inc node-id))) => empty?)
 
  (fact "Finds schedules when in cache."
    (let [c (-> (cache/new-cache)
-               (cache/put-node test-node)
+               (cache/put-job test-job)
                (cache/put-schedule test-schedule)
                (cache/put-assoc test-schedule-assoc))
          r  (cache/schedules-for-node c node-id)]
@@ -184,19 +221,19 @@
 
  (fact "Empty coll when assoc not in cache."
    (-> (cache/new-cache)
-       (cache/put-node test-node)
+       (cache/put-job test-job)
        (cache/put-schedule test-schedule)
        (cache/put-assoc test-schedule-assoc)
        (cache/nodes-for-schedule (inc schedule-id))) => empty?)
 
  (fact "Finds schedules when in cache."
    (let [c (-> (cache/new-cache)
-               (cache/put-node test-node)
+               (cache/put-job test-job)
                (cache/put-schedule test-schedule)
                (cache/put-assoc test-schedule-assoc))
          r  (cache/nodes-for-schedule c schedule-id)]
      (count r) => 1
-     (first r) => test-node)))
+     (first r) => test-job)))
 
 
 

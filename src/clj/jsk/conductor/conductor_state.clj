@@ -7,8 +7,8 @@
 
 (defn new-state []
   {:execution-models {}
-   :agent-tracker nil
-   :node-schedule-cache nil})
+   :agent-tracker {}
+   :node-schedule-cache {}})
 
 ;-----------------------------------------------------------------------
 ; Execution Model
@@ -65,9 +65,11 @@
 
 (defn- set-status-for-jobs
   "Updates the status for jobs and returns the updated state."
-  [state execution-id status-id & vertex-ids]
+  [state execution-id vertex-ids status-id]
   (reduce (fn [st v-id]
-            (update-in st [:execution-models execution-id] #(exm/update-status %1 status-id v-id)))
+            ; this doesn't work
+            ;(update-in st [:execution-models execution-id] #(exm/update-status %1 status-id v-id))
+            (assoc-in st [:execution-models execution-id :vertices v-id :status] status-id))
           state
           vertex-ids))
 
@@ -77,9 +79,8 @@
   [state execution-id vertex-agent-map ts]
   (let [vertex-ids (keys vertex-agent-map)]
     (-> state
-        (set-status-for-jobs execution-id data/pending-status vertex-ids)
-        agent-tracker
-        (track/add-job-agent-assocs vertex-agent-map))))
+        (set-status-for-jobs execution-id vertex-ids data/pending-status)
+        #_(update-in [:agent-tracker] #(track/add-job-agent-assocs %1 vertex-agent-map)))))
 
 (defn mark-job-started
   "Marks the job as started.  Called after an agent sends job-started-ack."
@@ -91,7 +92,8 @@
   "Marks the job as finished.  Called after an agent sends job-finished."
   [state execution-id vertex-id agent-id status-id ts]
   (-> state
-      (set-status-for-jobs execution-id [vertex-id] status-id)))
+      (set-status-for-jobs execution-id [vertex-id] status-id)
+      (update-in [:agent-tracker] #(track/rm-agent-job-assoc %1 agent-id vertex-id))))
 
 (defn count-for-job-status
   "Answers with the jobs count for the execution-id and the status-id."
@@ -99,6 +101,12 @@
   (-> state
       (execution-model execution-id)
       (exm/status-count status-id exec-wf-id)))
+
+(defn active-jobs-count
+  "Answers with the count of all jobs that are active status. ie pending or started"
+  [state execution-id exec-wf-id]
+  (let [f (partial count-for-job-status state execution-id exec-wf-id)]
+    (+ (f data/started-status) (f data/pending-status))))
 
 (defn mark-exec-wf-failed
   "Marks the exec wf as failed."
@@ -178,3 +186,9 @@
    with node-scheds."
   [state node-id node-scheds]
   (update-in state [:node-schedule-cache] #(cache/replace-schedule-assocs %1 node-id node-scheds)))
+
+
+(defn assert-state [state]
+  (assert (-> state :execution-models nil? not) "no execution models")
+  (assert (-> state :agent-tracker nil? not) "no agent tracker")
+  (assert (-> state :node-schedule-cache nil? not) "no node-schedule-cache"))

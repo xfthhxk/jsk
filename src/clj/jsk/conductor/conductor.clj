@@ -59,29 +59,38 @@
 (defn- put-execution-model!
   "Puts the execution model in the stateful atom."
   [execution-id exec-model]
-  (swap! app-state #(state/put-execution-model %1 execution-id exec-model)))
+  (swap! app-state #(state/put-execution-model %1 execution-id exec-model))
+  (log/debug "after putting: " (with-out-str (clojure.pprint/pprint (-> @app-state :execution-models (get execution-id))))))
+
+(defn- assert-state []
+  (state/assert-state @app-state))
 
 (defn- rm-execution!
   "Removes the execution model identified by execution-id."
   [execution-id]
-  (swap! app-state #(state/rm-execution-model %1 execution-id)))
+  (swap! app-state #(state/rm-execution-model %1 execution-id))
+  (assert-state))
 
 (defn- mark-jobs-pending!
-  [execution-id vertex-ids agent-id ts]
-  (swap! app-state #(state/mark-jobs-pending %1 execution-id vertex-ids agent-id ts)))
+  [execution-id vertex-agent-map ts]
+  (swap! app-state #(state/mark-jobs-pending %1 execution-id vertex-agent-map ts))
+  (assert-state))
 
 (defn- mark-job-started!
   [execution-id vertex-id agent-id ts]
-  (swap! app-state #(state/mark-job-started %1 execution-id vertex-id agent-id ts)))
+  (swap! app-state #(state/mark-job-started %1 execution-id vertex-id agent-id ts))
+  (assert-state))
 
 (defn- mark-job-finished!
   [execution-id vertex-id agent-id status-id ts]
-  (swap! app-state #(state/mark-job-finished %1 execution-id vertex-id agent-id status-id ts)))
+  (swap! app-state #(state/mark-job-finished %1 execution-id vertex-id agent-id status-id ts))
+  (assert-state))
 
 (defn- mark-exec-wf-failed!
   "Marks the exec-wf-id in exec-id as failed."
   [exec-id exec-wf-id]
-  (swap! app-state #(state/mark-exec-wf-failed %1 exec-id exec-wf-id)))
+  (swap! app-state #(state/mark-exec-wf-failed %1 exec-id exec-wf-id))
+  (assert-state))
 
 (defn- exec-wf-success?
   "Answers if the exec-wf failed"
@@ -99,7 +108,7 @@
                        {:keys [agent-id] :as job} (cache/job dc job-id)
                        agent-name (-> dc (cache/agent agent-id) :agent-name)]
                    (merge run-data {:agent-name agent-name :exec-vertex-id v-id :job (assoc job :timeout Integer/MAX_VALUE)})))]
-    (log/debug "The data cache is: "(with-out-str (clojure.pprint/pprint dc)))
+    ;(log/debug "The data cache is: "(with-out-str (clojure.pprint/pprint dc)))
     (map run-fn vertex-ids)))
 
 (defn- run-jobs
@@ -115,10 +124,13 @@
                               job-cmds)]
 
     ; mark all the jobs as pending
-    (swap! app-state #(state/mark-jobs-pending %1 exec-id job-agent-map (util/now-ms)))
+    (mark-jobs-pending! exec-id job-agent-map (util/now-ms))
+
+    (log/debug "after marking jobs pending: "(with-out-str (clojure.pprint/pprint (state/execution-model @app-state exec-id))))
 
     (doseq [{:keys [agent-name] :as cmd} job-cmds]
       (log/info "Sending job command: " cmd)
+      (assert (-> agent-name nil? not) "nil agent-name")
       (publish (str "/jsk/" agent-name) cmd))))
 
 
@@ -138,12 +150,15 @@
 ; Runs all nodes handling jobs and workflows slightly differently.
 ;-----------------------------------------------------------------------
 (defn- run-nodes
-  "Fires off each node in node-ids.  execution-id is required to figure out
+  "Fires off each vertex in vertex-ids.  execution-id is required to figure out
    the exec-vertex-id which serves as the unique id for writing log files to."
-  [node-ids exec-id]
+  [vertex-ids exec-id]
+  (log/debug "vertex-ids:" vertex-ids)
   (let [model (state/execution-model @app-state exec-id)
-        [job-ids wf-ids] (exm/partition-by-node-type model node-ids)
-        wf-id (exm/single-workflow-context-for-vertices model node-ids)]
+        [job-ids wf-ids] (exm/partition-by-node-type model vertex-ids)
+        wf-id (exm/single-workflow-context-for-vertices model vertex-ids)]
+
+    ;(log/debug "The data model is: "(with-out-str (clojure.pprint/pprint model)))
 
     (run-jobs job-ids wf-id exec-id)
     (run-workflows wf-ids exec-id)))
@@ -163,9 +178,6 @@
                       :execution-id execution-id
                       :start-ts (exm/start-time model)
                       :wf-name wf-name})
-
-      (log/debug "Execution model for execution-id " execution-id)
-      (-> model clojure.pprint/pprint with-out-str log/debug)
 
       ; pass in nil for exec-vertex-id since the actual workflow is represented
       ; by the execution and is not a vertex in itself
@@ -208,6 +220,8 @@
 (defn- trigger-node-execution
   "Triggers execution of the job or workflow represented by the node-id"
   [node-id]
+  (log/debug "The node type for node-id" node-id "is" (state/node-type-id @app-state node-id))
+  (log/debug "The node for node-id" node-id "is" (state/node @app-state node-id))
   (if (-> @app-state (state/node-type-id node-id) util/workflow-type?)
     (start-workflow-execution node-id)
     (run-job-as-synthetic-wf node-id)))
@@ -241,7 +255,8 @@
     (let [{:keys[parent-vertex on-success on-failure belongs-to-wf]}
           (exm/vertex-attrs (state/execution-model @app-state execution-id) v-id)
           deps (if success? on-success on-failure)
-          running-count (state/count-for-job-status @app-state execution-id belongs-to-wf data/started-status)]
+          running-count (state/active-jobs-count @app-state execution-id belongs-to-wf)]
+      ; running-count (state/count-for-job-status @app-state execution-id belongs-to-wf data/started-status)
       (if (and parent-vertex (empty? deps) (zero? running-count))
         (recur parent-vertex (assoc ans parent-vertex belongs-to-wf))
         ans))))
@@ -298,7 +313,6 @@
   (publish-event data)) ; FIXME: this doesn't have all the info like the job name, start-ts see old execution.clj
 
 
-; FIXME: update-running-jobs-count! is updating an atom and so is the code below put in dosync or what not
 ; Make idempotent, so if agent sends this again we don't blow up.
 (defn- when-job-finished
   "Decrements the running job count for the execution id.
@@ -306,7 +320,7 @@
    Determines if the workflow is finished and/or errored.
    Sends job-finished-ack to agent.
    publish for distribution."
-  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id success? forced-by-conductor? error-msg] :as msg}]
+  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id success? error-msg] :as msg}]
   (log/debug "job-finished: " msg)
 
   ; update status in db
@@ -316,12 +330,15 @@
     (db/execution-vertex-finished exec-vertex-id fin-status fin-ts)
     (mark-job-finished! execution-id exec-vertex-id agent-id fin-status fin-ts)
 
-    ; update status memory and ack the agent so it can clear it's memory
-    ; agent-id can be null if the conductor is calling this method directly eg when no agent is available
-    (when (not forced-by-conductor?)
-      (publish agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg :job-finished-ack))))
+    (log/debug "after marking jobs finished: "(with-out-str (clojure.pprint/pprint (state/execution-model @app-state execution-id))))
 
-    (let [new-count (state/count-for-job-status @app-state execution-id exec-wf-id data/started-status)
+    ; update status memory and ack the agent so it can clear it's memory
+    (publish agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg :job-finished-ack)))
+
+    (log/debug (with-out-str (clojure.pprint/pprint (state/execution-model @app-state execution-id))))
+
+    (let [;new-count (state/count-for-job-status @app-state execution-id exec-wf-id data/started-status)
+          new-count (state/active-jobs-count @app-state execution-id exec-wf-id)
           next-nodes (state/successor-nodes @app-state execution-id exec-vertex-id success?)
           exec-wf-fail? (and (not success?) (empty? next-nodes))
           exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
@@ -329,6 +346,8 @@
       (publish-event (-> msg
                          (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
                          (merge {:finish-ts fin-ts :status fin-status :event :job-finished})))
+
+      (log/debug "job-finished: new-count" new-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
 
       (if exec-wf-fail?
         (mark-exec-wf-failed! execution-id exec-wf-id))
