@@ -305,24 +305,23 @@
 
 
 ; Make idempotent, so if agent sends this again we don't blow up.
-(defn- when-job-finished
+(defn- when-job-ended
   "Decrements the running job count for the execution id.
    Determines next set of jobs to run.
    Determines if the workflow is finished and/or errored.
    Sends job-finished-ack to agent.
    publish for distribution."
-  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id success? error-msg] :as msg}]
+  [{:keys[execution-id exec-vertex-id agent-id exec-wf-id error-msg] :as msg} msg-ack-kw status-id success?]
   (log/debug "job-finished: " msg)
 
   ; update status in db
-  (let [fin-status (if success? data/finished-success data/finished-error)
-        fin-ts (util/now)]
+  (let [fin-ts (util/now)]
 
-    (db/execution-vertex-finished exec-vertex-id fin-status fin-ts)
-    (mark-job-finished! execution-id exec-vertex-id agent-id fin-status fin-ts)
+    (db/execution-vertex-finished exec-vertex-id status-id fin-ts)
+    (mark-job-finished! execution-id exec-vertex-id agent-id status-id fin-ts)
 
     ; update status memory and ack the agent so it can clear it's memory
-    (publish agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg :job-finished-ack)))
+    (publish agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg msg-ack-kw)))
 
     (let [new-count (state/active-jobs-count @app-state execution-id exec-wf-id)
           next-nodes (state/successor-nodes @app-state execution-id exec-vertex-id success?)
@@ -331,9 +330,9 @@
 
       (publish-event (-> msg
                          (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
-                         (merge {:finish-ts fin-ts :status fin-status :event :job-finished})))
+                         (merge {:finish-ts fin-ts :status status-id :event :job-finished})))
 
-      (log/debug "job-finished: new-count" new-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
+      (log/debug "after-job-ended: new-count" new-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
 
       (if exec-wf-fail?
         (mark-exec-wf-failed! execution-id exec-wf-id))
@@ -341,6 +340,7 @@
       (if exec-wf-finished?
         (when-wf-finished execution-id exec-wf-id exec-vertex-id)
         (run-nodes next-nodes execution-id)))))
+
 
 ;-----------------------------------------------------------------------
 ; -- Networked agents --
@@ -386,8 +386,12 @@
 ;-----------------------------------------------------------------------
 ; Agent says the job is finished.
 ;-----------------------------------------------------------------------
-(defmethod dispatch :job-finished [data]
-  (when-job-finished data))
+(defmethod dispatch :job-finished [{:keys [success?] :as msg}]
+  (let [status (if success? data/finished-success data/finished-error)]
+    (when-job-ended msg :job-finished-ack status success?)))
+
+(defmethod dispatch :job-aborted [msg]
+  (when-job-ended msg :job-aborted-ack data/aborted-status false))
 
 ; TODO: send an ack
 (defmethod dispatch :node-save [{:keys[node-id]}]

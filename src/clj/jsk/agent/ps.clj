@@ -11,37 +11,37 @@
 
 (def ^:private process-cache (atom {}))
 
-(defn- ids->ps [exec-id id]
-  (get-in @process-cache [exec-id id]))
+(defn- ids->ps [execution-id exec-vertex-id]
+  (get-in @process-cache [execution-id exec-vertex-id]))
 
-(defn- cache-ps [exec-id id ^Process p]
-  (assert (@process-cache exec-id)
-          (str "Unknown exec-id:" exec-id))
-  (assert (nil? (ids->ps exec-id id))
-          (str "Already have mapping for exec-id:" exec-id ", id:" id))
+(defn- cache-ps [execution-id exec-vertex-id ^Process p]
+  (assert (@process-cache execution-id)
+          (str "Unknown execution-id:" execution-id))
+  (assert (nil? (ids->ps execution-id exec-vertex-id))
+          (str "Already have mapping for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id))
 
-  (swap! process-cache assoc-in [exec-id id] p))
+  (swap! process-cache assoc-in [execution-id exec-vertex-id] p))
 
-(defn- rm-from-cache [exec-id id]
-  (swap! process-cache update-in [exec-id] dissoc id))
+(defn- rm-from-cache [execution-id exec-vertex-id]
+  (swap! process-cache update-in [execution-id] dissoc exec-vertex-id))
 
 (defn- all-ps
   "Answers with a map of exec-vertex-ids -> StartedProcess instances belonging to the execution
    specified by exec-id or an empty map."
-  [exec-id]
-  (let [ps-map (@process-cache exec-id)]
+  [execution-id]
+  (let [ps-map (@process-cache execution-id)]
     (if ps-map
       ps-map
       {})))
 
 
-(defn- end-execution-tracking* [exec-id]
-  (swap! process-cache dissoc exec-id))
+(defn- end-execution-tracking* [execution-id]
+  (swap! process-cache dissoc execution-id))
 
 (defn tracking-execution?
   "Answers if the execution is being tracked."
-  [exec-id]
-  (-> (@process-cache exec-id) nil? not))
+  [execution-id]
+  (-> (@process-cache execution-id) nil? not))
 
 ;-----------------------------------------------------------------------
 ; Kills all processes belonging to an execution or just the one item
@@ -49,39 +49,39 @@
 ; corresponding to the processes killed.
 ;-----------------------------------------------------------------------
 (defn kill!
-  ([exec-id]
-   (let [id-ps-map (all-ps exec-id)]
+  ([execution-id]
+   (let [id-ps-map (all-ps execution-id)]
 
      ; destroy all of them
      (doseq [p (vals id-ps-map)]
        (-> p .destroy))
 
-     (swap! process-cache assoc exec-id {}) ; clear out the mappings
+     (swap! process-cache assoc execution-id {}) ; clear out the mappings
      (keys id-ps-map))) ; answer with all the exec-vertex-ids
 
-  ([exec-id id]
-   (let [p (ids->ps exec-id id)]
+  ([execution-id exec-vertex-id]
+   (let [p (ids->ps execution-id exec-vertex-id)]
      (-> p .destroy)
-     (rm-from-cache exec-id id)
-     (list id))))
+     (rm-from-cache execution-id exec-vertex-id)
+     (list exec-vertex-id))))
 
 (defn begin-execution-tracking
   "Begins tracking this execution.  Needed so that if an execution is aborted
    nothing else in the meantime sticks another process under exec-id."
-  [exec-id]
-  (swap! process-cache assoc exec-id {}))
+  [execution-id]
+  (swap! process-cache assoc execution-id {}))
 
 (defn end-execution-tracking
   "Ends the execution tracking. Throws an error if any items are still in cache."
-  [exec-id]
+  [execution-id]
 
-  (let [pss (all-ps exec-id)
+  (let [pss (all-ps execution-id)
         ps-count (count pss)]
 
     (assert (zero? ps-count)
-            (str "Not all Process references removed for exec-id:" exec-id ", count=" ps-count))
+            (str "Not all Process references removed for execution-id:" execution-id ", count=" ps-count))
 
-    (end-execution-tracking* exec-id)))
+    (end-execution-tracking* execution-id)))
 
 
 ; clojure java shell2 lib
@@ -109,24 +109,24 @@
 
 
 
-(defn- start [exec-group-id exec-id timeout ^ProcessExecutor pe]
+(defn- start [execution-id exec-vertex-id timeout ^ProcessExecutor pe]
   (let [^StartedProcess sp (.start pe)]
     ; stick in cache so can be killed if need be by outside intervention
-    (if (-> exec-group-id tracking-execution? not)
-      (begin-execution-tracking exec-group-id))
+    (if (-> execution-id tracking-execution? not)
+      (begin-execution-tracking execution-id))
 
-    (cache-ps exec-group-id exec-id (.process sp))
+    (cache-ps execution-id exec-vertex-id (.process sp))
 
     (try
       (let [^ProcessResult result (-> sp .future (.get timeout TimeUnit/SECONDS))]
-        (rm-from-cache exec-group-id exec-id)
+        (rm-from-cache execution-id exec-vertex-id)
         (.exitValue result))
       (catch Exception e
-        (rm-from-cache exec-group-id exec-id)
+        (rm-from-cache execution-id exec-vertex-id)
         (throw e)))))
 
 (defn exec1
   "Takes a cmd with args to run and the directory in which it should be run"
-  [exec-group-id exec-id timeout cmd-with-args exec-dir process-output-file-name]
+  [execution-id exec-vertex-id timeout cmd-with-args exec-dir process-output-file-name]
    (with-open [os (FileOutputStream. process-output-file-name)]
-     (start exec-group-id exec-id timeout (create cmd-with-args exec-dir os))))
+     (start execution-id exec-vertex-id timeout (create cmd-with-args exec-dir os))))

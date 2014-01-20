@@ -20,13 +20,17 @@
   [ch agent-id]
   (ch-put ch {:msg :agent-registering :agent-id agent-id}))
 
-(defn- when-job-finished
+(defn- when-job-finished!
   "Adds it to the finished jobs atom and sends the msg to the conductor.
    Things are removed from finished-jobs when the conductor sends an ack."
   [{:keys[exec-vertex-id] :as msg} agent-id ch]
 
   (swap! finished-jobs #(assoc %1 exec-vertex-id msg))
   (ch-put ch msg))
+
+(defn- ack-rcvd!
+  [exec-vertex-id]
+  (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
 
 
 (defmulti dispatch (fn [m _ _] (:msg m)))
@@ -43,7 +47,7 @@
   (let [msgs (vals @finished-jobs)]
     (log/info "Finished jobs for which acks not received: " (count msgs))
 
-    (when (-> msgs empty? not)
+    (when (seq msgs)
       (log/info "Unackd finished jobs: " msgs)
       (doseq [msg msgs]
         (ch-put ch msg)))))
@@ -71,18 +75,26 @@
      (try
        (let [exit-code (ps/exec1 execution-id exec-vertex-id timeout command-line execution-directory log-file-name)
              success? (zero? exit-code)]
-         (when-job-finished (assoc base-resp :success? success?) agent-id ch))
+         (when-job-finished! (assoc base-resp :success? success?) agent-id ch))
        (catch Exception ex
          (log/error ex)
-         (when-job-finished (assoc base-resp :success? false) agent-id ch))))))
+         (when-job-finished! (assoc base-resp :success? false) agent-id ch))))))
 
+
+
+(defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
+  (log/debug "abort-job for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (ps/kill! execution-id exec-vertex-id)
+  (when-job-finished! (merge {:msg :job-aborted :success? true}
+                             (select-keys msg [execution-id exec-vertex-id]))))
 
 (defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
   (log/debug "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
-  (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
+  (ack-rcvd! exec-vertex-id))
 
-(defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id]} agent-id ch]
-  )
+(defmethod dispatch :job-aborted-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
+  (log/debug "job-aborted-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (ack-rcvd! exec-vertex-id))
 
 (defmethod dispatch :default [m agent-id ch]
   (log/error "No handler for " m))
