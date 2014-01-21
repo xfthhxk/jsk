@@ -14,7 +14,7 @@ Terminology:
   - job: Something to execute
   - workflow: A directed graph of jobs which can be composed with other workflows.
   - conductor: Central server managing jobs/workflows triggering
-  - agent: Separate process likely on another machine than the conductor which actually runs jobs.
+  - agent: Separate process which actually runs the job.  Likely on another machine than the conductor.
 
 ## Usage
 
