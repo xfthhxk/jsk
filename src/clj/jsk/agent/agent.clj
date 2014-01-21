@@ -11,6 +11,7 @@
 
 ; map of exec-vertex-id to the msg sent to the conductor
 (def finished-jobs (atom {}))
+(def aborted-jobs (atom {}))
 
 (defn- ch-put [ch data]
   (put! ch {:topic msg/root-topic :data data}))
@@ -25,13 +26,11 @@
    Things are removed from finished-jobs when the conductor sends an ack."
   [{:keys[exec-vertex-id] :as msg} agent-id ch]
 
-  (swap! finished-jobs #(assoc %1 exec-vertex-id msg))
-  (ch-put ch msg))
-
-(defn- ack-rcvd!
-  [exec-vertex-id]
-  (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
-
+  (if (get @aborted-jobs exec-vertex-id)
+      (log/info exec-vertex-id "was aborted. Not sending job-finished msg.")
+    (do 
+      (swap! finished-jobs #(assoc %1 exec-vertex-id msg))
+      (ch-put ch msg))))
 
 (defmulti dispatch (fn [m _ _] (:msg m)))
 
@@ -44,13 +43,10 @@
 (defmethod dispatch :agent-registered [m agent-id ch]
   (log/info "Agent is now registered.")
 
-  (let [msgs (vals @finished-jobs)]
-    (log/info "Finished jobs for which acks not received: " (count msgs))
-
-    (when (seq msgs)
-      (log/info "Unackd finished jobs: " msgs)
-      (doseq [msg msgs]
-        (ch-put ch msg)))))
+  (let [msgs (concat (vals @finished-jobs) (vals @aborted-jobs))]
+    (log/info (count msgs) "jobs without acks" msgs)
+    (doseq [msg msgs]
+      (ch-put ch msg))))
 
 
 ; sent from conductor to have agents check in ie a heartbeat
@@ -83,18 +79,23 @@
 
 
 (defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
-  (log/debug "abort-job for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
-  (ps/kill! execution-id exec-vertex-id)
-  (when-job-finished! (merge {:msg :job-aborted :success? true}
-                             (select-keys msg [execution-id exec-vertex-id]))))
+  (log/info "abort-job msg rcvd: " msg)
+  (let [reply-msg (merge {:agent-id agent-id} (select-keys msg [:execution-id :exec-vertex-id]))
+        abort-msg (merge reply-msg {:msg :job-aborted :success? true})]
+    ; send the ack
+    (ch-put ch (merge reply-msg {:msg :abort-job-ack}))
+
+    (ps/kill! execution-id exec-vertex-id)
+    (swap! aborted-jobs #(assoc %1 exec-vertex-id abort-msg))
+    (ch-put ch abort-msg)))
 
 (defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
   (log/debug "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
-  (ack-rcvd! exec-vertex-id))
+  (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
 
 (defmethod dispatch :job-aborted-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
   (log/debug "job-aborted-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
-  (ack-rcvd! exec-vertex-id))
+  (swap! aborted-jobs #(dissoc %1 exec-vertex-id)))
 
 (defmethod dispatch :default [m agent-id ch]
   (log/error "No handler for " m))

@@ -2,6 +2,7 @@
   (:require [jsk.common.graph :as graph]
             [jsk.common.data :as data]
             [jsk.common.util :as util]
+            [clojure.set :as set]
             [taoensso.timbre :as log]))
 
 (def ^:private initial-vertex-info
@@ -10,6 +11,7 @@
    :node-type 0
    :belongs-to-wf 0
    :status 0
+   :agent-name nil
    :on-success #{}
    :on-failure #{}})
 
@@ -126,6 +128,14 @@
   (get-in model [:vertices v]))
 
 
+(defn assoc-agent-name
+  "Associates the agent-name to the vertex represented by v-id.
+   agent-name is a non-nil, non-empty string."
+  [model v-id agent-name]
+  (assert (seq agent-name) "nil agent-name")
+  (assoc-in model [:vertices v-id :agent-name] agent-name))
+
+
 ; s (conj (get-in model path) exec-wf
 ;s' (if s (conj s exec-wf-id) #{exec-wf-id})]
 
@@ -169,6 +179,11 @@
                 :node-type
                 util/workflow-type?))
           (vertices model)))
+
+(defn job-vertices
+  "Andwers with all job vertices within the model."
+  [model]
+  (set/difference (vertices model) (workflow-vertices model)))
 
 (defn vertex-workflow-to-run-map
   "Call after finalize is called. Returns a map of vertex ids to an execution workflow id
@@ -263,9 +278,12 @@
 (defn mark-exec-wf-failed
   "Marks the execution workflow specified by exec-wf-id as failed."
   [model exec-wf-id]
+  (assert exec-wf-id "nil exec-wf-id")
+  (assert (:failed-exec-wfs model) "nil failed-exec-wfs")
   (update-in model [:failed-exec-wfs] conj exec-wf-id))
 
 (defn failed-exec-wf?
   "Answers if the exec-wf-id has failed."
   [model exec-wf-id]
+  (assert exec-wf-id "nil exec-wf-id")
   (-> model (get-in [:failed-exec-wfs]) (contains? exec-wf-id)))

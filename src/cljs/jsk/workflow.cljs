@@ -128,7 +128,7 @@
     2 "glyphicon-flash"             ; started-status
     3 "glyphicon-ok"                ; finished-success
     4 "glyphicon-exclamation-sign"  ; finished-error
-    5 "glyphicon-minus"             ; aborted
+    5 "glyphicon-minus-sign"        ; aborted
     6 "glyphicon-question-sign"     ; unknown
     7 "glyphicon-time"              ; pending
     ))   ; unknown-status
@@ -433,9 +433,13 @@
                  "td.execution-vertex-finish" (ef/do->
                                                 (ef/set-attr :id (execution-vertex-finish-td-id execution-vertex-id))
                                                 (ef/content (str finish-ts)))
+
+                 "td > a.execution-abort-action" (events/listen :click
+                                                            (fn[e]
+                                                              (rfn/abort-job @current-execution-id execution-vertex-id)))
                  "td > a.execution-resume-action" (events/listen :click
                                                             (fn[e]
-                                                              (rfn/resume-execution @current-execution-id execution-vertex-id )))))
+                                                              (rfn/resume-execution @current-execution-id execution-vertex-id)))))
 
 
 

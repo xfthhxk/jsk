@@ -123,15 +123,26 @@
 
 (defn abort-execution
   "Puts a message on the conductor channel to abort the execution."
-  [execution-id]
-  (put! @out-chan {:msg :abort-execution
+  [execution-id user-id]
+  (log/info "user " user-id "requests aborting execution " execution-id)
+  (put! @out-chan {:msg :request-execution-abort
                    :execution-id execution-id}))
+
+
+(defn abort-job
+  "Puts a message on the conductor channel to abort the execution."
+  [execution-id exec-vertex-id user-id]
+  (log/info "user " user-id "requests aborting job" exec-vertex-id "within execution" execution-id)
+  (put! @out-chan {:msg :request-job-abort
+                   :execution-id execution-id
+                   :exec-vertex-id exec-vertex-id}))
 
 
 (defn resume-execution
   "Puts a message on the conductor channel to resume the execution."
-  [execution-id exec-vertex-id]
-  (put! @out-chan {:msg :abort-execution
+  [execution-id exec-vertex-id user-id]
+  (log/info "user " user-id "requests resuming job" exec-vertex-id "within execution" execution-id)
+  (put! @out-chan {:msg :request-job-resume
                    :execution-id execution-id
                    :exec-vertex-id exec-vertex-id}))
 

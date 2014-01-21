@@ -21,8 +21,7 @@
             [clojure.core.async :refer [chan go-loop put! <!]]
             [taoensso.timbre :as log]))
 
-(declare start-workflow-execution when-job-finished)
-
+(declare start-workflow-execution)
 
 ;-----------------------------------------------------------------------
 ; exec-tbl tracks executions and the status of each job in the workflow.
@@ -42,6 +41,9 @@
 
 (defn- publish [topic data]
   (put! publish-chan {:topic topic :data data}))
+
+(defn- publish-to-agent [agent-name data]
+  (publish (str "/jsk/" agent-name) data))
 
 (defn- publish-event [data]
   (publish msg/status-updates-topic data))
@@ -73,22 +75,26 @@
 (defn- mark-jobs-pending!
   [execution-id vertex-agent-map ts]
   (swap! app-state #(state/mark-jobs-pending %1 execution-id vertex-agent-map ts))
+  ;(log/debug "After mark-job-pending!" (state/execution-model @app-state execution-id))
   (assert-state))
 
 (defn- mark-job-started!
   [execution-id vertex-id agent-id ts]
   (swap! app-state #(state/mark-job-started %1 execution-id vertex-id agent-id ts))
+  ;(log/debug "After mark-job-started!" (state/execution-model @app-state execution-id))
   (assert-state))
 
 (defn- mark-job-finished!
   [execution-id vertex-id agent-id status-id ts]
   (swap! app-state #(state/mark-job-finished %1 execution-id vertex-id agent-id status-id ts))
+  ;(log/debug "After mark-job-finished!" (state/execution-model @app-state execution-id))
   (assert-state))
 
 (defn- mark-exec-wf-failed!
   "Marks the exec-wf-id in exec-id as failed."
-  [exec-id exec-wf-id]
-  (swap! app-state #(state/mark-exec-wf-failed %1 exec-id exec-wf-id))
+  [execution-id exec-wf-id]
+  (swap! app-state #(state/mark-exec-wf-failed %1 execution-id exec-wf-id))
+  ;(log/debug "After mark-exec-wf-failed!" (state/execution-model @app-state execution-id))
   (assert-state))
 
 (defn- exec-wf-success?
@@ -103,9 +109,8 @@
   (let [dc (-> @app-state state/node-schedule-cache) ; data-cache
         run-data {:msg :run-job :execution-id exec-id :exec-wf-id exec-wf-id :trigger-src :conductor :start-ts (util/now)}
         run-fn (fn[v-id]
-                 (let [job-id (-> model (exm/vertex-attrs v-id) :node-id)
-                       {:keys [agent-id] :as job} (cache/job dc job-id)
-                       agent-name (-> dc (cache/agent agent-id) :agent-name)]
+                 (let [{:keys [node-id agent-name]} (exm/vertex-attrs model v-id)
+                       job (cache/job dc node-id)]
                    (merge run-data {:agent-name agent-name :exec-vertex-id v-id :job (assoc job :timeout Integer/MAX_VALUE)})))]
     ;(log/debug "The data cache is: "(with-out-str (clojure.pprint/pprint dc)))
     (map run-fn vertex-ids)))
@@ -127,8 +132,8 @@
 
     (doseq [{:keys [agent-name] :as cmd} job-cmds]
       (log/info "Sending job command: " cmd)
-      (assert (-> agent-name nil? not) "nil agent-name")
-      (publish (str "/jsk/" agent-name) cmd))))
+      (assert agent-name "nil agent-name")
+      (publish-to-agent agent-name cmd))))
 
 
 
@@ -145,6 +150,8 @@
 
 ;-----------------------------------------------------------------------
 ; Runs all nodes handling jobs and workflows slightly differently.
+; 
+; TODO: should check to see if the execution is aborting, if so not do anything
 ;-----------------------------------------------------------------------
 (defn- run-nodes
   "Fires off each vertex in vertex-ids.  execution-id is required to figure out
@@ -153,6 +160,9 @@
   (let [model (state/execution-model @app-state exec-id)
         [job-ids wf-ids] (exm/partition-by-node-type model vertex-ids)
         wf-id (exm/single-workflow-context-for-vertices model vertex-ids)]
+
+    (assert (or (seq job-ids) (seq wf-ids))
+            (str "Nothing to run for execution " exec-id ", vertices: " vertex-ids))
 
     (run-jobs job-ids wf-id exec-id)
     (run-workflows wf-ids exec-id)))
@@ -164,7 +174,8 @@
 (defn- start-workflow-execution
   ([wf-id]
     (let [wf-name (state/node-name @app-state wf-id)
-          {:keys[execution-id model]} (exs/setup-execution wf-id wf-name)]
+          node-cache (state/node-schedule-cache @app-state)
+          {:keys[execution-id model]} (exs/setup-execution wf-id wf-name node-cache)]
 
       (put-execution-model! execution-id model)
 
@@ -201,7 +212,8 @@
 (defn- run-job-as-synthetic-wf
   "Runs the job in the context of a synthetic workflow."
   [job-id]
-  (let [{:keys[execution-id model]} (exs/setup-synthetic-execution job-id)
+  (let [node-cache (state/node-schedule-cache @app-state)
+        {:keys[execution-id model]} (exs/setup-synthetic-execution job-id node-cache)
         start-ts (util/now)
         job-nm (state/node-name @app-state job-id)]
 
@@ -257,15 +269,13 @@
   [exec-vertex-id exec-wf-id execution-id success?]
   (let [ts (util/now)
         vertices-wf-map (parents-to-upd exec-vertex-id execution-id success?)
-        vertices (if exec-vertex-id
-                   (conj (keys vertices-wf-map) exec-vertex-id)
-                   [])
+        vertices (keys vertices-wf-map)
         wfs (conj (vals vertices-wf-map) exec-wf-id)]
-    (log/info "Marking finished for execution-id:" execution-id ", Vertices:" vertices ", wfs:" wfs)
-    (db/workflows-and-vertices-finished vertices wfs success? ts)
 
-    ; FIXME: need to iterate over all the vertices and publish-event
-    (if vertices
+    (log/info "Marking finished for execution-id:" execution-id ", Vertices:" vertices ", wfs:" wfs)
+
+    (when (seq vertices)
+      (db/workflows-and-vertices-finished vertices wfs success? ts)
       (publish-event {:event :wf-finished
                       :execution-id execution-id
                       :execution-vertices vertices
@@ -312,7 +322,7 @@
    Sends job-finished-ack to agent.
    publish for distribution."
   [{:keys[execution-id exec-vertex-id agent-id exec-wf-id error-msg] :as msg} msg-ack-kw status-id success?]
-  (log/debug "job-finished: " msg)
+  (log/debug "job-ended: " msg)
 
   ; update status in db
   (let [fin-ts (util/now)]
@@ -321,7 +331,7 @@
     (mark-job-finished! execution-id exec-vertex-id agent-id status-id fin-ts)
 
     ; update status memory and ack the agent so it can clear it's memory
-    (publish agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg msg-ack-kw)))
+    (publish-to-agent agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg msg-ack-kw)))
 
     (let [new-count (state/active-jobs-count @app-state execution-id exec-wf-id)
           next-nodes (state/successor-nodes @app-state execution-id exec-vertex-id success?)
@@ -340,6 +350,44 @@
       (if exec-wf-finished?
         (when-wf-finished execution-id exec-wf-id exec-vertex-id)
         (run-nodes next-nodes execution-id)))))
+
+
+
+;-----------------------------------------------------------------------
+; -- when job abort requested
+;-----------------------------------------------------------------------
+(defn- when-abort-job-requested
+  "Sends the agent running the job an abort job message if the execution exists
+   and the exec-vertex-id is marked as started"
+  [execution-id exec-vertex-id]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (let [{:keys [agent-name status]} (exm/vertex-attrs model exec-vertex-id)]
+      (when (= data/started-status status)
+        (publish-to-agent agent-name {:execution-id execution-id :exec-vertex-id exec-vertex-id :msg :abort-job})))))
+
+(defn- when-abort-execution-requested
+  "Sends out an abort job request to any started jobs."
+  [execution-id]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (doseq [id (exm/job-vertices model)]
+      (when-abort-job-requested execution-id id))))
+
+; If the execution is already loaded, then just do run-nodes,
+; otherwise load execution and then do run-nodes
+(defn- when-resume-job-requested
+  "Resume job"
+  [execution-id exec-vertex-id]
+
+  ; load execution if not already loaded
+  (when-not (state/execution-exists? @app-state execution-id)
+    (log/info "Loading into memory execution with id" execution-id)
+    (let [node-cache (state/node-schedule-cache @app-state)
+          {:keys [model]} (exs/resume-workflow-execution-data execution-id node-cache)]
+      (put-execution-model! execution-id model)))
+
+  (run-nodes [exec-vertex-id] execution-id))
+
+  
 
 
 ;-----------------------------------------------------------------------
@@ -362,7 +410,7 @@
 (defmethod dispatch :agent-registering [{:keys[agent-id]}]
   (log/info "Agent registering: " agent-id)
   (register-agent! agent-id)
-  (publish agent-id {:msg :agent-registered}))
+  (publish-to-agent agent-id {:msg :agent-registered}))
 
 ;-----------------------------------------------------------------------
 ; If we know about the agent then, update the last heartbeat.
@@ -373,7 +421,7 @@
 (defmethod dispatch :heartbeat-ack [{:keys[agent-id]}]
   (if (-> @app-state state/agent-tracker (track/agent-exists? agent-id))
     (swap! app-state #(state/heartbeat-rcvd %1 agent-id (util/now-ms)))
-    (publish agent-id {:msg :agents-register})))
+    (publish-to-agent agent-id {:msg :agents-register})))
 
 ;-----------------------------------------------------------------------
 ; Agent received the :run-job request, do what's required when a job
@@ -383,15 +431,14 @@
   (log/info "Run job ack:" data)
   (when-job-started data))
 
+
 ;-----------------------------------------------------------------------
 ; Agent says the job is finished.
 ;-----------------------------------------------------------------------
-(defmethod dispatch :job-finished [{:keys [success?] :as msg}]
+(defmethod dispatch :job-finished [{:keys [success? execution-id] :as msg}]
   (let [status (if success? data/finished-success data/finished-error)]
     (when-job-ended msg :job-finished-ack status success?)))
 
-(defmethod dispatch :job-aborted [msg]
-  (when-job-ended msg :job-aborted-ack data/aborted-status false))
 
 ; TODO: send an ack
 (defmethod dispatch :node-save [{:keys[node-id]}]
@@ -431,6 +478,35 @@
     (doseq [{:keys[node-schedule-id cron-expression]} (cache/schedule-assocs-with-cron-expr-for-node node-id)]
       (quartz/schedule-cron-job! node-schedule-id node-id cron-expression))))
 
+;-----------------------------------------------------------------------
+; Abort job/executions
+;-----------------------------------------------------------------------
+
+(defmethod dispatch :abort-job-ack [data]
+  (log/info "Abort job ack:" data))
+
+(defmethod dispatch :job-aborted [{:keys [execution-id exec-vertex-id] :as msg}]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (let [{:keys [belongs-to-wf]} (exm/vertex-attrs model exec-vertex-id)
+          msg' (assoc msg :exec-wf-id belongs-to-wf)]
+      (when-job-ended msg' :job-aborted-ack data/aborted-status false))))
+
+; Comes from the console via user action for example
+(defmethod dispatch :request-job-abort [{:keys [execution-id exec-vertex-id]}]
+  (log/info "Aborting job" exec-vertex-id "within execution" execution-id)
+  (when-abort-job-requested execution-id exec-vertex-id))
+
+(defmethod dispatch :request-execution-abort [{:keys [execution-id]}]
+  (log/info "Aborting execution" execution-id)
+  (when-abort-execution-requested execution-id))
+
+
+;-----------------------------------------------------------------------
+; Resume job
+;-----------------------------------------------------------------------
+(defmethod dispatch :request-job-resume [{:keys [execution-id exec-vertex-id]}]
+  (log/info "Resume job" exec-vertex-id "in execution" execution-id)
+  (when-resume-job-requested execution-id exec-vertex-id))
 
 
 (defmethod dispatch :ping [{:keys[reply-to] :as data}]

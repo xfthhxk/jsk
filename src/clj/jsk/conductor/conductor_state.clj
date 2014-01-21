@@ -93,7 +93,7 @@
   [state execution-id vertex-id agent-id status-id ts]
   (-> state
       (set-status-for-jobs execution-id [vertex-id] status-id)
-      (update-in [:agent-tracker] #(track/rm-agent-job-assoc %1 agent-id vertex-id))))
+      #_(update-in [:agent-tracker] #(track/rm-agent-job-assoc %1 agent-id vertex-id))))
 
 (defn count-for-job-status
   "Answers with the jobs count for the execution-id and the status-id."
