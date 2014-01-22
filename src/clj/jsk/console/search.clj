@@ -2,6 +2,7 @@
   "Search for executions and other things."
   (:require
             [jsk.common.db :as db]
+            [jsk.common.util :as util]
             [clj-time.core :as ctime]
             [clj-time.coerce :as coerce]
             [clojure.string :as string]
@@ -20,7 +21,7 @@
          java.sql.Timestamp.)))
 
 (defn- date->ts [d]
-  (if d
+  (if d 
     (-> d coerce/to-long java.sql.Timestamp.)))
 
 
@@ -32,8 +33,8 @@
    (executions execution-id execution-name start-ts finish-ts status-ids))
 
   ([exec-id exec-name start-ts finish-ts status-ids]
-   (let [name* (if (string/blank? exec-name)
-                 nil
+     (log/debugf "exec-id: %s exec-name: %s start-ts: %s finish-ts: %s status-ids: %s" exec-id exec-name start-ts finish-ts status-ids)
+   (let [name* (when (seq exec-name)
                  (string/trim exec-name))
          sts (date->ts start-ts)
          fts (date->ts finish-ts)]

@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [agent])
   (:require
             [jsk.common.data :as data]
+            [jsk.common.conf :as conf]
             [jsk.common.util :as util]
             [clojure.string :as string]
             [clj-time.core :as ctime]
@@ -285,7 +286,7 @@
 (defn- insert-job! [{:keys [job-id job-name job-desc is-enabled] :as m} user-id]
   (transaction
     (let [node-id (insert-job-node! job-name job-desc is-enabled user-id)
-          data (select-keys m job-tbl-fields)]
+          data (assoc (select-keys m job-tbl-fields) :job-id node-id)]
       (insert job (values data))
       node-id)))
 
@@ -420,11 +421,11 @@
 (defn- rm-workflow-edge [workflow-id]
   "Deletes workflow edges for the workflow id"
   (exec-raw ["delete
-                from workflow_edge e
+                from workflow_edge
                where exists (select 1
                                from workflow_vertex v
                               where v.workflow_id = ?
-                                and e.vertex_id = v.workflow_vertex_id)"
+                                and workflow_edge.vertex_id = v.workflow_vertex_id)"
                [workflow-id]]))
 
 (defn- rm-workflow-vertex
@@ -530,7 +531,7 @@
      select wf.workflow_id
        from wf ")
 
-(defn- children-workflows
+(defn- children-workflows-cte
   "For the wf-id specified recursively get all workflows it uses.
    Answers with a seq of ints."
   [wf-id]
@@ -538,6 +539,33 @@
     (->> (exec-raw [q []] :results)
          (map :workflow-id)
          doall)))
+
+(def ^:private non-cte-child-wfs-sql
+"
+select w.workflow_id
+  from workflow_vertex wv
+  join workflow        w
+    on wv.node_id = w.workflow_id
+ where wv.workflow_id in (<ids>) ")
+
+(defn- children-workflows-non-cte
+  [wf-id]
+  (loop [ids [wf-id] ans #{wf-id}]
+    (let [ids-csv (string/join "," ids)
+          q (string/replace non-cte-child-wfs-sql #"<ids>" ids-csv)
+          next-ids (->> (exec-raw [q []] :results)
+                        (map :workflow-id)
+                        doall)]
+
+      (if (seq next-ids)
+        (recur next-ids (into ans next-ids))
+        ans))))
+
+(defn- children-workflows
+  [wf-id]
+  (if (conf/db-cte-support?)
+    (children-workflows-cte wf-id)
+    (children-workflows-non-cte wf-id)))
 
 (defn- insert-execution-workflows
   "Creates rows in execution-workflows table and returns a map of

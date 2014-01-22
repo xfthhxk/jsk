@@ -26,12 +26,12 @@
   (let [ep (->end-point transport host port)
         s (nn/socket socket-type)]
     (if bind?
-      (nn/bind s ep)
-      (nn/connect s ep))))
+      (nn/bind! s ep)
+      (nn/connect! s ep))))
 
 (defn subscribe [sock topics]
   (doseq [t topics]
-    (nn/subscribe sock t)))
+    (nn/subscribe! sock t)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -43,7 +43,7 @@
   [socket topic data]
   (let [msg (str topic "\u0000" (pr-str data))]
     ;(log/debug "Publishing " msg)
-    (nn/send socket msg)))
+    (nn/send! socket msg)))
 
 
 (defn- parse-data-string
@@ -53,7 +53,7 @@
   (second (string/split msg #"\u0000")))
 
 (defn- read-pub-string [socket]
-  (-> socket nn/recv parse-data-string))
+  (-> socket nn/recv! parse-data-string))
 
 (defn- read-pub-data [socket]
   (-> socket read-pub-string read-string))
@@ -63,7 +63,7 @@
   "Close all sockets present in ss seq."
   [ss]
   (doseq [s ss]
-    (nn/close s)))
+    (nn/close! s)))
 
 
 (defn- relay-from-sub-socket

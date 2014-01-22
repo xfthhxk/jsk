@@ -84,7 +84,7 @@
   "Common initialization regardless of the mode."
   []
   (log/info "Reading jsk-conf")
-  (conf/init "conf/jsk-conf.clj")
+  (conf/init "./config/jsk-conf.clj")
 
   (log/info "Ensuring log directory exists at: " (conf/exec-log-dir))
   (util/ensure-directory (conf/exec-log-dir))

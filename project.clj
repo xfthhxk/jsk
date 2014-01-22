@@ -4,18 +4,17 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [org.clojure/clojurescript "0.0-2030"] ; needed for lein-light-nrepl
-                 ;[org.clojure/clojurescript "0.0-2080"]
+                 [org.clojure/clojurescript "0.0-2138"]
                  [org.clojure/core.async "0.1.242.0-44b1e3-alpha"]
-                 ; [org.clojure/core.typed "0.2.3"]    ; static type checking
-                 [org.clojure/tools.cli "0.3.0"]     ; command line option processing
+                 [org.clojure/tools.cli "0.3.1"]     ; command line option processing
                  [clojurewerkz/quartzite "1.1.0"]    ; clojure wrapper around quartz scheduling
                  [org.zeroturnaround/zt-exec "1.5"]  ; process execution
                  [com.taoensso/timbre "2.7.1"]       ; logging
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
                  [org.clojure/tools.nrepl "0.2.3"]
-                 [bouncer "0.3.0-alpha1"]            ; validation lib
-                 [com.h2database/h2 "1.3.174"]       ; embedded db
+                 [bouncer "0.3.0"]            ; validation lib
+                 [mysql/mysql-connector-java "5.1.28"]       ; mysql
+                 ;[com.h2database/h2 "1.3.174"]       ; embedded db
                  [korma "0.3.0-RC5"]                 ; sql dsl
                  [com.cemerick/friend "0.2.0"]       ; openid auth
                  [compojure "1.1.5"]                 ; routing library for ring
@@ -27,16 +26,7 @@
                  [enfocus "2.0.2"]
                  [jayq "2.5.0"]
                  [clj-time "0.6.0"]
-                 [jnanomsg "0.1.0"]         ; messaging lib
-                 ; light table nrepl deps
-                 [org.clojure/tools.nrepl "0.2.3"]
-                 [commons-io/commons-io "2.4"]
-                 [ibdknox/tools.reader "0.8.1"]
-                 [org.clojure/tools.reader "0.7.10"]
-                 [ibdknox/analyzer "0.0.2"]
-                 [clj-stacktrace "0.2.7"]
-                 [fs "1.3.3"]
-                 [lein-light-nrepl "0.0.9"]
+                 [jnanomsg "0.2.0"]         ; messaging lib
                  ]
   :source-paths ["src/clj"]
   :profiles {:production {:ring {:open-browser? false :stacktraces? false :auto-reload? false}}
@@ -50,7 +40,6 @@
          :init jsk.console.handler/init
          :destroy jsk.console.handler/destroy
          :configurator jsk.handler/ws-configurator}
-  :repl-options {:nrepl-middleware [lighttable.nrepl.handler/lighttable-ops]}
   :cljsbuild {:builds [{:source-paths ["src/cljs"]
                         :compiler {:output-to "resources/public/js/main.js"
                                    :optimizations :whitespace

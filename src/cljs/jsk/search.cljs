@@ -33,9 +33,10 @@
 
 (defn- update-ts [f sel kw default]
   (let [sv (kw f)
-        ans (if sv
-              (.parse js/Date sv)
-              default)]
+        ans' (if sv
+               (.parse js/Date sv)
+               default)
+        ans (if (ju/nan? ans') default ans')]
     (ju/log (str "form is: " f))
     (ju/log (str "sv is:" sv))
     (ju/log (str "default is:" default))
