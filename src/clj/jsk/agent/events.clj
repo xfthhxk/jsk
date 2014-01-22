@@ -25,6 +25,7 @@
 (defn init!
   "Initializes the data writer."
   []
+  (util/ensure-directory "./data")
   (locking data-writer
     (assert (not @data-writer) "data-writer is already initialized!")
     (setup-writer! true)))
