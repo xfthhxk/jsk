@@ -3,6 +3,7 @@
             [jsk.common.util :as util]
             [jsk.common.notification :as notification]
             [jsk.agent.ps :as ps]
+            [jsk.agent.events :as events]
             [jsk.common.conf :as conf]
             [jsk.common.messaging :as msg]
             [clojure.core.async :refer [put! <! go-loop chan]]
@@ -24,13 +25,14 @@
 (defn- when-job-finished!
   "Adds it to the finished jobs atom and sends the msg to the conductor.
    Things are removed from finished-jobs when the conductor sends an ack."
-  [{:keys[exec-vertex-id] :as msg} agent-id ch]
+  [{:keys[exec-vertex-id] :as jf-msg} agent-id ch]
 
   (if (get @aborted-jobs exec-vertex-id)
       (log/info exec-vertex-id "was aborted. Not sending job-finished msg.")
     (do 
-      (swap! finished-jobs #(assoc %1 exec-vertex-id msg))
-      (ch-put ch msg))))
+      (events/persist! jf-msg)
+      (swap! finished-jobs #(assoc %1 exec-vertex-id jf-msg))
+      (ch-put ch jf-msg))))
 
 (defmulti dispatch (fn [m _ _] (:msg m)))
 
@@ -44,7 +46,7 @@
   (log/info "Agent is now registered.")
 
   (let [msgs (concat (vals @finished-jobs) (vals @aborted-jobs))]
-    (log/info (count msgs) "jobs without acks" msgs)
+    (log/info (count msgs) "jobs without acks:" msgs)
     (doseq [msg msgs]
       (ch-put ch msg))))
 
@@ -86,15 +88,19 @@
     (ch-put ch (merge reply-msg {:msg :abort-job-ack}))
 
     (ps/kill! execution-id exec-vertex-id)
+
+    (events/persist! abort-msg)
     (swap! aborted-jobs #(assoc %1 exec-vertex-id abort-msg))
     (ch-put ch abort-msg)))
 
-(defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
+(defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
   (log/debug "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (events/persist! msg)
   (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
 
-(defmethod dispatch :job-aborted-ack [{:keys [execution-id exec-vertex-id]} agent-id ch]
+(defmethod dispatch :job-aborted-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
   (log/debug "job-aborted-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (events/persist! msg)
   (swap! aborted-jobs #(dissoc %1 exec-vertex-id)))
 
 (defmethod dispatch :default [m agent-id ch]
@@ -111,7 +117,7 @@
 
     (log/info "Agent id is: " agent-id)
     (log/info "Listening to messages for topics: " topics)
-
+    (events/init!)
     (msg/relay-writes write-ch host req-port false)
     (msg/relay-reads "request-processor" host cmd-port bind? topics #(dispatch %1 agent-id write-ch))
     (register-with-conductor write-ch agent-id)))
