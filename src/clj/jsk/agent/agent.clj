@@ -10,9 +10,9 @@
             [taoensso.timbre :as log]))
 
 
-; map of exec-vertex-id to the msg sent to the conductor
-(def finished-jobs (atom {}))
-(def aborted-jobs (atom {}))
+; aborted jobs set
+(def aborted-jobs (atom #{}))
+(def last-hb-rcvd-ts (atom 0))
 
 (defn- ch-put [ch data]
   (put! ch {:topic msg/root-topic :data data}))
@@ -24,37 +24,69 @@
 
 (defn- when-job-finished!
   "Adds it to the finished jobs atom and sends the msg to the conductor.
-   Things are removed from finished-jobs when the conductor sends an ack."
+   Things are removed from when the conductor sends an ack."
   [{:keys[exec-vertex-id] :as jf-msg} agent-id ch]
 
-  (if (get @aborted-jobs exec-vertex-id)
+  (if (contains? @aborted-jobs exec-vertex-id)
       (log/info exec-vertex-id "was aborted. Not sending job-finished msg.")
     (do 
       (events/persist! jf-msg)
-      (swap! finished-jobs #(assoc %1 exec-vertex-id jf-msg))
       (ch-put ch jf-msg))))
 
+(defn- conductor-alive?
+  "Answers if the conductor has been alive in the last heartbeats-interval-ms"
+  []
+  (-> (util/now-ms) (- @last-hb-rcvd-ts) (< (conf/heartbeats-dead-after-ms))))
+
+
+(defn- publish-unackd-msgs
+  "Purge the events log file of ackd messages and for unackd messages
+   (re)publish messages to the conductor."
+  [ch]
+  (let [alive? (conductor-alive?)
+        unackd-msgs (events/purge-ackd!)]
+
+    (when (and alive? (seq unackd-msgs))
+      (log/info "Publishing" (count unackd-msgs) "messages without acks:" unackd-msgs)
+      (reset! aborted-jobs #{})
+      (doseq [msg unackd-msgs]
+        (ch-put ch msg)))
+
+    (if (and (not alive?) (seq unackd-msgs))
+      (log/info (count unackd-msgs) "unackd messages, but conductor is not alive."))))
+
+
+;-----------------------------------------------------------------------
+; Multi method to handle dispatching of conductor messages
+;-----------------------------------------------------------------------
 (defmulti dispatch (fn [m _ _] (:msg m)))
 
-; sent from conductor to have agents register themselves
+;-----------------------------------------------------------------------
+; Agents register broadcast from conductor
+;-----------------------------------------------------------------------
 (defmethod dispatch :agents-register [m agent-id ch]
   (register-with-conductor ch agent-id))
 
-; sent from conductor, let conductor know of any finished
-; jobs we haven't gotten acks for
+;-----------------------------------------------------------------------
+; Conductor has registered this agent
+; Time to publish events we haven't received acks for
+;-----------------------------------------------------------------------
 (defmethod dispatch :agent-registered [m agent-id ch]
   (log/info "Agent is now registered.")
-
-  (let [msgs (concat (vals @finished-jobs) (vals @aborted-jobs))]
-    (log/info (count msgs) "jobs without acks:" msgs)
-    (doseq [msg msgs]
-      (ch-put ch msg))))
+  (reset! last-hb-rcvd-ts (util/now-ms))
+  (publish-unackd-msgs ch))
 
 
-; sent from conductor to have agents check in ie a heartbeat
+;-----------------------------------------------------------------------
+; Heartbeats (sent from conductor to have agents check in)
+;-----------------------------------------------------------------------
 (defmethod dispatch :heartbeat [m agent-id ch]
+  (reset! last-hb-rcvd-ts (util/now-ms))
   (ch-put ch {:agent-id agent-id :msg :heartbeat-ack}))
 
+;-----------------------------------------------------------------------
+; Run job command from conductor
+;-----------------------------------------------------------------------
 (defmethod dispatch :run-job [{:keys [job exec-vertex-id execution-id exec-wf-id]} agent-id ch]
   (future
    (let [{:keys[command-line execution-directory timeout]} job
@@ -79,7 +111,9 @@
          (when-job-finished! (assoc base-resp :success? false) agent-id ch))))))
 
 
-
+;-----------------------------------------------------------------------
+; Abort job command from conductor
+;-----------------------------------------------------------------------
 (defmethod dispatch :abort-job [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
   (log/info "abort-job msg rcvd: " msg)
   (let [reply-msg (merge {:agent-id agent-id} (select-keys msg [:execution-id :exec-vertex-id]))
@@ -90,19 +124,27 @@
     (ps/kill! execution-id exec-vertex-id)
 
     (events/persist! abort-msg)
-    (swap! aborted-jobs #(assoc %1 exec-vertex-id abort-msg))
+    (swap! aborted-jobs conj exec-vertex-id)
     (ch-put ch abort-msg)))
 
+;-----------------------------------------------------------------------
+; Ack from conductor for the job FINISHED message we sent it
+;-----------------------------------------------------------------------
 (defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
   (log/debug "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
-  (events/persist! msg)
-  (swap! finished-jobs #(dissoc %1 exec-vertex-id)))
+  (events/persist! msg))
 
+;-----------------------------------------------------------------------
+; Ack from conductor for the job ABORTED message we sent it
+;-----------------------------------------------------------------------
 (defmethod dispatch :job-aborted-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
   (log/debug "job-aborted-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
   (events/persist! msg)
-  (swap! aborted-jobs #(dissoc %1 exec-vertex-id)))
+  (swap! aborted-jobs disj exec-vertex-id))
 
+;-----------------------------------------------------------------------
+; These should never happen
+;-----------------------------------------------------------------------
 (defmethod dispatch :default [m agent-id ch]
   (log/error "No handler for " m))
 
@@ -117,7 +159,10 @@
 
     (log/info "Agent id is: " agent-id)
     (log/info "Listening to messages for topics: " topics)
+
     (events/init!)
+    (util/periodically "msg-log-purger" (conf/agent-msg-log-purge-ms) #(publish-unackd-msgs write-ch))
+
     (msg/relay-writes write-ch host req-port false)
     (msg/relay-reads "request-processor" host cmd-port bind? topics #(dispatch %1 agent-id write-ch))
     (register-with-conductor write-ch agent-id)))

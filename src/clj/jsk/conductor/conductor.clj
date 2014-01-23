@@ -441,9 +441,10 @@
 
 
 ; TODO: send an ack
-(defmethod dispatch :node-save [{:keys[node-id]}]
-  (log/debug "Node save for node-id: " node-id)
-  (let [n (db/get-node-by-id node-id)]
+(defmethod dispatch :node-save [{:keys[node-id node-type-id] :as msg}]
+  (log/debug "Node save for node: " msg)
+  (let [n (db/get-node-by-id node-id node-type-id)]
+    (log/debug "node from db is " n)
     (swap! app-state #(state/save-node %1 n))))
 
 ; TODO: send an ack,

@@ -75,9 +75,10 @@
 (defn start-thread [thread-name f]
   (.start (Thread. nil f (str "jsk-" thread-name))))
 
-(defn periodically [thread-name period f]
+(defn periodically
   "Starts a new thread and every period ms calls f.
    f is a no arg function."
+  [thread-name period f]
   (start-thread thread-name (fn []
                               (while true
                                 (f)

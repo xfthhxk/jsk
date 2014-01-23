@@ -130,10 +130,6 @@
   [nm]
   (first (select node (where {:node-name nm}))))
 
-(defn get-node-by-id
-  "Gets a node by name if one exists otherwise returns nil"
-  [id]
-  (first (select node (where {:node-id id}))))
 
 (defn get-job-by-name
   "Gets a job by name if one exists otherwise returns nil"
@@ -181,6 +177,18 @@
   "Answers true if workflow name exists"
   [nm]
   (-> nm get-workflow-by-name nil? not))
+
+(defn get-node-by-id
+  "Gets a node by name if one exists otherwise returns nil.
+   If node-type-id is specified retrieves the job or workflow rather than
+   just the shared node data."
+  ([id]
+    (first (select node (where {:node-id id}))))
+  ([node-id node-type-id]
+     (cond
+      (util/workflow-type? node-type-id) (get-workflow node-id)
+      (util/job-type? node-type-id) (get-job node-id)
+      :else (throw (AssertionError. (str "Unknown node-type-id: " node-type-id))))))
 
 ;-----------------------------------------------------------------------
 ; Insert a schedule

@@ -3,6 +3,7 @@
             [bouncer [core :as b] [validators :as v]]
             [clojure.core.async :refer [put!]]
             [jsk.common.util :as util]
+            [jsk.common.data :as data]
             [jsk.common.db :as db]
             [korma.db :as k]))
 
@@ -72,7 +73,7 @@
   (if-let [errors (validate-save j)]
     (util/make-error-response errors)
     (let [job-id (db/save-job j user-id)]
-      (put! @out-chan {:msg :node-save :node-id job-id})
+      (put! @out-chan {:msg :node-save :node-id job-id :node-type-id data/job-type-id})
       {:success? true :job-id job-id})))
 
 

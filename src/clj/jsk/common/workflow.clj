@@ -2,6 +2,7 @@
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [jsk.common.util :as util]
+            [jsk.common.data :as data]
             [jsk.common.db :as db]
             [korma.db :as k]
             [clojure.core.async :refer [put!]]))
@@ -108,7 +109,7 @@
   (if-let [errors (validate-save workflow)]
     (util/make-error-response errors)
     (let [wf-id (save-workflow* workflow layout user-id)]
-      (put! @out-chan {:msg :node-save :node-id wf-id}) ; to notify conductor
+      (put! @out-chan {:msg :node-save :node-id wf-id :node-type-id data/workflow-type-id}) ; to notify conductor
       {:success? true :workflow-id wf-id})))
 
 ;-----------------------------------------------------------------------

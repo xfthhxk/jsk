@@ -74,7 +74,8 @@
 
 
 (defn purge-ackd!
-  "Purges data from the event log for which acks have been received."
+  "Purges data from the event log for which acks have been received.
+   Answers with a seq of messages for which acks have not been received."
   []
   (locking data-writer
     (destroy!)
@@ -90,5 +91,6 @@
       (io/copy (io/file tmp-file-nm) (io/file log-file-name))
       (io/delete-file tmp-file-nm)
 
-      ; setup the data-writer again
-      (setup-writer! true))))
+      ; setup the data-writer and begin appending again
+      (setup-writer! true)
+      ee)))

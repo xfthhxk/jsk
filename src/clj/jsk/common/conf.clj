@@ -55,6 +55,13 @@
   (let [driver-class (:classname (db-spec))]
     (log/info (db-spec))
     (not (.contains driver-class "mysql"))))
+
+
+(defn agent-msg-log-purge-ms
+  "How often an agent will purge it's msg log file."
+  []
+  (get-in @config [:agents :msg-log-purge-milliseconds]))
+
   
 
 
