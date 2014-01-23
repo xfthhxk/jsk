@@ -72,7 +72,7 @@
   (if-let [errors (validate-save j)]
     (util/make-error-response errors)
     (let [job-id (db/save-job j user-id)]
-      (put! @out-chan {:msg :save-node :node-id job-id})
+      (put! @out-chan {:msg :node-save :node-id job-id})
       {:success? true :job-id job-id})))
 
 

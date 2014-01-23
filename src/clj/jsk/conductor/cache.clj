@@ -197,7 +197,7 @@
 (defn schedule-assoc-ids-for-node
   "Retrieves all schedule association ids for the given node id"
   [c node-id]
-  (->> c (schedule-assocs-for-node c node-id) (map :node-schedule-id)))
+  (->> (schedule-assocs-for-node c node-id) (map :node-schedule-id)))
 
 (defn schedule-assocs-for-schedule
   "Retrieves all schedule associations for the given schedule id"
