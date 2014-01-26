@@ -1,3 +1,5 @@
+drop table if exists directory_content;
+drop table if exists directory;
 drop table if exists execution_edge;
 drop table if exists execution_vertex;
 drop table if exists execution_workflow;
@@ -79,11 +81,12 @@ alter table node add constraint fk_node_updater_id foreign key (updater_id) refe
 
 
 /* ---------------------------- Job ----------------------------------- */
+/* agent-id needs to be null to be able to setup jobs from explorer ui, ie quick create a job and then update its properties */
 
 create table job ( job_id                  int           primary key
                  , execution_directory     varchar(255)  not null
                  , command_line            varchar(255)  not null
-                 , agent_id                int           not null
+                 , agent_id                int           null     
                  , max_concurrent          int           not null
                  , max_retries             int           not null);
 
@@ -255,3 +258,18 @@ alter table execution_edge add constraint unq_execution_edge unique(execution_id
 
 
 
+
+/* ---------------------------- Directory (Organization of jobs/workflows) ----------------------------------- */
+/* parent_directory_id is null when there is no parent */
+create table directory ( directory_id        int         auto_increment primary key
+                       , directory_name      varchar(50) not null
+                       , parent_directory_id int         null );
+
+alter table directory add constraint unq_directory unique(directory_name, parent_directory_id);
+
+create table directory_content ( directory_content_id int auto_increment primary key
+                               , directory_id         int not null
+                               , node_id              int not null );
+
+alter table directory_content add constraint fk_directory_content_directory_id foreign key (directory_id) references directory(directory_id);
+alter table directory_content add constraint fk_directory_content_node_id foreign key (node_id) references node(node_id);

@@ -1079,3 +1079,79 @@ select w.workflow_id
   "Gets a agent by name if one exists otherwise returns nil"
   [nm]
   (first (select agent (where {:agent-name nm}))))
+
+
+;;----------------------------------------------------------------------
+;; Explorer (Dir tree) actions
+;;----------------------------------------------------------------------
+(defentity directory
+  (pk :directory-id)
+  (entity-fields :directory-id :directory-name :parent-directory-id))
+
+(defentity directory-content
+  (pk :directory-content-id)
+  (entity-fields :directory-content-id :directory-id :node-id))
+
+(defn directory-exists?
+  "Answers if the directory exists with parent directory id specified."
+  [dir-name parent-dir-id]
+  (let [conds {:directory-name dir-name :parent-directory-id parent-dir-id}]
+    (-> (select directory (where conds)) count zero? not)))
+
+(defn directory-content-exists?
+  "Answers if the directory content exists"
+  [dir-id node-id]
+  (let [conds {:directory-id dir-id :node-id node-id}]
+    (-> (select directory-content (where conds)) count zero? not)))
+
+(defn directory-content-for-node
+  "Answers with the directory-content record or nil for the node-id specified."
+  [node-id]
+  (first (select directory-content (where {:node-id node-id}))))
+
+(defn- update-directory
+  "Updates the directory with id dir-id to the name specified by
+   dir-name and the parent directory to be parent-dir-id"
+  [dir-id dir-name parent-dir-id]
+  (update directory (set-fields {:directory-name dir-name :parent-directory-id parent-dir-id})
+          (where {:directory-id dir-id}))
+  dir-id)
+
+(defn- insert-directory
+  "Creates a new directory and returns the newly created directory's id."
+  [dir-name parent-dir-id]
+  (-> (insert directory {:directory-name dir-name :parent-directory-id parent-dir-id})
+      extract-identity))
+
+(defn save-directory
+  "Saves the directory either creating a new row or updating the existing.
+   Answers with the dir-id of the new row or the row that was updated."
+  [dir-id dir-name parent-dir-id]
+  (if (id? dir-id)
+    (update-directory dir-id dir-name parent-dir-id)
+    (insert-directory dir-name parent-dir-id)))
+
+(defn rm-directory-content
+  [directory-content-id]
+  (delete directory-content (where {:directory-content-id directory-content-id})))
+
+(defn insert-directory-content
+  [dir-id node-id]
+  (-> (insert directory-content {:directory-id dir-id :node-id node-id})
+      extract-identity))
+
+(defn save-directory-content!
+  "Answers with a map of what the new directory content id is.
+   If there was an old directory content id that was deleted
+   old-id will be non nil."
+  [dir-id node-id]
+  (let [{:keys [directory-content-id] :as current-dir} (directory-content-for-node node-id)]
+    (transaction
+     ; delete from old dir
+     (when directory-content-id
+       (rm-directory-content directory-content-id))
+
+     ; add to the new dir
+     (let [new-dir-cont-id (insert-directory-content dir-id node-id)]
+       {:new-id new-dir-cont-id
+        :old-id directory-content-id}))))

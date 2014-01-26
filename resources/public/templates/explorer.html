@@ -1,0 +1,36 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="../js/lib/jstree/themes/default/style.min.css">
+    <script src="../js/lib/jstree/libs/jquery.js"></script>
+    <script src="../js/lib/jstree/jstree.min.js"></script>
+  </head>
+  
+  <body>
+    <div id="jstree">
+      <ul>
+        <li>Root node 1
+          <ul>
+            <li id="child-node-1">Child Node 1</li>
+            <li id="child-node-2">Child Node 2</li>
+          </ul>
+        </li>
+        <li>Root node 2</li>
+      </ul>
+    </div>
+
+    <button>demo button</button>
+
+    <script>
+      $(function(){
+        $("#jstree").jstree();
+
+        $("#jstree").on("changed.jstree", function(e, data) {
+          console.log(data.selected) });
+
+        $("button").on("click", function() {
+          $("#jstree").jstree(true).select_node("child-node-1");
+        });
+      });
+    </script>
+  </body>
+</html>

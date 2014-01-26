@@ -77,6 +77,23 @@
       {:success? true :job-id job-id})))
 
 
+(defn make-new-empty-job!
+  "Makes a new job with default values for everything.
+   Answers with the newly created job-id.
+   Used by the explorer style ui."
+  [user-id]
+  (db/save-job {:job-id -1
+                :job-name (str (util/now-ms))
+                :job-desc ""
+                :is-enabled true
+                :execution-directory ""
+                :command-line ""
+                :max-concurrent 1
+                :max-retries 1
+                :agent-id nil}
+               user-id))
+
+
 (defn trigger-now
   "Puts a message on the conductor channel to trigger the job now."
   [job-id]

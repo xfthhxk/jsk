@@ -11,6 +11,7 @@
             [jsk.common.util :as util]
             [jsk.common.workflow :as wf]
             [jsk.console.search :as search]
+            [jsk.console.explorer :as explorer]
             [jsk.common.schedule :as schedule]))
 
 
@@ -84,6 +85,7 @@
   (POST "/jobs/save" [_ :as request]
         (-> (:params request) (job/save-job! (uid request)) edn-response)))
 
+
 ;-----------------------------------------------------------------------
 ; Routes realted to schedules
 ;-----------------------------------------------------------------------
@@ -131,7 +133,7 @@
        (-> id util/str->int wf/trigger-now edn-response))
 
   (POST "/workflows/save" [_ :as request]
-       (-> (:params request) (wf/save-workflow! (uid request)) edn-response)))
+        (-> (:params request) (wf/save-workflow! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to execution data
@@ -177,6 +179,25 @@
        (-> id util/str->int db/schedule-ids-for-node edn-response)))
 
 
+;-----------------------------------------------------------------------
+; Routes realted to the explorer user interface
+;-----------------------------------------------------------------------
+(defroutes explorer-routes
+  (GET "/explorer" []
+       (edn-response (db/ls-nodes)))
+
+  (POST "/explorer/save-directory" [_ :as request]
+       (-> request :params explorer/save-directory! edn-response))
+
+  (POST "/explorer/save-directory-content" [_ :as request]
+       (-> request :params explorer/save-directory-content! edn-response))
+
+  (POST "/explorer/make-new-job" [_ :as request]
+       (-> request :params (explorer/make-new-empty-job! (uid request)) edn-response))
+
+  (POST "/explorer/make-new-workflow" [_ :as request]
+       (-> request :params (explorer/make-new-empty-workflow! (uid request)) edn-response)))
+
 
 ;-----------------------------------------------------------------------
 ; Collection of all routes.
@@ -186,5 +207,6 @@
                            node-routes
                            job-routes
                            workflow-routes
+                           explorer-routes
                            execution-routes
                            app-routes))

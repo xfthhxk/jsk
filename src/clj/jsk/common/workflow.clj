@@ -149,3 +149,12 @@
 
 
 
+(defn make-new-empty-workflow!
+  "Makes a new workflow with default values for everything. Used by the explorer style ui."
+  [user-id]
+  (let [wf {:workflow-id -1
+            :workflow-name (str (util/now-ms))
+            :workflow-desc ""
+            :is-enabled true}
+        wf-id (db/save-workflow wf user-id)]
+    {:success? true :workflow-id wf-id}))
