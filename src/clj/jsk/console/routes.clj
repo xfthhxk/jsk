@@ -184,7 +184,10 @@
 ;-----------------------------------------------------------------------
 (defroutes explorer-routes
   (GET "/explorer" []
-       (edn-response (db/ls-nodes)))
+       (edn-response (explorer/ls-directory)))
+
+  (GET "/explorer/:directory-id" [directory-id]
+       (edn-response (explorer/ls-directory directory-id)))
 
   (POST "/explorer/save-directory" [_ :as request]
        (-> request :params explorer/save-directory! edn-response))
@@ -196,7 +199,10 @@
        (-> request :params (explorer/make-new-empty-job! (uid request)) edn-response))
 
   (POST "/explorer/make-new-workflow" [_ :as request]
-       (-> request :params (explorer/make-new-empty-workflow! (uid request)) edn-response)))
+        (-> request :params (explorer/make-new-empty-workflow! (uid request)) edn-response))
+
+  (DELETE "/explorer/node/:id" [id :as request]
+          (->> (uid request) (explorer/rm-node! id) edn-response)))
 
 
 ;-----------------------------------------------------------------------

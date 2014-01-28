@@ -113,4 +113,12 @@
 
 
 
+;----------------------------------------------------------------------
+; Explorer functions
+;----------------------------------------------------------------------
+(defn fetch-explorer-root []
+  (rpc/GET "/explorer"))
+
+(defn fetch-explorer-directory [dir-id]
+  (rpc/GET (str "/explorer/" dir-id)))
 

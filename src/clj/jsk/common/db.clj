@@ -515,6 +515,10 @@
   (pk :execution-vertex-id)
   (entity-fields :execution-id :execution-workflow-id :node-id :runs-execution-workflow-id :status-id :start-ts :finish-ts))
 
+(defentity execution-edge
+  (pk :execution-edge-id)
+  (entity-fields :execution-edge-id :execution-id :vertex-id :next-vertex-id :success))
+
 ; some strange issue with substituting params in this query
 (def ^:private child-workflow-sql
    " with wf(workflow_id) as
@@ -1135,6 +1139,10 @@ select w.workflow_id
   [directory-content-id]
   (delete directory-content (where {:directory-content-id directory-content-id})))
 
+(defn rm-directory-content-for-node
+  [node-id]
+  (delete directory-content (where {:node-id node-id})))
+
 (defn insert-directory-content
   [dir-id node-id]
   (-> (insert directory-content {:directory-id dir-id :node-id node-id})
@@ -1155,3 +1163,95 @@ select w.workflow_id
      (let [new-dir-cont-id (insert-directory-content dir-id node-id)]
        {:new-id new-dir-cont-id
         :old-id directory-content-id}))))
+
+
+;;----------------------------------------------------------------------
+;; Node Deletions
+;;----------------------------------------------------------------------
+(defn rm-executions!
+  "Deletes all data for the execution ids  from the various execution_* tables."
+  [execution-ids]
+  (transaction
+   (doseq [exec-id execution-ids
+           :let [conds {:execution-id exec-id}]]
+     (doseq [tbl [execution-edge execution-vertex execution-workflow execution]]
+       (delete tbl (where conds))))))
+
+(def ^:private exec-ids-for-node-sql "
+select
+       distinct execution_id
+  from execution_workflow
+ where workflow_id = ?
+union
+select
+       distinct execution_id
+  from execution_vertex
+ where node_id = ? ")
+
+(defn- execution-ids-for-node [node-id]
+  (->> (exec-raw [exec-ids-for-node-sql [node-id node-id]] :results)
+       (map :execution-id)))
+
+(def ^:private workflow-ref-node-sql "
+select
+       wf.node_name as workflow_name
+  from
+       node wf
+  join workflow_vertex wv
+    on wf.node_id = wv.workflow_id
+ where
+       wv.node_id = ? ")
+
+(defn workflows-referencing-node
+  "Answers with a list of workflow names referencing node-id."
+  [node-id]
+  (->> (exec-raw [workflow-ref-node-sql [node-id]] :results)
+       (map :workflow-name)))
+
+
+(defn rm-node!
+  [node-id]
+  (assert (-> node-id workflows-referencing-node seq not) (str "workflow references exist for node-id: " node-id))
+  (transaction
+   (let [{:keys [node-type-id]} (get-node-by-id)]
+
+    ;; remove executions
+    (-> node-id execution-ids-for-node rm-executions!) 
+
+    ;; remove from explorer directory structure
+    (rm-directory-content-for-node node-id)
+
+    ;; remove from actual subtype tables
+    (if (util/job-type? node-type-id)
+      (delete job (where {:job-id node-id}))
+      (do
+        (delete workflow-vertex (where {:workflow-id node-id}))
+        (delete workflow (where {:workflow-id node-id}))))
+
+    ;; remove from node
+    (delete node (where {:node-id node-id})))))
+
+
+(def ^:private ls-dir-content-sql "
+select 
+       n.node_id
+     , n.node_type_id
+     , n.node_name
+  from directory_content dc
+  join node n
+    on dc.node_id = n.node_id")
+
+(defn ls-directory-content
+  "Lists the contents of a directory. This does not list directories
+   which are children of dir-id. dir-id can be nil which signifies the
+   root directory."
+  [dir-id]
+  (let [q (if dir-id
+            (str ls-dir-content-sql "\n where dc.directory_id = " dir-id)
+            (str ls-dir-content-sql "\n where dc.directory_id is null "))]
+    (exec-raw [q []] :results)))
+
+(defn sub-directories
+  "Lists the immediate sub-directories of dir-id."
+  [dir-id]
+  (select directory (where {:parent-directory-id dir-id})))

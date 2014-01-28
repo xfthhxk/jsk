@@ -26,7 +26,8 @@
   (db/directory-exists? dir-name parent-dir-id))
 
 (defn save-directory!
-  "Saves the directory and returns the dir-id just created/updated."
+  "Saves the directory and returns the dir-id just created/updated.
+   When :parent-directory-id is nil the directory created is a new root directory."
   ([{:keys [directory-id directory-name parent-directory-id]}]
      (save-directory! directory-id directory-name parent-directory-id))
 
@@ -69,4 +70,22 @@
   [{:keys [directory-id]} user-id]
   (make-node-in-dir directory-id user-id workflow/make-new-empty-workflow!))
 
+(defn rm-node!
+  "Removes any relationships to the node and deletes the node."
+  [node-id]
+  (let [references (db/workflows-referencing-node node-id)
+        ref-csv (interpose ", " references)]
+    (if (seq references)
+      (util/make-error-response [(str "Unable to delete. Referenced in the following: " ref-csv)])
+      (do 
+        (db/rm-node! node-id)
+        {:success? true}))))
 
+
+
+(defn ls-directory
+  "Gets the contents of the directory."
+  ([] (ls-directory nil)) ; nil means root
+  ([directory-id]
+    {:content (db/ls-directory-content directory-id)
+     :sub-directories (db/sub-directories directory-id)}))

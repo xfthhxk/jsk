@@ -3,7 +3,7 @@
             [jsk.util :as util]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
-            [enfocus.events :as events]))
+            [enfocus.events :as events])
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
