@@ -165,11 +165,12 @@
 ;----------------------------------------------------------------------
 ; Layout of the entire visualizer screen.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [nodes workflow-id workflow-name workflow-desc enabled?]
+(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [nodes workflow-id workflow-name workflow-desc enabled? node-dir-id]
   "#workflow-visualizer-node-explorer" (ef/content (node-list-snippet nodes))
   "#workflow-id" (ef/set-attr :value (str workflow-id))
   "#workflow-name" (ef/set-attr :value workflow-name)
   "#workflow-desc" (ef/set-attr :value workflow-desc)
+  "#node-directory-id" (ef/set-attr :value (str node-dir-id))
   "#workflow-is-enabled" (ef/do->
                            (ef/set-prop "checked" enabled?)
                            (ef/set-attr :value (str enabled?)))
@@ -322,33 +323,50 @@
   (doseq [m data]
     (add-one-edge m)))
 
+(defn- when-jstree-node-dropped [e data]
+  (def dnd-drop-data data)
+  (let [clj-data (-> data .-data js->clj)
+        element-id (-> (get clj-data "nodes") first)]
 
+    (u/log (str "node dropped " element-id))))
+
+(defn- when-jstree-node-moved [e data]
+  (def dnd-move-data data)
+  (u/log "node moved"))
+
+(defn- when-jstree-node-started [e data]
+  (def dnd-started-data data)
+  (u/log "node started"))
+
+(defn- enable-jstree-dnd []
+  (-> js/document $ (.bind "dnd_start.vakata" when-jstree-node-started))
+  (-> js/document $ (.bind "dnd_move.vakata" when-jstree-node-moved))
+  (-> js/document $ (.bind "dnd_stop.vakata" when-jstree-node-dropped)))
 
 ;----------------------------------------------------------------------
 ; Shows a new workflow visualizer.
 ; -- Get and build the ui for all node in the system
 ;----------------------------------------------------------------------
-(defn show-visualizer
-  ([] (show-visualizer {:workflow-id -1 :workflow-name "" :workflow-desc "" :is-enabled true}))
-  ([{:keys [workflow-id workflow-name workflow-desc is-enabled] :as w}]
-    (go
-      (let [nodes (<! (rfn/fetch-all-nodes))
-            graph (<! (rfn/fetch-workflow-graph workflow-id))]
+(defn show-workflow-node-details [wf-id]
+  (go
+   (let [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as wf} (<! (rfn/fetch-workflow-details wf-id)) nodes (<! (rfn/fetch-all-nodes))
+         nodes (<! (rfn/fetch-all-nodes))
+         graph (<! (rfn/fetch-workflow-graph wf-id))]
 
-        (reset! node-store (reduce #(conj %1 ((juxt :node-id :node-name) %2)) {} nodes))
-        (plumb/reset) ; clear any state it may have had
-        (u/showcase (workflow-visualizer nodes workflow-id workflow-name workflow-desc is-enabled))
+     (reset! node-store (reduce #(conj %1 ((juxt :node-id :node-name) %2)) {} nodes))
+     (plumb/reset) ; clear any state it may have had
 
-        (plumb/register-connection-click-handler connection-click-listener)
+     (u/show-explorer-node (workflow-visualizer nodes workflow-id workflow-name workflow-desc is-enabled node-directory-id))
+     (plumb/register-connection-click-handler connection-click-listener)
 
-        ; these things can happen only after the workflow visualizer is displayed
-        (hide-element "#workflow-save-success")
-        (plumb/default-container :#workflow-visualization-area)
-        (-> :#workflow-visualization-area $ (.droppable (clj->js {:accept ".available-node" :activeClass :ui-state-highlight})))
-        (-> :#workflow-visualization-area $ (.on "drop" visualizer-add-node))
-        (-> ".available-node" $ (.draggable (clj->js {:revert true :helper :clone :opacity 0.35})))
-        (reconstruct-ui graph)))))
-
+     ; these things can happen only after the workflow visualizer is displayed
+     (hide-element "#workflow-save-success")
+     (plumb/default-container :#workflow-visualization-area)
+     ;(-> :#workflow-visualization-area $ (.droppable (clj->js {:accept ".available-node" :activeClass :ui-state-highlight})))
+     ;(-> :#workflow-visualization-area $ (.on "drop" visualizer-add-node))
+     ;(-> ".available-node" $ (.draggable (clj->js {:revert true :helper :clone :opacity 0.35})))
+     (enable-jstree-dnd)
+     (reconstruct-ui graph))))
 
 (defn show-workflows []
   (go

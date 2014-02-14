@@ -25,6 +25,9 @@
 (defn log [x]
   (.log js/console (str x)))
 
+(defn now-ts []
+  (js/Date.now))
+
 (defn str->int [s]
   (.parseInt js/window s))
 
@@ -95,7 +98,6 @@
 (defn nav-to-login-page []
   (set! (-> js/window .-location .-href) "login.html"))
 
-
 (def host
   (aget js/window "location" "host"))
 
@@ -155,6 +157,8 @@
   (show-container)
   (ef/at "#container" (ef/content view)))
 
+(defn show-explorer-node [view]
+  (ef/at "#explorer-node-detail" (ef/content view)))
 
 (defn display-dashboard []
   (hide-container)

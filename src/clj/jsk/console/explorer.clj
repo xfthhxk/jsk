@@ -2,12 +2,13 @@
   "Explorer for the console ui."
   (:require [jsk.common.db :as db]
             [jsk.common.util :as util]
+            [jsk.common.data :as data]
             [jsk.common.job :as job]
             [jsk.common.workflow :as workflow]
             [clojure.core.async :refer [put!]]
             [taoensso.timbre :as log]))
 
-(def ^:private out-chan (atom nil))
+(defonce ^:private out-chan (atom nil))
 
 (defn init
   "Sets the channel to use when updates are made to jobs."
@@ -32,47 +33,26 @@
      (save-directory! directory-id directory-name parent-directory-id))
 
   ([dir-id dir-name parent-dir-id]
+    (log/info "save-directory! dir-id" dir-id ", dir-name" dir-name ", parent-dir-id" parent-dir-id)
     (if (directory-exists? dir-name parent-dir-id)
       (util/make-error-response ["Directory already exists."])
       (db/save-directory dir-id dir-name parent-dir-id))))
-    
 
-(defn save-directory-content!
-  "Saves the node to the directory specified.  Removes any existing association.
-   Answers with a map of success? and the new directory content id"
-  ([{:keys [directory-id node-id]}]
-     (save-directory-content! directory-id node-id))
-
-  ([dir-id node-id]
-    (let [{:keys [new-id old-id]} (db/save-directory-content! dir-id node-id)]
-
-      (when old-id
-        (put! @out-chan {:event :rm-directory-content :directory-content-id old-id}))
-
-      (put! @out-chan {:event :add-directory-content :directory-content-id new-id})
-      {:sucess? true :directory-content-id new-id})))
-
-(defn make-node-in-dir
-  [directory-id user-id mk-node-fn]
-  (assert directory-id "nil directory-id")
-  (let [node-id (mk-node-fn user-id)]
-    (save-directory-content! directory-id node-id)))
-
-(defn make-new-empty-job!
+(defn new-empty-job!
   "Makes a new empty job with default values and associates it to be a child
    of the specified directory-id."
-  [{:keys [directory-id]} user-id]
-  (make-node-in-dir directory-id user-id job/make-new-empty-job!))
+  [dir-id user-id]
+  (job/new-empty-job! dir-id user-id))
     
-(defn make-new-empty-workflow!
-  "Makes a new empty job with default values and associates it to be a child
+(defn new-empty-workflow!
+  "Makes a new empty workflow with default values and associates it to be a child
    of the specified directory-id."
-  [{:keys [directory-id]} user-id]
-  (make-node-in-dir directory-id user-id workflow/make-new-empty-workflow!))
+  [dir-id user-id]
+  (workflow/new-empty-workflow! dir-id user-id))
 
 (defn rm-node!
   "Removes any relationships to the node and deletes the node."
-  [node-id]
+  [node-id user-id]
   (let [references (db/workflows-referencing-node node-id)
         ref-csv (interpose ", " references)]
     (if (seq references)
@@ -81,11 +61,20 @@
         (db/rm-node! node-id)
         {:success? true}))))
 
+(defn rm-directory!
+  "Delete directory as long as there are no directories with this dir-id as the parent
+   and no nodes reference this dir-id."
+  [dir-id user-id]
+  (if (db/empty-directory? dir-id)
+    (do
+      (db/rm-directory dir-id)
+      {:success? true :error ""})
+    {:success? false :error "Non-empty directory."}))
+
 
 
 (defn ls-directory
   "Gets the contents of the directory."
-  ([] (ls-directory nil)) ; nil means root
+  ([] (ls-directory data/root-directory-id)) ; nil means root
   ([directory-id]
-    {:content (db/ls-directory-content directory-id)
-     :sub-directories (db/sub-directories directory-id)}))
+     (db/explorer-info directory-id)))

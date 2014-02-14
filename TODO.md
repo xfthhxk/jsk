@@ -1,7 +1,7 @@
 Agent protocol
 --------------
 
-agent starts connects to coordinator with identity, job sets, agent join msg type.
+agent starts connects to coordinator with identity
 
 agent subscribes to agent messages topic.
 
@@ -28,8 +28,10 @@ then do broadcast pings every few secs
 
 Top Priority
 -------------
-* Agents
-
+Better UI
+* create directories, add jobs, workflows
+* push notification data whenever directories/jobs/workflows are added, removed, updated
+* ui needs to listen for explorer notifications and add, remove or update item
 
 
 ## TODO

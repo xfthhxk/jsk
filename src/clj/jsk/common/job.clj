@@ -77,14 +77,15 @@
       {:success? true :job-id job-id})))
 
 
-(defn make-new-empty-job!
+(defn new-empty-job!
   "Makes a new job with default values for everything.
    Answers with the newly created job-id.
    Used by the explorer style ui."
-  [user-id]
+  [dir-id user-id]
   (db/save-job {:job-id -1
-                :job-name (str (util/now-ms))
+                :job-name (str "Job " (util/now-ms))
                 :job-desc ""
+                :node-directory-id dir-id
                 :is-enabled true
                 :execution-directory ""
                 :command-line ""

@@ -1,5 +1,3 @@
-drop table if exists directory_content;
-drop table if exists directory;
 drop table if exists execution_edge;
 drop table if exists execution_vertex;
 drop table if exists execution_workflow;
@@ -14,6 +12,7 @@ drop table if exists workflow_vertex;
 drop table if exists workflow;
 drop table if exists node;
 drop table if exists node_type;
+drop table if exists node_directory;
 drop table if exists agent;
 drop table if exists app_user;
 
@@ -44,8 +43,7 @@ alter table agent add constraint unq_agent_name unique(agent_name);
 alter table agent add constraint fk_agent_creator_id foreign key (creator_id) references app_user(app_user_id);
 alter table agent add constraint fk_agent_updater_id foreign key (updater_id) references app_user(app_user_id);
 
-insert into agent (agent_id, agent_name, creator_id, updater_id)
-           values (1, 'agent-1', 2, 2);
+insert into agent (agent_id, agent_name, creator_id, updater_id) values (1, 'agent-1', 2, 2);
 
 
 /* ---------------------------- Node Type  --------------------------- */
@@ -55,9 +53,17 @@ create table node_type ( node_type_id int auto_increment primary key
 
 alter table node_type add constraint unq_node_type_name unique(node_type_name);
 
-insert into node_type (node_type_id, node_type_name)
-       values (1,'Job')
-            , (2,'Workflow');
+insert into node_type (node_type_id, node_type_name) values (1,'Job'), (2,'Workflow');
+
+/* ---------------------------- Directory (Organization of jobs/workflows) ----------------------------------- */
+/* parent_directory_id is null when there is no parent */
+create table node_directory ( node_directory_id     int         auto_increment primary key
+                            , node_directory_name   varchar(50) not null
+                            , parent_directory_id   int         not null );
+
+alter table node_directory add constraint unq_node_directory unique(node_directory_name, parent_directory_id);
+
+insert into node_directory(node_directory_id, node_directory_name, parent_directory_id) values (1, '/', -1);
 
 
 /* ---------------------------- Node ----------------------------------- */
@@ -69,12 +75,14 @@ create table node ( node_id                 int           auto_increment primary
                   , node_desc               varchar(255)  not null
                   , is_enabled              boolean       not null
                   , is_system               boolean       not null
+                  , node_directory_id       int           not null
                   , create_ts               timestamp     not null default current_timestamp()
                   , creator_id              int           not null
                   , update_ts               timestamp     not null default current_timestamp()
                   , updater_id              int           not null);
 
 alter table node add constraint unq_node_name unique(node_name);
+alter table node add constraint fk_node_node_directory_id foreign key (node_directory_id) references node_directory(node_directory_id);
 alter table node add constraint fk_node_node_type_id foreign key (node_type_id) references node_type(node_type_id);
 alter table node add constraint fk_node_creator_id foreign key (creator_id) references app_user(app_user_id);
 alter table node add constraint fk_node_updater_id foreign key (updater_id) references app_user(app_user_id);
@@ -139,9 +147,19 @@ alter table node_schedule add constraint unq_node_schedule_job_id_schedule_id un
 
 /* ---------------------------- Workflow ----------------------------------- */
 
-create table workflow ( workflow_id int primary key);
+create table workflow ( workflow_id             int     primary key
+                      , is_visible_in_dashboard boolean not null default false);
 
 alter table workflow add constraint fk_workflow_workflow_id foreign key (workflow_id) references node(node_id);
+
+/* --------------------------------------------------------------------------------------
+   Jobs that are not part of a workflow need a workflow id to save to executions table.
+   -------------------------------------------------------------------------------------- */
+
+insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, node_directory_id, creator_id, updater_id)
+          values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1, 1);
+
+insert into workflow(workflow_id, is_visible_in_dashboard) values (1, false);
 
 
 create table workflow_vertex ( workflow_vertex_id  int          auto_increment primary key
@@ -162,14 +180,6 @@ alter table workflow_edge add constraint fk_workflow_edge_vertex_id foreign key 
 alter table workflow_edge add constraint fk_workflow_edge_next_vertex_id foreign key (next_vertex_id) references workflow_vertex(workflow_vertex_id);
 alter table workflow_edge add constraint unq_workflow_edge unique(vertex_id, next_vertex_id, success);
 
-/* --------------------------------------------------------------------------------------
-   Jobs that are not part of a workflow need a workflow id to save to executions table.
-   -------------------------------------------------------------------------------------- */
-
-insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, creator_id, updater_id)
-          values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1);
-
-insert into workflow(workflow_id) values (1);
 
 
 /* ---------------------------- Execution Status -----------------------------------
@@ -259,17 +269,3 @@ alter table execution_edge add constraint unq_execution_edge unique(execution_id
 
 
 
-/* ---------------------------- Directory (Organization of jobs/workflows) ----------------------------------- */
-/* parent_directory_id is null when there is no parent */
-create table directory ( directory_id        int         auto_increment primary key
-                       , directory_name      varchar(50) not null
-                       , parent_directory_id int         null );
-
-alter table directory add constraint unq_directory unique(directory_name, parent_directory_id);
-
-create table directory_content ( directory_content_id int auto_increment primary key
-                               , directory_id         int not null
-                               , node_id              int not null );
-
-alter table directory_content add constraint fk_directory_content_directory_id foreign key (directory_id) references directory(directory_id);
-alter table directory_content add constraint fk_directory_content_node_id foreign key (node_id) references node(node_id);

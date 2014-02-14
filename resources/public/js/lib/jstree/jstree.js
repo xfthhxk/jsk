@@ -2,7 +2,7 @@
 (function (factory) {
 	"use strict";
 	if (typeof define === 'function' && define.amd) {
-		define('jstree', ['jquery'], factory);
+		define(['jquery'], factory);
 	}
 	else if(typeof exports === 'object') {
 		factory(require('jquery'));
@@ -68,7 +68,7 @@
 		 * specifies the jstree version in use
 		 * @name $.jstree.version
 		 */
-		version : '3.0.0-alpha',
+		version : '3.0.0-beta5',
 		/**
 		 * holds all the default options used when creating new instances
 		 * @name $.jstree.defaults
@@ -646,16 +646,10 @@
 						this[ this._data.core.themes.stripes ? "show_stripes" : "hide_stripes" ]();
 					}, this))
 				.on('focus.jstree', '.jstree-anchor', $.proxy(function (e) {
+						this.element.find('.jstree-hovered').not(e.currentTarget).mouseleave();
 						$(e.currentTarget).mouseenter();
 					}, this))
-				.on('blur.jstree', '.jstree-anchor', $.proxy(function (e) {
-						$(e.currentTarget).mouseleave();
-					}, this))
 				.on('mouseenter.jstree', '.jstree-anchor', $.proxy(function (e) {
-						var o = this.element.find('.jstree-anchor:focus').not('.jstree-clicked');
-						if(o && o.length && o[0] !== e.currentTarget) {
-							o.blur();
-						}
 						this.hover_node(e.currentTarget);
 					}, this))
 				.on('mouseleave.jstree', '.jstree-anchor', $.proxy(function (e) {
@@ -987,7 +981,7 @@
 		 * @return {Boolean}
 		 */
 		_load_node : function (obj, callback) {
-			var s = this.settings.core.data;
+			var s = this.settings.core.data, t;
 			// use original HTML
 			if(!s) {
 				return callback.call(this, obj.id === '#' ? this._append_html_data(obj, this._data.core.original_container_html.clone(true)) : false);
@@ -1020,7 +1014,8 @@
 								callback.call(this, false);
 							}, this));
 				}
-				return callback.call(this, this._append_json_data(obj, s));
+				t = ($.isArray(s) || $.isPlainObject(s)) ? $.vakata.json.decode($.vakata.json.encode(s)) : s;
+				return callback.call(this, this._append_json_data(obj, t));
 			}
 			if(typeof s === 'string') {
 				return callback.call(this, this._append_html_data(obj, s));
@@ -1050,6 +1045,8 @@
 		 */
 		_append_html_data : function (dom, data) {
 			dom = this.get_node(dom);
+			dom.children = [];
+			dom.children_d = [];
 			var dat = data.is('ul') ? data.children() : data,
 				par = dom.id,
 				chd = [],
@@ -1104,6 +1101,8 @@
 		 */
 		_append_json_data : function (dom, data) {
 			dom = this.get_node(dom);
+			dom.children = [];
+			dom.children_d = [];
 			var dat = data,
 				par = dom.id,
 				chd = [],
@@ -1274,11 +1273,11 @@
 					data.state.loaded = false;
 				}
 			}
-			if(data.li_attr.class) {
-				data.li_attr.class = data.li_attr.class.replace('jstree-closed','').replace('jstree-open','');
+			if(data.li_attr['class']) {
+				data.li_attr['class'] = data.li_attr['class'].replace('jstree-closed','').replace('jstree-open','');
 			}
-			if(data.a_attr.class) {
-				data.a_attr.class = data.a_attr.class.replace('jstree-clicked','').replace('jstree-disabled','');
+			if(data.a_attr['class']) {
+				data.a_attr['class'] = data.a_attr['class'].replace('jstree-clicked','').replace('jstree-disabled','');
 			}
 			m[data.id] = data;
 			if(data.state.selected) {
@@ -1576,7 +1575,7 @@
 					}
 					ind = node.index();
 				}
-				m[obj.id].data = node.data();
+				// m[obj.id].data = node.data(); // use only node's data, no need to touch jquery storage
 				if(!deep && obj.children.length && !node.children('ul').length) {
 					deep = true;
 				}
@@ -1644,7 +1643,7 @@
 			}
 			//node.childNodes[1].appendChild(d.createTextNode(obj.text));
 			node.childNodes[1].innerHTML += obj.text;
-			if(obj.data) { $.data(node, obj.data); }
+			// if(obj.data) { $.data(node, obj.data); } // always work with node's data, no need to touch jquery store
 
 			if(deep && obj.children.length && obj.state.opened) {
 				k = d.createElement('UL');
@@ -1878,8 +1877,8 @@
 			var dom = obj.id === '#' ? this.get_container_ul() : this.get_node(obj, true), i, j, _this;
 			if(!dom.length) {
 				for(i = 0, j = obj.children_d.length; i < j; i++) {
-					if(this.is_closed(this._mode.data[obj.children_d[i]])) {
-						this._mode.data[obj.children_d[i]].state.opened = true;
+					if(this.is_closed(this._model.data[obj.children_d[i]])) {
+						this._model.data[obj.children_d[i]].state.opened = true;
 					}
 				}
 				return this.trigger('open_all', { "node" : obj });
@@ -1906,7 +1905,7 @@
 		},
 		/**
 		 * closes all nodes within a node (or the tree), revaling their children
-		 * @name open_all([obj, animation])
+		 * @name close_all([obj, animation])
 		 * @param {mixed} obj the node to close recursively, omit to close all nodes in the tree
 		 * @param {Number} animation the animation duration in milliseconds when closing the nodes, the default is no animation
 		 * @trigger close_all.jstree
@@ -1919,7 +1918,7 @@
 				_this = this, i, j;
 			if(!dom.length) {
 				for(i = 0, j = obj.children_d.length; i < j; i++) {
-					this._mode.data[obj.children_d[i]].state.opened = false;
+					this._model.data[obj.children_d[i]].state.opened = false;
 				}
 				return this.trigger('close_all', { "node" : obj });
 			}
@@ -2067,9 +2066,12 @@
 		 */
 		hover_node : function (obj) {
 			obj = this.get_node(obj, true);
-			if(!obj || !obj.length) {
+			if(!obj || !obj.length || obj.children('.jstree-hovered').length) {
 				return false;
 			}
+			var o = this.element.find('.jstree-hovered');
+			if(o && o.length) { this.dehover_node(o); }
+
 			obj.children('.jstree-anchor').addClass('jstree-hovered');
 			/**
 			 * triggered when an node is hovered
@@ -2088,7 +2090,7 @@
 		 */
 		dehover_node : function (obj) {
 			obj = this.get_node(obj, true);
-			if(!obj || !obj.length) {
+			if(!obj || !obj.length || !obj.children('.jstree-hovered').length) {
 				return false;
 			}
 			obj.children('.jstree-anchor').removeClass('jstree-hovered');
@@ -2317,12 +2319,17 @@
 			if(state) {
 				if(state.core) {
 					var res, n, t, _this;
-					if($.isArray(state.core.open)) {
+					if(state.core.open) {
+						if(!$.isArray(state.core.open)) {
+							delete state.core.open;
+							this.set_state(state, callback);
+							return false;
+						}
 						res = true;
 						n = false;
 						t = this;
 						$.each(state.core.open.concat([]), function (i, v) {
-							n = document.getElementById(v);
+							n = t.get_node(v);
 							if(n) {
 								if(t.is_loaded(v)) {
 									if(t.is_closed(v)) {
@@ -2353,7 +2360,6 @@
 							this.element.scrollTop(state.core.scroll.top);
 						}
 						delete state.core.scroll;
-						delete state.core.open;
 						this.set_state(state, callback);
 						return false;
 					}
@@ -2384,17 +2390,21 @@
 						this.set_state(state, callback);
 						return false;
 					}
-					if($.isEmptyObject(state)) {
-						if(callback) { callback.call(this); }
-						/**
-						 * triggered when a `set_state` call completes
-						 * @event
-						 * @name set_state.jstree
-						 */
-						this.trigger('set_state');
+					if($.isEmptyObject(state.core)) {
+						delete state.core;
+						this.set_state(state, callback);
 						return false;
 					}
-					return true;
+				}
+				if($.isEmptyObject(state)) {
+					if(callback) { callback.call(this); }
+					/**
+					 * triggered when a `set_state` call completes
+					 * @event
+					 * @name set_state.jstree
+					 */
+					this.trigger('set_state');
+					return false;
 				}
 				return true;
 			}
@@ -2509,11 +2519,14 @@
 		 * @param  {Boolean} options.no_state do not return state information
 		 * @param  {Boolean} options.no_id do not return ID
 		 * @param  {Boolean} options.no_children do not include children
+		 * @param  {Boolean} options.no_data do not include node data
+		 * @param  {Boolean} options.flat return flat JSON instead of nested
 		 * @return {Object}
 		 */
-		get_json : function (obj, options) {
+		get_json : function (obj, options, flat) {
 			obj = this.get_node(obj || '#');
 			if(!obj) { return false; }
+			if(options.flat && !flat) { flat = []; }
 			var tmp = {
 				'id' : obj.id,
 				'text' : obj.text,
@@ -2521,9 +2534,15 @@
 				'li_attr' : obj.li_attr,
 				'a_attr' : obj.a_attr,
 				'state' : {},
-				'data' : options && options.no_data ? false : ( this.get_node(obj, true).length ? this.get_node(obj, true).data() : obj.data ),
-				'children' : []
+				'data' : options && options.no_data ? false : obj.data
+				//( this.get_node(obj, true).length ? this.get_node(obj, true).data() : obj.data ),
 			}, i, j;
+			if(options.flat) {
+				tmp.parent = obj.parent;
+			}
+			else {
+				tmp.children = [];
+			}
 			if(!options || !options.no_state) {
 				for(i in obj.state) {
 					if(obj.state.hasOwnProperty(i)) {
@@ -2531,16 +2550,26 @@
 					}
 				}
 			}
-			if(options && options.no_id && tmp.li_attr && tmp.li_attr.id) {
-				delete tmp.li_attr.id;
+			if(options && options.no_id) {
 				delete tmp.id;
+				if(tmp.li_attr && tmp.li_attr.id) {
+					delete tmp.li_attr.id;
+				}
+			}
+			if(options.flat && obj.id !== '#') {
+				flat.push(tmp);
 			}
 			if(!options || !options.no_children) {
 				for(i = 0, j = obj.children.length; i < j; i++) {
-					tmp.children.push(this.get_json(obj.children[i], options));
+					if(options.flat) {
+						this.get_json(obj.children[i], options, flat);
+					}
+					else {
+						tmp.children.push(this.get_json(obj.children[i], options));
+					}
 				}
 			}
-			return obj.id === '#' ? tmp.children : tmp;
+			return options.flat ? flat : (obj.id === '#' ? tmp.children : tmp);
 		},
 		/**
 		 * create a new node (do not confuse with load_node)
@@ -3126,8 +3155,9 @@
 							h1.remove();
 							s.replaceWith(a);
 							s.remove();
+							this.set_text(obj, t);
 							if(this.rename_node(obj, v) === false) {
-								this.set_text(obj, t);
+								this.set_text(obj, t); // move this up? and fix #483
 							}
 						}, this),
 						"keydown" : function (event) {
@@ -3864,21 +3894,24 @@
 		 */
 		show_at_node : true,
 		/**
-		 * an object of actions, or a function that accepts a node and returns an object of actions available for that node.
+		 * an object of actions, or a function that accepts a node and a callback function and calls the callback function with an object of actions available for that node (you can also return the items too).
 		 * 
-		 * Each action consists of a key (a unique name) and a value which is an object with the following properties:
+		 * Each action consists of a key (a unique name) and a value which is an object with the following properties (only label and action are required):
 		 * 
 		 * * `separator_before` - a boolean indicating if there should be a separator before this item
 		 * * `separator_after` - a boolean indicating if there should be a separator after this item
 		 * * `_disabled` - a boolean indicating if this action should be disabled
 		 * * `label` - a string - the name of the action
 		 * * `action` - a function to be executed if this item is chosen
+		 * * `icon` - a string, can be a path to an icon or a className, if using an image that is in the current directory use a `./` prefix, otherwise it will be detected as a class
+		 * * `shortcut` - keyCode which will trigger the action if the menu is open (for example `113` for rename, which equals F2)
+		 * * `shortcut_label` - shortcut label (like for example `F2` for rename)
 		 * 
 		 * @name $.jstree.defaults.contextmenu.items
 		 * @plugin contextmenu
 		 */
-		items : function (o) { // Could be an object directly
-			return {
+		items : function (o, cb) { // Could be an object directly
+			cb({
 				"create" : {
 					"separator_before"	: false,
 					"separator_after"	: true,
@@ -3897,6 +3930,11 @@
 					"separator_after"	: false,
 					"_disabled"			: false, //(this.check("rename_node", data.reference, this.get_parent(data.reference), "")),
 					"label"				: "Rename",
+					/*
+					"shortcut"			: 113,
+					"shortcut_label"	: 'F2',
+					"icon"				: "glyphicon glyphicon-leaf",
+					*/
 					"action"			: function (data) {
 						var inst = $.jstree.reference(data.reference),
 							obj = inst.get_node(data.reference);
@@ -3972,7 +4010,7 @@
 						}
 					}
 				}
-			};
+			});
 		}
 	};
 
@@ -4002,7 +4040,7 @@
 		};
 
 		/**
-		 * show the context menu for a node
+		 * prepare and show the context menu for a node
 		 * @name show_contextmenu(obj [, x, y])
 		 * @param {mixed} obj the node
 		 * @param {Number} x the x-coordinate relative to the document to show the menu at
@@ -4029,8 +4067,29 @@
 			}
 
 			i = s.items;
-			if($.isFunction(i)) { i = i.call(this, obj); }
-
+			if($.isFunction(i)) {
+				i = i.call(this, obj, $.proxy(function (i) {
+					this._show_contextmenu(obj, x, y, i);
+				}, this));
+			}
+			if($.isPlainObject(i)) {
+				this._show_contextmenu(obj, x, y, i);
+			}
+		};
+		/**
+		 * show the prepared context menu for a node
+		 * @name _show_contextmenu(obj, x, y, i)
+		 * @param {mixed} obj the node
+		 * @param {Number} x the x-coordinate relative to the document to show the menu at
+		 * @param {Number} y the y-coordinate relative to the document to show the menu at
+		 * @param {Number} i the object of items to show
+		 * @plugin contextmenu
+		 * @trigger show_contextmenu.jstree
+		 * @private
+		 */
+		this._show_contextmenu = function (obj, x, y, i) {
+			var d = this.get_node(obj, true),
+				a = d.children(".jstree-anchor");
 			$(document).one("context_show.vakata", $.proxy(function (e, data) {
 				var cls = 'jstree-contextmenu jstree-' + this.get_theme() + '-contextmenu';
 				$(data.element).addClass(cls);
@@ -4108,17 +4167,17 @@
 						str += "<"+"li class='vakata-context-separator'><"+"a href='#' " + ($.vakata.context.settings.icons ? '' : 'style="margin-left:0px;"') + ">&#160;<"+"/a><"+"/li>";
 					}
 					sep = false;
-					str += "<"+"li class='" + (val._class || "") + (val._disabled ? " vakata-contextmenu-disabled " : "") + "'>";
+					str += "<"+"li class='" + (val._class || "") + (val._disabled ? " vakata-contextmenu-disabled " : "") + "' "+(val.shortcut?" data-shortcut='"+val.shortcut+"' ":'')+">";
 					str += "<"+"a href='#' rel='" + (vakata_context.items.length - 1) + "'>";
 					if($.vakata.context.settings.icons) {
-						str += "<"+"ins ";
+						str += "<"+"i ";
 						if(val.icon) {
 							if(val.icon.indexOf("/") !== -1 || val.icon.indexOf(".") !== -1) { str += " style='background:url(\"" + val.icon + "\") center center no-repeat' "; }
 							else { str += " class='" + val.icon + "' "; }
 						}
-						str += ">&#160;<"+"/ins><"+"span>&#160;<"+"/span>";
+						str += "><"+"/i><"+"span class='vakata-contextmenu-sep'>&#160;<"+"/span>";
 					}
-					str += val.label + "<"+"/a>";
+					str += val.label + (val.shortcut?' <span class="vakata-contextmenu-shortcut vakata-contextmenu-shortcut-'+val.shortcut+'">'+ (val.shortcut_label || '') +'</span>':'') + "<"+"/a>";
 					if(val.submenu) {
 						tmp = $.vakata.context._parse(val.submenu, true);
 						if(tmp) { str += tmp; }
@@ -4318,6 +4377,13 @@
 								break;
 						}
 					})
+				.on('keydown', function (e) {
+					e.preventDefault();
+					var a = vakata_context.element.find('.vakata-contextmenu-shortcut-' + e.which).parent();
+					if(a.parent().not('.vakata-context-disabled')) {
+						a.mouseup();
+					}
+				})
 				.appendTo("body");
 
 			$(document)
@@ -4359,7 +4425,13 @@
 		 * @name $.jstree.defaults.dnd.open_timeout
 		 * @plugin dnd
 		 */
-		open_timeout : 500
+		open_timeout : 500,
+		/**
+		 * a function invoked each time a node is about to be dragged, invoked in the tree's scope and receives the node as an argument - return `false` to prevent dragging
+		 * @name $.jstree.defaults.dnd.is_draggable
+		 * @plugin dnd
+		 */
+		is_draggable : true
 	};
 	// TODO: now check works by checking for each node individually, how about max_children, unique, etc?
 	// TODO: drop somewhere else - maybe demo only?
@@ -4371,7 +4443,9 @@
 				.on('mousedown', 'a', $.proxy(function (e) {
 					var obj = this.get_node(e.target),
 						mlt = this.is_selected(obj) ? this.get_selected().length : 1;
-					if(obj && obj.id && obj.id !== "#" && e.which === 1) {
+					if(obj && obj.id && obj.id !== "#" && e.which === 1 &&
+						(this.settings.dnd.is_draggable === true || ($.isFunction(this.settings.dnd.is_draggable) && this.settings.dnd.is_draggable.call(this, obj)))
+					) {
 						this.element.trigger('mousedown.jstree');
 						return $.vakata.dnd.start(e, { 'jstree' : true, 'origin' : this, 'obj' : this.get_node(obj,true), 'nodes' : mlt > 1 ? this.get_selected() : [obj.id] }, '<div id="jstree-dnd" class="jstree-' + this.get_theme() + '"><i class="jstree-icon jstree-er"></i>' + (mlt > 1 ? mlt + ' ' + this.get_string('nodes') : this.get_text(e.currentTarget, true)) + '<ins class="jstree-copy" style="display:none;">+</ins></div>');
 					}
@@ -4861,7 +4935,7 @@
 		this.clear_search = function () {
 			this._data.search.dom.children(".jstree-anchor").removeClass("jstree-search");
 			if(this.settings.search.close_opened_onclear) {
-				this.close_node(this._data.search.opn);
+				this.close_node(this._data.search.opn, 0);
 			}
 			/**
 			 * triggered after search is complete
@@ -4892,7 +4966,7 @@
 				if(v) {
 					if(t.is_closed(v)) {
 						t._data.search.opn.push(v.id);
-						t.open_node(v, function () { t._search_open(d); });
+						t.open_node(v, function () { t._search_open(d); }, 0);
 					}
 				}
 			});
@@ -5130,7 +5204,18 @@
 		 * @plugin state
 		 */
 		events	: 'changed.jstree open_node.jstree close_node.jstree',
-		ttl		: false
+		/**
+		 * Time in milliseconds after which the state will expire. Defaults to 'false' meaning - no expire.
+		 * @name $.jstree.defaults.state.ttl
+		 * @plugin state
+		 */
+		ttl		: false,
+		/**
+		 * A function that will be executed prior to restoring state with one argument - the state object. Can be used to clear unwanted parts of the state.
+		 * @name $.jstree.defaults.state.filter
+		 * @plugin state
+		 */
+		filter	: false
 	};
 	$.jstree.plugins.state = function (options, parent) {
 		this.bind = function () {
@@ -5162,6 +5247,7 @@
 		 */
 		this.restore_state = function () {
 			var k = $.vakata.storage.get(this.settings.state.key);
+			if(!!k && $.isFunction(this.settings.state.filter)) { k = this.settings.state.filter.call(this, k); }
 
 			if(!!k) { this.set_state(k); }
 			this.trigger('restore_state', { 'state' : k });
@@ -5613,15 +5699,28 @@
 		this.get_json = function (obj, options) {
 			var i, j,
 				m = this._model.data,
-				tmp = parent.get_json.call(this, obj, options);
+				opt = options ? $.extend(true, options, {no_id:true}) : {},
+				tmp = parent.get_json.call(this, obj, opt);
 			if(tmp === false) { return false; }
 			if($.isArray(tmp)) {
 				for(i = 0, j = tmp.length; i < j; i++) {
 					tmp[i].type = tmp[i].id && m[tmp[i].id] && m[tmp[i].id].type ? m[tmp[i].id].type : "default";
+					if(options && options.no_id) {
+						delete tmp[i].id;
+						if(tmp[i].li_attr && tmp[i].li_attr.id) {
+							delete tmp[i].li_attr.id;
+						}
+					}
 				}
 			}
 			else {
 				tmp.type = tmp.id && m[tmp.id] && m[tmp.id].type ? m[tmp.id].type : "default";
+				if(options && options.no_id) {
+					delete tmp.id;
+					if(tmp.li_attr && tmp.li_attr.id) {
+						delete tmp.li_attr.id;
+					}
+				}
 			}
 			return tmp;
 		};
@@ -5798,18 +5897,11 @@
 						this.get_node(data.node, true).find('.jstree-clicked').parent().children('.jstree-wholerow').addClass('jstree-wholerow-clicked');
 					}, this))
 				.on("hover_node.jstree dehover_node.jstree", $.proxy(function (e, data) {
-						this.element.find('.jstree-wholerow-hovered').removeClass('jstree-wholerow-hovered');
-						if(e.type === "hover_node") {
-							this.get_node(data.node, true).each(function () {
-								$(this).children('.jstree-wholerow').addClass('jstree-wholerow-hovered');
-							});
-						}
+						this.get_node(data.node, true).children('.jstree-wholerow')[e.type === "hover_node"?"addClass":"removeClass"]('jstree-wholerow-hovered');
 					}, this))
 				.on("contextmenu.jstree", ".jstree-wholerow", $.proxy(function (e) {
-						//if(typeof this._data.contextmenu !== 'undefined') {
-							e.preventDefault();
-							$(e.currentTarget).closest("li").children("a:eq(0)").trigger('contextmenu',e);
-						//}
+						e.preventDefault();
+						$(e.currentTarget).closest("li").children("a:eq(0)").trigger('contextmenu',e);
 					}, this))
 				.on("click.jstree", ".jstree-wholerow", function (e) {
 						e.stopImmediatePropagation();
@@ -5823,13 +5915,10 @@
 					}, this))
 				.on("mouseover.jstree", ".jstree-wholerow, .jstree-icon", $.proxy(function (e) {
 						e.stopImmediatePropagation();
-						//if($(e.currentTarget).closest('li').children(".jstree-clicked").length) {
-						//	return false;
-						//}
 						this.hover_node(e.currentTarget);
 						return false;
 					}, this))
-				.on("mouseleave.jstree", "li", $.proxy(function (e) {
+				.on("mouseleave.jstree", ".jstree-node", $.proxy(function (e) {
 						this.dehover_node(e.currentTarget);
 					}, this));
 		};

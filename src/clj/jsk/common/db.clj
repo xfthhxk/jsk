@@ -32,9 +32,14 @@
   (pk :agent-id)
   (entity-fields :agent-id :agent-name :creator-id :create-ts :updater-id :update-ts))
 
+
+(defentity node-directory
+  (pk :node-directory-id)
+  (entity-fields :node-directory-id :node-directory-name :parent-directory-id))
+
 (defentity node
   (pk :node-id)
-  (entity-fields :node-id :node-name :node-type-id :node-desc :is-system :is-enabled :create-ts :creator-id :update-ts :updater-id))
+  (entity-fields :node-id :node-name :node-type-id :node-desc :is-system :is-enabled :node-directory-id :create-ts :creator-id :update-ts :updater-id))
 
 (defentity job
   (pk :job-id)
@@ -74,6 +79,7 @@
               :node.update-ts
               :node.updater-id
               :node.node-type-id
+              :node.node-directory-id
               [:node.node-name :job-name] [:node.node-desc :job-desc])
       (join :inner :node (= :job-id :node.node-id))))
 
@@ -87,6 +93,7 @@
               :node.update-ts
               :node.updater-id
               :node.node-type-id
+              :node.node-directory-id
               [:node.node-name :workflow-name] [:node.node-desc :workflow-desc])
       (join :inner :node (= :workflow-id :node.node-id))))
 
@@ -261,21 +268,23 @@
 ;-----------------------------------------------------------------------
 ; Insert a node. Answer with the inserted node's row id
 ;-----------------------------------------------------------------------
-(defn- insert-node! [type-id node-nm node-desc enabled? user-id]
+(defn- insert-node! [type-id node-nm node-desc enabled? dir-id user-id]
   (let [data {:node-name node-nm
               :node-desc node-desc
               :node-type-id type-id
               :is-enabled   enabled?
               :is-system false           ; system nodes should just be added via sql
+              :node-directory-id dir-id
               :creator-id user-id
               :updater-id user-id}]
     (-> (insert node (values data))
         extract-identity)))
 
-(defn- update-node! [node-id node-nm node-desc enabled? user-id]
+(defn- update-node! [node-id node-nm node-desc enabled? dir-id user-id]
   (let [data {:node-name node-nm
               :node-desc node-desc
               :is-enabled enabled?
+              :node-directory-id dir-id
               :updater-id user-id
               :update-ts (util/now)}]
     (update node (set-fields data)
@@ -291,9 +300,9 @@
 ;-----------------------------------------------------------------------
 ; Insert a job. Answers with the inserted job's row id.
 ;-----------------------------------------------------------------------
-(defn- insert-job! [{:keys [job-id job-name job-desc is-enabled] :as m} user-id]
+(defn- insert-job! [{:keys [job-id job-name job-desc is-enabled node-directory-id] :as m} user-id]
   (transaction
-    (let [node-id (insert-job-node! job-name job-desc is-enabled user-id)
+    (let [node-id (insert-job-node! job-name job-desc is-enabled node-directory-id user-id)
           data (assoc (select-keys m job-tbl-fields) :job-id node-id)]
       (insert job (values data))
       node-id)))
@@ -303,10 +312,10 @@
 ; Update an existing job.
 ; Answers with the job-id if update is successful.
 ;-----------------------------------------------------------------------
-(defn- update-job! [{:keys [job-id job-name job-desc is-enabled] :as m} user-id]
+(defn- update-job! [{:keys [job-id job-name job-desc is-enabled node-directory-id] :as m} user-id]
   (let [data (select-keys m job-tbl-fields)]
     (transaction
-      (update-node! job-id job-name job-desc is-enabled user-id)
+      (update-node! job-id job-name job-desc is-enabled node-directory-id user-id)
       (update job (set-fields data)
         (where {:job-id job-id})))
     job-id))
@@ -320,13 +329,13 @@
 ; Workflow save
 ;-----------------------------------------------------------------------
 (defn- insert-workflow! [m user-id]
-  (let [{:keys [workflow-name workflow-desc is-enabled]} m
-        node-id (insert-workflow-node! workflow-name workflow-desc is-enabled user-id)]
+  (let [{:keys [workflow-name workflow-desc is-enabled node-directory-id]} m
+        node-id (insert-workflow-node! workflow-name workflow-desc is-enabled node-directory-id user-id)]
     (insert workflow (values {:workflow-id node-id}))
     node-id))
 
-(defn- update-workflow! [{:keys [workflow-id workflow-name workflow-desc is-enabled] :as m} user-id]
-  (update-node! workflow-id workflow-name workflow-desc is-enabled user-id)
+(defn- update-workflow! [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as m} user-id]
+  (update-node! workflow-id workflow-name workflow-desc is-enabled node-directory-id user-id)
   workflow-id)
 
 (defn save-workflow
@@ -1088,43 +1097,24 @@ select w.workflow_id
 ;;----------------------------------------------------------------------
 ;; Explorer (Dir tree) actions
 ;;----------------------------------------------------------------------
-(defentity directory
-  (pk :directory-id)
-  (entity-fields :directory-id :directory-name :parent-directory-id))
-
-(defentity directory-content
-  (pk :directory-content-id)
-  (entity-fields :directory-content-id :directory-id :node-id))
-
 (defn directory-exists?
   "Answers if the directory exists with parent directory id specified."
   [dir-name parent-dir-id]
-  (let [conds {:directory-name dir-name :parent-directory-id parent-dir-id}]
-    (-> (select directory (where conds)) count zero? not)))
-
-(defn directory-content-exists?
-  "Answers if the directory content exists"
-  [dir-id node-id]
-  (let [conds {:directory-id dir-id :node-id node-id}]
-    (-> (select directory-content (where conds)) count zero? not)))
-
-(defn directory-content-for-node
-  "Answers with the directory-content record or nil for the node-id specified."
-  [node-id]
-  (first (select directory-content (where {:node-id node-id}))))
+  (let [conds {:node-directory-name dir-name :parent-directory-id parent-dir-id}]
+    (-> (select node-directory (where conds)) count zero? not)))
 
 (defn- update-directory
   "Updates the directory with id dir-id to the name specified by
    dir-name and the parent directory to be parent-dir-id"
   [dir-id dir-name parent-dir-id]
-  (update directory (set-fields {:directory-name dir-name :parent-directory-id parent-dir-id})
-          (where {:directory-id dir-id}))
+  (update node-directory (set-fields {:node-directory-name dir-name :parent-directory-id parent-dir-id})
+          (where {:node-directory-id dir-id}))
   dir-id)
 
 (defn- insert-directory
   "Creates a new directory and returns the newly created directory's id."
   [dir-name parent-dir-id]
-  (-> (insert directory {:directory-name dir-name :parent-directory-id parent-dir-id})
+  (-> (insert node-directory (values {:node-directory-name dir-name :parent-directory-id parent-dir-id}))
       extract-identity))
 
 (defn save-directory
@@ -1135,35 +1125,27 @@ select w.workflow_id
     (update-directory dir-id dir-name parent-dir-id)
     (insert-directory dir-name parent-dir-id)))
 
-(defn rm-directory-content
-  [directory-content-id]
-  (delete directory-content (where {:directory-content-id directory-content-id})))
+(defn rm-directory
+  [dir-id]
+  (delete node-directory (where {:node-directory-id dir-id})))
 
-(defn rm-directory-content-for-node
-  [node-id]
-  (delete directory-content (where {:node-id node-id})))
 
-(defn insert-directory-content
-  [dir-id node-id]
-  (-> (insert directory-content {:directory-id dir-id :node-id node-id})
-      extract-identity))
+(def ^:private empty-directory-sql "
+select count(1) as i
+  from node_directory nd
+ where nd.parent_directory_id = ?
+union all
+select count(1) as i
+ from node n
+where n.node_directory_id = ?
+")
 
-(defn save-directory-content!
-  "Answers with a map of what the new directory content id is.
-   If there was an old directory content id that was deleted
-   old-id will be non nil."
-  [dir-id node-id]
-  (let [{:keys [directory-content-id] :as current-dir} (directory-content-for-node node-id)]
-    (transaction
-     ; delete from old dir
-     (when directory-content-id
-       (rm-directory-content directory-content-id))
-
-     ; add to the new dir
-     (let [new-dir-cont-id (insert-directory-content dir-id node-id)]
-       {:new-id new-dir-cont-id
-        :old-id directory-content-id}))))
-
+(defn empty-directory? [dir-id]
+  (let [data (exec-raw [empty-directory-sql [dir-id dir-id]] :results)]
+    (->> data
+         (map :i)
+         (reduce +)
+         zero?)))
 
 ;;----------------------------------------------------------------------
 ;; Node Deletions
@@ -1218,9 +1200,6 @@ select
     ;; remove executions
     (-> node-id execution-ids-for-node rm-executions!) 
 
-    ;; remove from explorer directory structure
-    (rm-directory-content-for-node node-id)
-
     ;; remove from actual subtype tables
     (if (util/job-type? node-type-id)
       (delete job (where {:job-id node-id}))
@@ -1232,26 +1211,42 @@ select
     (delete node (where {:node-id node-id})))))
 
 
-(def ^:private ls-dir-content-sql "
-select 
-       n.node_id
-     , n.node_type_id
-     , n.node_name
-  from directory_content dc
-  join node n
-    on dc.node_id = n.node_id")
+;; gets the directories which are children of directory with id x
+(def ^:private explorer-sql "
+   select
+          'directory'                           as element_type
+        , nd.node_directory_id                  as element_id
+        , nd.node_directory_name                as element_name
+        , count(n.node_id) + coalesce(wc.cnt,0) as num_children
+     from
+          node_directory nd
+left join (select nd.node_directory_id, 1 as cnt
+             from
+                  node_directory nd
+            where nd.parent_directory_id = <dir-id> 
+              and exists (select 1
+                            from node_directory x
+                           where x.parent_directory_id = nd.node_directory_id)) wc -- dirs with children directories
+       on nd.node_directory_id = wc.node_directory_id
+left join node           n
+       on nd.node_directory_id = n.node_directory_id
+    where nd.parent_directory_id =  <dir-id>
+ group by nd.node_directory_id
+union all
+   select
+          nt.node_type_name as element_type
+        , n.node_id         as element_id
+        , n.node_name       as element_name
+        , 0                 as num_children
+     from node              n
+     join node_type         nt
+       on n.node_type_id = nt.node_type_id
+    where n.node_directory_id = <dir-id> 
+      and n.is_system = false
+")
 
-(defn ls-directory-content
-  "Lists the contents of a directory. This does not list directories
-   which are children of dir-id. dir-id can be nil which signifies the
-   root directory."
+(defn explorer-info
+  "Retrieves info for children nodes"
   [dir-id]
-  (let [q (if dir-id
-            (str ls-dir-content-sql "\n where dc.directory_id = " dir-id)
-            (str ls-dir-content-sql "\n where dc.directory_id is null "))]
+  (let [q (string/replace explorer-sql #"<dir-id>" (str dir-id))]
     (exec-raw [q []] :results)))
-
-(defn sub-directories
-  "Lists the immediate sub-directories of dir-id."
-  [dir-id]
-  (select directory (where {:parent-directory-id dir-id})))

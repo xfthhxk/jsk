@@ -186,20 +186,20 @@
   (GET "/explorer" []
        (edn-response (explorer/ls-directory)))
 
-  (GET "/explorer/:directory-id" [directory-id]
-       (edn-response (explorer/ls-directory directory-id)))
+  (GET "/explorer/directory/:id" [id]
+       (edn-response (explorer/ls-directory id)))
 
-  (POST "/explorer/save-directory" [_ :as request]
+  (POST "/explorer/directory" [_ :as request]
        (-> request :params explorer/save-directory! edn-response))
 
-  (POST "/explorer/save-directory-content" [_ :as request]
-       (-> request :params explorer/save-directory-content! edn-response))
+  (DELETE "/explorer/directory/:id" [id :as request]
+          (->> (uid request) (explorer/rm-directory! id) edn-response))
 
-  (POST "/explorer/make-new-job" [_ :as request]
-       (-> request :params (explorer/make-new-empty-job! (uid request)) edn-response))
+  (POST "/explorer/directory/:dir-id/new-empty-job" [dir-id :as request]
+       (edn-response (explorer/new-empty-job! dir-id (uid request))))
 
-  (POST "/explorer/make-new-workflow" [_ :as request]
-        (-> request :params (explorer/make-new-empty-workflow! (uid request)) edn-response))
+  (POST "/explorer/directory/:dir-id/new-empty-workflow" [dir-id :as request]
+        (edn-response (explorer/new-empty-workflow! dir-id (uid request))))
 
   (DELETE "/explorer/node/:id" [id :as request]
           (->> (uid request) (explorer/rm-node! id) edn-response)))

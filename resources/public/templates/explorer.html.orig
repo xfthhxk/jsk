@@ -1,0 +1,57 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="../js/lib/jstree/themes/default/style.min.css">
+    <script src="../js/lib/jstree/libs/jquery.js"></script>
+    <script src="../js/lib/jstree/jstree.js"></script>
+    <script>
+      var action_fn = function(data) { console.log ("action called!"); }
+
+      var make_context_menu = function(node, cb) { 
+        menu = {"make_schedule" : {"label" : "Make Schedule", "action":action_fn}};
+        cb(menu);
+      } 
+      
+      var make_data_fn = function(id) { 
+        ans = null;
+
+        switch(id) {
+          case "#":
+            ans = [{ "id" : "ajson1", "parent" : "#", "text" : "Simple root node" },
+                   { "id" : "ajson2", "parent" : "#", "text" : "Root node 2", "children" : true }];
+            break;
+          case "ajson2":
+            ans = [{ "id" : "ajson3", "parent" : "ajson2", "text" : "Child 1", "children" : true },
+                   { "id" : "ajson4", "parent" : "ajson2", "text" : "Child 2" }];
+            break;
+          default:
+            ts = Date.now();
+            ans = [{"id" : "node-" + ts, "parent" : id, "text" : "New Node " + ts, "children" : true}];
+        }
+        return ans;
+      }
+
+      var data_source_fn = function(node, cb) {
+        console.log("data_source_fn called with " + node.id);
+        zee_data = make_data_fn(node.id);
+        cb.call(this, zee_data);
+      }
+    </script>
+  </head>
+  
+  <body>
+    <div id="explorer">
+      <div id="jstree"></div>
+      <div id="element-detail"></div>
+    </div>
+
+    <script>
+
+      $.jstree.defaults.contextmenu.items = make_context_menu
+
+      $("#jstree").jstree(
+        { "core" : { "data" : data_source_fn, "check_callback" : true},
+          "plugins" : ["contextmenu", "dnd"]}) 
+                             
+    </script>
+  </body>
+</html>

@@ -5,6 +5,7 @@
               [clojure.browser.repl :as repl]
               [cljs.core.async :as async :refer [<!]]
               [jsk.plumb :as plumb]
+              [jsk.explorer :as explorer]
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
@@ -41,6 +42,7 @@
 ;-----------------------------------------------------------------------
 (defaction init-events []
   "#jsk-home-action"         (events/listen :click #(ju/display-dashboard))
+  "#explorer-action"         (events/listen :click #(explorer/show))
   "#show-dashboard-action"   (events/listen :click #(ju/display-dashboard))
   "#execution-search-action" (events/listen :click #(search/show-execution-search))
   "#agent-list-action"       (events/listen :click #(agent/show-agents))
@@ -72,6 +74,9 @@
 
   (ju/log "Initializing jsplumb.")
   (plumb/init)
+
+  (ju/log "Initializing the explorer.")
+  (explorer/init)
 
   (ju/log "Adding default XHR error handler.")
   (reset! rpc/error-handler rpc-error-handler)

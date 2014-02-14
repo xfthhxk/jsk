@@ -149,12 +149,13 @@
 
 
 
-(defn make-new-empty-workflow!
+(defn new-empty-workflow!
   "Makes a new workflow with default values for everything. Used by the explorer style ui."
-  [user-id]
+  [dir-id user-id]
   (let [wf {:workflow-id -1
-            :workflow-name (str (util/now-ms))
+            :workflow-name (str "Workflow " (util/now-ms))
             :workflow-desc ""
+            :node-directory-id dir-id
             :is-enabled true}
         wf-id (db/save-workflow wf user-id)]
     {:success? true :workflow-id wf-id}))

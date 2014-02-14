@@ -103,8 +103,14 @@
   ([url data cb]
    (rpc-call "POST" url data cb)))
 
-(defn DELETE [url data cb]
-  (rpc-call "DELETE" url data cb))
+(defn DELETE
+  ([url] (DELETE url ""))
+  ([url data]
+     (let [ch (chan 1)]
+       (async-rpc-call "DELETE" url data (make-async-cb-handler ch))
+       ch))
+  ([url data cb]
+     (rpc-call "DELETE" url data cb)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ; Web Socket stuff

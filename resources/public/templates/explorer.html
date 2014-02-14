@@ -1,45 +1,12 @@
 <html>
   <head>
-    <link rel="stylesheet" href="../js/lib/jstree/themes/default/style.min.css">
-    <script src="../js/lib/jstree/libs/jquery.js"></script>
-    <script src="../js/lib/jstree/jstree.js"></script>
-    <script>
-      var make_data_fn = function(id) { 
-        ans = null;
-
-        switch(id) {
-          case "#":
-            ans = [{ "id" : "ajson1", "parent" : "#", "text" : "Simple root node" },
-                   { "id" : "ajson2", "parent" : "#", "text" : "Root node 2", "children" : true }];
-            break;
-          case "ajson2":
-            ans = [{ "id" : "ajson3", "parent" : "ajson2", "text" : "Child 1" },
-                   { "id" : "ajson4", "parent" : "ajson2", "text" : "Child 2" }];
-            break;
-          default:
-            ts = Date.now();
-            ans = [{"id" : "node-" + ts, "parent" : "#", "text" : "New Node " + ts}];
-            break;
-        }
-        return ans;
-      }
-
-      var data_source_fn = function(node, cb) {
-        console.log("data_source_fn called with " + node.id);
-        zee_data = make_data_fn(node.id);
-        cb.call(this, zee_data);
-      }
-    </script>
   </head>
   
   <body>
-    <div id="jstree">
+    <div id="explorer">
+      <div id="jstree" class="col-md-3"></div>
+      <div id="explorer-node-detail" class="col-md-9"></div>
     </div>
 
-    <script>
-      $("#jstree").jstree(
-        { "core" : { "data" : data_source_fn, "check_callback" : true}}) 
-                             
-    </script>
   </body>
 </html>

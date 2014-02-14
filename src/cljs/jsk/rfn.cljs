@@ -120,5 +120,17 @@
   (rpc/GET "/explorer"))
 
 (defn fetch-explorer-directory [dir-id]
-  (rpc/GET (str "/explorer/" dir-id)))
+  (rpc/GET (str "/explorer/directory/" dir-id)))
+
+(defn save-directory [data]
+  (rpc/POST "/explorer/directory" data))
+
+(defn rm-directory [id]
+  (rpc/DELETE (str "/explorer/directory/" id)))
+
+(defn new-empty-workflow [dir-id]
+  (rpc/POST (str "/explorer/directory/" dir-id "/new-empty-workflow") ""))
+
+(defn new-empty-job [dir-id]
+  (rpc/POST (str "/explorer/directory/" dir-id "/new-empty-job") ""))
 
