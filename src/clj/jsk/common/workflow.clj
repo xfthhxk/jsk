@@ -7,12 +7,14 @@
             [korma.db :as k]
             [clojure.core.async :refer [put!]]))
 
-(def ^:private out-chan (atom nil))
+(defonce ^:private out-chan (atom nil))
+(defonce ^:private ui-chan (atom nil))
 
 (defn init
   "Sets the channel to use when updates are made to workflows."
-  [ch]
-  (reset! out-chan ch))
+  [ch ui-ch]
+  (reset! out-chan ch)
+  (reset! ui-chan ui-ch))
 
 ;-----------------------------------------------------------------------
 ; Workflows lookups
@@ -108,8 +110,15 @@
   (log/debug "wf: " workflow)
   (if-let [errors (validate-save workflow)]
     (util/make-error-response errors)
-    (let [wf-id (save-workflow* workflow layout user-id)]
-      (put! @out-chan {:msg :node-save :node-id wf-id :node-type-id data/workflow-type-id}) ; to notify conductor
+    (let [wf-id (save-workflow* workflow layout user-id)
+          info-msg {:msg :node-save :node-id wf-id :node-type-id data/workflow-type-id}
+          event-msg {:crud-event :node-save
+                     :node-id wf-id
+                     :node-type-id data/workflow-type-id
+                     :node-name (:workflow-name workflow)
+                     :node-directory-id (:node-directory-id workflow)}]
+      (put! @out-chan info-msg) ; to notify conductor
+      (put! @ui-chan event-msg) ; to notify ui
       {:success? true :workflow-id wf-id})))
 
 ;-----------------------------------------------------------------------
@@ -156,6 +165,5 @@
             :workflow-name (str "Workflow " (util/now-ms))
             :workflow-desc ""
             :node-directory-id dir-id
-            :is-enabled true}
-        wf-id (db/save-workflow wf user-id)]
-    {:success? true :workflow-id wf-id}))
+            :is-enabled true}]
+    (save-workflow! {:workflow wf :layout []} user-id)))

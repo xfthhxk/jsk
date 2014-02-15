@@ -103,7 +103,7 @@
   (ef/at "#unsuccessful-executions-tbody" (ef/prepend (make-execution-unsuccessful-row msg))))
 
 
-(defmulti dispatch :event)
+(defmulti dispatch :execution-event)
 
 (defmethod dispatch :execution-started [msg]
   (ef/at "#current-executions-tbody" (ef/prepend (make-execution-in-progress-row msg))))
@@ -113,8 +113,7 @@
   (remove-executing-row msg))
 
 (defmethod dispatch :default [msg]
-  ;no-op
-  )
+  (ju/log ("No message handler for " msg)))
 
 
 (defn add-execution [msg]

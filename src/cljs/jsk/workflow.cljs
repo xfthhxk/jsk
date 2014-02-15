@@ -14,9 +14,7 @@
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
-(declare show-visualizer show-execution-workflow-details)
-
-(def node-store (atom {}))
+(declare show-execution-workflow-details)
 
 ; stores for the current execution the execution workflow id and name
 ; with the root wf as the very first thing pushed on the stack
@@ -114,12 +112,6 @@
     (rfn/trigger-workflow-now wf-id)))
 
 
-(defn workflow-row-clicked [e]
-  (go
-   (let [id (ef/from (u/event-source e) (ef/get-attr :data-workflow-id))
-         w (<! (rfn/fetch-workflow-details id))]
-     (show-visualizer w))))
-
 (defn- status-id->glyph
   "Translates id to a glyphicon"
   [id]
@@ -133,40 +125,11 @@
     7 "glyphicon-time"              ; pending
     ))   ; unknown-status
 
-;----------------------------------------------------------------------
-; Lists all workflows.
-;----------------------------------------------------------------------
-(em/defsnippet list-workflows :compiled "public/templates/workflow.html" "#workflow-list" [ww]
-  "tbody > :not(tr:first-child)" (ef/remove-node)
-  "tbody > tr" (em/clone-for [w ww]
-                 "td.workflow-id" #(ef/at (u/parent-node %1)
-                                          (ef/do->
-                                            (ef/set-attr :data-workflow-id (str (:workflow-id w)))
-                                            (events/listen :click workflow-row-clicked)))
-                 "td.workflow-id" (ef/content (str (:workflow-id w)))
-                 "td.workflow-name" (ef/content (:workflow-name w))
-                 "td.workflow-is-enabled" (ef/content (str (:is-enabled w)))
-                 "td.workflow-trigger-now > button" (ef/do->
-                                                       (ef/set-attr :data-workflow-id (str (:workflow-id w)))
-                                                       (events/listen :click trigger-workflow-now))))
-
-
-;----------------------------------------------------------------------
-; For list available nodes with their names
-;----------------------------------------------------------------------
-(em/defsnippet node-list-snippet :compiled "public/templates/workflow.html" "#workflow-visualizer-node-tree" [nodes]
-  "ul > :not(li:first-child)" (ef/remove-node)
-  "li"  (em/clone-for [n nodes]
-          (ef/do->
-            (ef/set-attr :id (str (:node-id n)) :data-node-id (str (:node-id n)))
-            (ef/content (:node-name n)))))
-
 
 ;----------------------------------------------------------------------
 ; Layout of the entire visualizer screen.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [nodes workflow-id workflow-name workflow-desc enabled? node-dir-id]
-  "#workflow-visualizer-node-explorer" (ef/content (node-list-snippet nodes))
+(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [workflow-id workflow-name workflow-desc enabled? node-dir-id]
   "#workflow-id" (ef/set-attr :value (str workflow-id))
   "#workflow-name" (ef/set-attr :value workflow-name)
   "#workflow-desc" (ef/set-attr :value workflow-desc)
@@ -200,16 +163,6 @@
 (defn- connection-click-listener [cn]
   (plumb/detach-connection cn))
 
-
-;----------------------------------------------------------------------
-; Answers if a node is being dropped.
-;----------------------------------------------------------------------
-(defn- node-drop? [event ui]
-  (if (-> ui .-helper (.data "node-id"))
-    true
-    false))
-
-
 (defn- node-id->div-id
   "Constructs the div id for the whole node node."
   [node-id]
@@ -241,11 +194,11 @@
 ; layout is the csstext property to apply to the node
 ;----------------------------------------------------------------------
 (defn- visualizer-add-node*
-  [node-id layout]
+  [node-id node-name layout]
   (let [node-id-str     (str node-id)
         div-id         (node-id->div-id node-id)
         div-sel        (str "#" div-id)
-        node-name       (get @node-store node-id)
+        ;;node-name       (get @node-store node-id)
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
         rm-btn-id      (str "rm-node-id-" node-id-str)
@@ -267,33 +220,6 @@
 
 
 
-;----------------------------------------------------------------------
-; Fixme: This is not dropping the node where the mouse is.
-;----------------------------------------------------------------------
-(defn- visualizer-add-node-via-ui [event ui]
-  (def the-ui ui)
-  (def the-event event)
-  (let [node-id (-> ui .-helper (.data "node-id") u/str->int)
-        pos (-> ui .-position)
-        layout (gstring/format "top: %spx; left: %spx" (.-top pos) (.-left pos))]
-    ;(u/log (str "layout in add-node-via-ui: " layout))
-    (visualizer-add-node* node-id layout)))
-
-
-
-;----------------------------------------------------------------------
-; Calls handler only if the dropped object is a node.
-; When using jsPlumb to draw connections, objects are also dropped.
-; This middleware ensures we create workflow nodes for node.
-;----------------------------------------------------------------------
-(defn- with-node-drop [handler]
-  (fn [event ui]
-    (if (node-drop? event ui)
-      (handler event ui))))
-
-(def visualizer-add-node (with-node-drop visualizer-add-node-via-ui))
-
-
 ; The data in the input map is like:
 ; {:to-node-layout "top: 142px; left: 50.5px;"
 ;  :from-node-layout "top: 30px; left: 39.5px;"
@@ -304,15 +230,15 @@
 ;  :success true
 ;  :to-node-id 2
 ;  :from-node-id 1}
-(defn- add-one-edge [{:keys[src-id dest-id src-layout dest-layout success]}]
+(defn- add-one-edge [{:keys[src-id src-name dest-id dest-name src-layout dest-layout success]}]
   (let [src-div-id (node-id->div-id src-id)
         dest-div-id   (node-id->div-id dest-id)]
 
     (when (u/element-not-exists? src-div-id)
-      (visualizer-add-node* src-id src-layout))
+      (visualizer-add-node* src-id src-name src-layout))
 
     (when (u/element-not-exists? dest-div-id)
-      (visualizer-add-node* dest-id dest-layout))
+      (visualizer-add-node* dest-id dest-name dest-layout))
 
   (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
         src-ep-id (id-mkr src-id)]
@@ -326,9 +252,13 @@
 (defn- when-jstree-node-dropped [e data]
   (def dnd-drop-data data)
   (let [clj-data (-> data .-data js->clj)
-        element-id (-> (get clj-data "nodes") first)]
-
-    (u/log (str "node dropped " element-id))))
+        element-id (-> (get clj-data "nodes") first)
+        [node-type node-id] (u/explorer-element-id-dissect element-id)]
+    (u/log (str "node dropped " element-id ", node-id: " node-id ", node-type: " node-type))
+    (when (node-type #{:job :workflow})
+      (go
+       (let [{:keys [node-name]} (<! (rfn/fetch-node-info node-id))]
+         (visualizer-add-node* node-id node-name ""))))))
 
 (defn- when-jstree-node-moved [e data]
   (def dnd-move-data data)
@@ -349,30 +279,19 @@
 ;----------------------------------------------------------------------
 (defn show-workflow-node-details [wf-id]
   (go
-   (let [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as wf} (<! (rfn/fetch-workflow-details wf-id)) nodes (<! (rfn/fetch-all-nodes))
-         nodes (<! (rfn/fetch-all-nodes))
+   (let [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as wf} (<! (rfn/fetch-workflow-details wf-id)) 
          graph (<! (rfn/fetch-workflow-graph wf-id))]
 
-     (reset! node-store (reduce #(conj %1 ((juxt :node-id :node-name) %2)) {} nodes))
      (plumb/reset) ; clear any state it may have had
 
-     (u/show-explorer-node (workflow-visualizer nodes workflow-id workflow-name workflow-desc is-enabled node-directory-id))
+     (u/show-explorer-node (workflow-visualizer workflow-id workflow-name workflow-desc is-enabled node-directory-id))
      (plumb/register-connection-click-handler connection-click-listener)
 
      ; these things can happen only after the workflow visualizer is displayed
      (hide-element "#workflow-save-success")
      (plumb/default-container :#workflow-visualization-area)
-     ;(-> :#workflow-visualization-area $ (.droppable (clj->js {:accept ".available-node" :activeClass :ui-state-highlight})))
-     ;(-> :#workflow-visualization-area $ (.on "drop" visualizer-add-node))
-     ;(-> ".available-node" $ (.draggable (clj->js {:revert true :helper :clone :opacity 0.35})))
      (enable-jstree-dnd)
      (reconstruct-ui graph))))
-
-(defn show-workflows []
-  (go
-   (let [ww (<! (rfn/fetch-all-workflows))]
-     (u/showcase (list-workflows ww)))))
-
 
 ;----------------------------------------------------------------------
 ;----------------------------------------------------------------------

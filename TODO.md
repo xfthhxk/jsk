@@ -33,6 +33,13 @@ Better UI
 * push notification data whenever directories/jobs/workflows are added, removed, updated
 * ui needs to listen for explorer notifications and add, remove or update item
 
+* ui gets data pushed from server. 
+* ui checks to see if the parent directory is visible in the tree.
+  if not do nothing, as if that directory eventually is visible, data
+  will be loaded synchronously
+  if in tree, then apply the change, ie update name and parent dir as
+  required, add to tree
+
 
 ## TODO
 * Variables

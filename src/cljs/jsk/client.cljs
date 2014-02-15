@@ -50,19 +50,20 @@
   "#job-list-action"         (events/listen :click #(j/show-jobs))
   "#job-add-action"          (events/listen :click #(j/show-add-job))
   "#schedule-list-action"    (events/listen :click #(s/show-schedules))
-  "#schedule-add-action"     (events/listen :click #(s/show-add-schedule))
-  "#workflow-list-action"    (events/listen :click #(w/show-workflows))
-  "#workflow-add-action"     (events/listen :click #(w/show-visualizer)))
+  "#schedule-add-action"     (events/listen :click #(s/show-add-schedule)))
 
 
 (defn ws-connect []
-  (let [{:keys [in out]} (rpc/ws-connect! (str "ws://" ju/host "/executions"))]
+  (let [{:keys [in out]} (rpc/ws-connect! (str "ws://" ju/host "/events"))]
     (go
      (loop [[msg-type msg] (<! out)]
        (ju/log (str "msg-type: " msg-type ", msg: " msg))
        (when (= :message msg-type)
-         (executions/add-execution msg)
-         (w/event-received msg))
+         (when (:execution-event msg)
+           (executions/add-execution msg)
+           (w/event-received msg))
+         (when (:crud-event msg)
+           (explorer/handle-event msg)))
        (recur (<! out))))))
 
 ;-----------------------------------------------------------------------

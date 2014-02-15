@@ -7,12 +7,14 @@
             [jsk.common.db :as db]
             [korma.db :as k]))
 
-(def ^:private out-chan (atom nil))
+(defonce ^:private out-chan (atom nil))
+(defonce ^:private ui-chan (atom nil))
 
 (defn init
   "Sets the channel to use when updates are made to jobs."
-  [ch]
-  (reset! out-chan ch))
+  [ch ui-ch]
+  (reset! out-chan ch)
+  (reset! ui-chan ui-ch))
 
 
 ;-----------------------------------------------------------------------
@@ -69,11 +71,18 @@
 ; Saves the job either inserting or updating depending on the
 ; job-id.  If it is negative insert otherwise update.
 ;-----------------------------------------------------------------------
-(defn save-job! [j user-id]
+(defn save-job! [{:keys [job-name node-directory-id] :as j} user-id]
   (if-let [errors (validate-save j)]
     (util/make-error-response errors)
-    (let [job-id (db/save-job j user-id)]
-      (put! @out-chan {:msg :node-save :node-id job-id :node-type-id data/job-type-id})
+    (let [job-id (db/save-job j user-id)
+          info-msg {:msg :node-save :node-id job-id :node-type-id data/job-type-id}
+          event-msg {:crud-event :node-save
+                     :node-id job-id
+                     :node-type-id data/job-type-id
+                     :node-name job-name
+                     :node-directory-id node-directory-id}]
+      (put! @out-chan info-msg)
+      (put! @ui-chan event-msg) 
       {:success? true :job-id job-id})))
 
 
@@ -82,17 +91,17 @@
    Answers with the newly created job-id.
    Used by the explorer style ui."
   [dir-id user-id]
-  (db/save-job {:job-id -1
-                :job-name (str "Job " (util/now-ms))
-                :job-desc ""
-                :node-directory-id dir-id
-                :is-enabled true
-                :execution-directory ""
-                :command-line ""
-                :max-concurrent 1
-                :max-retries 1
-                :agent-id nil}
-               user-id))
+  (save-job! {:job-id -1
+              :job-name (str "Job " (util/now-ms))
+              :job-desc ""
+              :node-directory-id dir-id
+              :is-enabled true
+              :execution-directory ""
+              :command-line ""
+              :max-concurrent 1
+              :max-retries 1
+              :agent-id nil}
+             user-id))
 
 
 (defn trigger-now

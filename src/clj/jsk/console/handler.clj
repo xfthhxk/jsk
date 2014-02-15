@@ -10,6 +10,7 @@
             [jsk.common.schedule :as schedule]
             [jsk.common.workflow :as workflow]
             [jsk.console.user :as user]
+            [jsk.console.explorer :as explorer]
             [jsk.common.messaging :as msg]
             [cemerick.friend :as friend]
             [cemerick.friend.openid :as openid]
@@ -27,22 +28,26 @@
 
 
 ; web socket clients, output channels
-(def ws-clients (atom #{}))
+(defonce ws-clients (atom #{}))
 
 ; As clients connect they are added to this channel
 ; how do we know when they disconnect.
-(def ws-connect-channel (chan))
+(defonce ws-connect-channel (chan))
+
+; channel to push ui events on to
+(defonce ui-channel (chan))
 
 ; Channel used for messages going to the conductor
-(def conductor-write-chan (chan))
+(defonce conductor-write-chan (chan))
 
-(def app-id (util/jvm-instance-name))
+
+(defonce app-id (util/jvm-instance-name))
 
 ;-----------------------------------------------------------------------
 ; websocket configuration and handling of clients
 ;-----------------------------------------------------------------------
-(def ws-configurator
-  (configurator ws-connect-channel {:path "/executions"}))
+(defonce ws-configurator
+  (configurator ws-connect-channel {:path "/events"}))
 
 (defn init-ws [ch]
   (go-loop [{:keys[in out] :as ws-req} (<! ch)]
@@ -50,13 +55,23 @@
     (recur (<! ch))))
 
 
+
+
 (defn- broadcast-to-clients [data]
+  (log/info "broadcasting to clients " data)
   (let [data-str (pr-str data)]
     (doseq [c @ws-clients]
       (put! c data-str))))
 
+(defn process-ui-channel [ch]
+  (log/info "Process-ui-channel called")
+  (go-loop [data (<! ch)]
+    (log/info "read from ui chan " data)
+    (broadcast-to-clients data)
+    (recur (<! ch))))
 
-(def last-conductor-hb (atom 0))
+
+(defonce last-conductor-hb (atom 0))
 
 (defmulti dispatch :msg)
 
@@ -98,14 +113,16 @@
 
   (log/info "Initializing websockets.")
   (init-ws ws-connect-channel)
+  (process-ui-channel ui-channel)
 
   ; schedule or schedule assoc changes need to be published to conductor
 
   (log/debug "Setting conductor write chan")
   (agent/init conductor-write-chan)
   (schedule/init conductor-write-chan)
-  (job/init conductor-write-chan)
-  (workflow/init conductor-write-chan)
+  (job/init conductor-write-chan ui-channel)
+  (workflow/init conductor-write-chan ui-channel)
+  (explorer/init ui-channel)
 
   (log/info "Setting up conductor-msg-processor.")
 

@@ -8,12 +8,12 @@
             [clojure.core.async :refer [put!]]
             [taoensso.timbre :as log]))
 
-(defonce ^:private out-chan (atom nil))
+(defonce ^:private ui-chan (atom nil))
 
 (defn init
   "Sets the channel to use when updates are made to jobs."
   [ch]
-  (reset! out-chan ch))
+  (reset! ui-chan ch))
 
 ;;-----------------------------------------------------------------------
 ;; create directory
@@ -29,14 +29,13 @@
 (defn save-directory!
   "Saves the directory and returns the dir-id just created/updated.
    When :parent-directory-id is nil the directory created is a new root directory."
-  ([{:keys [directory-id directory-name parent-directory-id]}]
-     (save-directory! directory-id directory-name parent-directory-id))
-
-  ([dir-id dir-name parent-dir-id]
-    (log/info "save-directory! dir-id" dir-id ", dir-name" dir-name ", parent-dir-id" parent-dir-id)
-    (if (directory-exists? dir-name parent-dir-id)
-      (util/make-error-response ["Directory already exists."])
-      (db/save-directory dir-id dir-name parent-dir-id))))
+  [{:keys [directory-id directory-name parent-directory-id] :as dir-map}]
+   (log/info "save-directory! " dir-map)
+   (if (directory-exists? directory-name parent-directory-id)
+     (util/make-error-response ["Directory already exists."])
+     (let [dir-id (db/save-directory directory-id directory-name parent-directory-id)
+           event-msg (merge dir-map {:event :directory-save :directory-id dir-id})]
+       (put! @ui-chan event-msg))))
 
 (defn new-empty-job!
   "Makes a new empty job with default values and associates it to be a child
@@ -78,3 +77,5 @@
   ([] (ls-directory data/root-directory-id)) ; nil means root
   ([directory-id]
      (db/explorer-info directory-id)))
+
+

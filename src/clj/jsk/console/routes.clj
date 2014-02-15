@@ -196,10 +196,10 @@
           (->> (uid request) (explorer/rm-directory! id) edn-response))
 
   (POST "/explorer/directory/:dir-id/new-empty-job" [dir-id :as request]
-       (edn-response (explorer/new-empty-job! dir-id (uid request))))
+       (edn-response (explorer/new-empty-job! (util/str->int dir-id) (uid request))))
 
   (POST "/explorer/directory/:dir-id/new-empty-workflow" [dir-id :as request]
-        (edn-response (explorer/new-empty-workflow! dir-id (uid request))))
+        (edn-response (explorer/new-empty-workflow! (util/str->int dir-id) (uid request))))
 
   (DELETE "/explorer/node/:id" [id :as request]
           (->> (uid request) (explorer/rm-node! id) edn-response)))

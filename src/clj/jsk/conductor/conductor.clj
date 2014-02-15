@@ -179,7 +179,7 @@
 
       (put-execution-model! execution-id model)
 
-      (publish-event {:event :execution-started
+      (publish-event {:execution-event :execution-started
                       :execution-id execution-id
                       :start-ts (exm/start-time model)
                       :wf-name wf-name})
@@ -199,7 +199,7 @@
      (if exec-vertex-id
        (db/execution-vertex-started exec-vertex-id ts)) 
 
-     (publish-event {:event :wf-started
+     (publish-event {:execution-event :wf-started
                      :exec-vertex-id exec-vertex-id
                      :exec-wf-id exec-wf-id
                      :start-ts ts
@@ -241,7 +241,7 @@
     (db/workflow-finished root-wf-id success? ts)
     (db/execution-finished exec-id success? ts)
 
-    (publish-event {:event :execution-finished
+    (publish-event {:execution-event :execution-finished
                     :execution-id exec-id
                     :success? success?
                     :status (if success? data/finished-success data/finished-error)
@@ -276,7 +276,7 @@
 
     (when (seq vertices)
       (db/workflows-and-vertices-finished vertices wfs success? ts)
-      (publish-event {:event :wf-finished
+      (publish-event {:execution-event :wf-finished
                       :execution-id execution-id
                       :execution-vertices vertices
                       :finish-ts ts
@@ -310,7 +310,7 @@
   (let [start-ts (util/now)]
     (db/execution-vertex-started exec-vertex-id start-ts)
     (mark-job-started! execution-id exec-vertex-id agent-id (util/now-ms))
-    (publish-event (merge {:event :job-started :start-ts start-ts :status data/started-status}
+    (publish-event (merge {:execution-event :job-started :start-ts start-ts :status data/started-status}
                           (select-keys data [:execution-id :exec-vertex-id :exec-wf-id])))))
 
 
@@ -340,7 +340,7 @@
 
       (publish-event (-> msg
                          (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
-                         (merge {:finish-ts fin-ts :status status-id :event :job-finished})))
+                         (merge {:finish-ts fin-ts :status status-id :execution-event :job-finished})))
 
       (log/debug "after-job-ended: new-count" new-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
 

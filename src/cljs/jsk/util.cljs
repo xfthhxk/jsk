@@ -1,5 +1,6 @@
 (ns jsk.util
-  (:require [enfocus.core :as ef])
+  (:require [enfocus.core :as ef]
+            [clojure.string :as string])
   (:require-macros [enfocus.macros :as em]))
 
 (def started-status 2)
@@ -163,3 +164,43 @@
 (defn display-dashboard []
   (hide-container)
   (show-dashboard))
+
+
+(def ^:private root-parent-dir-id -1)
+
+(defn- ->explorer-element-id [id node-type]
+  ;(log (str "id=" id ", node-type " node-type))
+  (if (= root-parent-dir-id id)
+    "#"
+   (str "exp-" (name node-type) "-" id)))
+
+(defn- explorer-element-id->id [elem-id]
+  (if (= "#" elem-id)
+    root-parent-dir-id
+    (-> (string/split elem-id #"-") last str->int)))
+
+(defn- explorer-element-id-dissect
+  "Takes an elem-id of form 'exp-job-23' which means job with id 23
+   and returns [:job 23] in this case.  When elem-id is '#' returns
+   [:root -1]"
+  [elem-id]
+  (if (= "#" elem-id)
+    [:root root-parent-dir-id]
+    (let [[_ elem-type id-str] (string/split elem-id #"-")] 
+      [(keyword elem-type) (str->int id-str)])))
+
+(def synthetic-workflow-id 1)
+
+(def job-type-id 1)
+(def workflow-type-id 2)
+
+(defn workflow-type? [id]
+  (= workflow-type-id id))
+
+(defn job-type? [id]
+  (= job-type-id id))
+
+(def ^:private node-type-kw-map {job-type-id :job workflow-type-id :workflow})
+(defn node-type-id->keyword [node-type-id]
+  (get node-type-kw-map node-type-id))
+
