@@ -122,8 +122,21 @@
 (defn connections []
   (-> js-plumb .getAllConnections))
 
+  
 (defn inbound-connections [element-id]
   (-> js-plumb (.getConnections (clj->js {:target element-id}))))
+
+(defn outbound-connections [element-id]
+  (-> js-plumb (.getConnections (clj->js {:source element-id}))))
+
+;; answers true if there are any inbound or outbound connections
+;; node-id is an integer representing the node
+(defn connected? [element-id]
+  (->> element-id
+       ((juxt inbound-connections outbound-connections))
+       (map count)
+       (reduce +)
+       (not= 0)))
 
 (defn rm-inbound-connections [element-id]
   (doseq [cn (inbound-connections element-id)]
@@ -132,7 +145,6 @@
 (defn detach-all-connections []
   (doseq [cn (connections)]
     (detach-connection cn)))
-
 
 ;-----------------------------------------------------------------------
 ; Answers with a seq of all connections. Each connection is represented
@@ -143,6 +155,9 @@
          {:src (-> c .-sourceId) :tgt (-> c .-targetId)})
        (connections)))
 
+
+(defn endpoints []
+  (-> js-plumb .selectEndpoints))
 
 
 ;-----------------------------------------------------------------------
@@ -155,19 +170,19 @@
 ;  (ju/log "make-source, js-plumb is: " js-plumb)
 ;  (-> js-plumb (.makeSource ($ id) (clj->js endpoint-options))))
 
-(defn make-source-alt []
-  (-> js-plumb (.makeSource ($ :.ep) (clj->js success-endpoint-options)))
-  (-> js-plumb (.makeSource ($ :.ep-fail) (clj->js failure-endpoint-options))))
+;; (defn make-source-alt []
+;;   (-> js-plumb (.makeSource ($ :.ep) (clj->js success-endpoint-options)))
+;;   (-> js-plumb (.makeSource ($ :.ep-fail) (clj->js failure-endpoint-options))))
 
-(defn make-source-1 [selector options]
+(defn- make-source [selector options]
   (-> js-plumb (.makeSource ($ selector) (clj->js options))))
 
 (defn make-failure-source [selector]
-  (make-source-1 selector failure-endpoint-options))
+  (make-source selector failure-endpoint-options))
   ;(-> js-plumb (.makeSource ($ :.ep-fail) (clj->js failure-endpoint-options))))
 
 (defn make-success-source [selector]
-  (make-source-1 selector success-endpoint-options))
+  (make-source selector success-endpoint-options))
   ;(-> js-plumb (.makeSource ($ selector) (clj->js success-endpoint-options))))
 
 

@@ -2,6 +2,7 @@
   (:require [jsk.common.graph :as graph]
             [jsk.common.data :as data]
             [jsk.common.util :as util]
+            [clojure.string :as string]
             [clojure.set :as set]
             [taoensso.timbre :as log]))
 
@@ -100,6 +101,11 @@
     (-> model
       (update-in v-path conj next-vtx)
       (update-in g-path graph/add-edge vtx next-vtx))))
+
+(defn add-non-dependency
+  [model exec-wf-id vtx]
+  (-> model
+      (update-in [:graphs exec-wf-id] graph/add-vertex vtx)))
 
 (defn dependencies
   "Answers with the next set of dependencies."
@@ -270,9 +276,10 @@
 (defn single-workflow-context-for-vertices
   "Ensures the vertex-ids belong to the same wf-id and returns that wf-id."
   [model vertex-ids]
+  (log/info "model is " model ", vertex-ids: " (string/join "," vertex-ids))
   (let [wf-ids (-> model (workflow-context vertex-ids) vals distinct doall)]
     (assert (= 1 (count wf-ids))
-          (str "Not all vertices are in the same workflow: " vertex-ids ", wf-ids: " wf-ids))
+          (str "Not all vertices are in the same workflow: " (string/join "," vertex-ids) ", wf-ids: " (string/join "," wf-ids)))
     (first wf-ids)))
 
 (defn mark-exec-wf-failed

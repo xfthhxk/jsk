@@ -502,16 +502,16 @@
           , fv.layout       as src_layout
           , tv.layout       as dest_layout
        from workflow_vertex fv
-       join workflow_edge  e
+  left join workflow_edge  e
          on fv.workflow_vertex_id = e.vertex_id
-       join workflow_vertex tv
+  left join workflow_vertex tv
          on e.next_vertex_id = tv.workflow_vertex_id
        join node fn
          on fv.node_id = fn.node_id
-       join node tn
+  left join node tn
          on tv.node_id = tn.node_id
-      where fv.workflow_id = tv.workflow_id
-        and fv.workflow_id = ?" [id]] :results))
+      where fv.workflow_id = ? 
+        and (fv.workflow_id = tv.workflow_id or tv.workflow_id is null) " [id]] :results))
 
 
 ;-----------------------------------------------------------------------
@@ -742,15 +742,15 @@ select w.workflow_id
         from execution_workflow ew
         join execution_vertex   f
           on ew.execution_workflow_id = f.execution_workflow_id
-        join execution_edge     e
+   left join execution_edge     e
           on f.execution_vertex_id = e.vertex_id
-        join execution_vertex t
+   left join execution_vertex t
           on e.next_vertex_id = t.execution_vertex_id
         join node fn
           on f.node_id = fn.node_id
-        join node tn
+   left join node tn
           on t.node_id = tn.node_id
-       where e.execution_id = ? " [id]] :results))
+       where ew.execution_id = ? " [id]] :results))
 
 
 (defn execution-aborted [exec-id ts]

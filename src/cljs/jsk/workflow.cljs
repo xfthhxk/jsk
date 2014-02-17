@@ -3,6 +3,7 @@
             [jsk.util :as u]
             [jsk.rfn :as rfn]
             [jsk.schedule :as s]
+            [jsk.tree :as tree]
             [enfocus.core :as ef]
             [enfocus.events :as events]
             [enfocus.effects :as effects]
@@ -85,11 +86,43 @@
     data1))
 
 
+
+
+(defn- node-id->div-id
+  "Constructs the div id for the whole node node."
+  [node-id]
+  (str "node-id-" node-id))
+
+
+(defn- node-id->success-ep-id
+  "Constructs the success endpoint div id"
+  [node-id]
+  (str "ep-success-" (node-id->div-id node-id)))
+
+(defn- node-id->fail-ep-id
+  "Constructs the fail endpoint div id"
+  [node-id]
+  (str "ep-fail-" (node-id->div-id node-id)))
+;-----------------------------------------------------------------------
+; Answers with a vector of all nodes that exist on this workflow.
+;-----------------------------------------------------------------------
+(defn- all-workflow-node-ids[]
+  (-> ".workflow-node" $ (.map (fn [] (-> (js* "this") $ (.data "node-id"))))))
+
+(defn- unconnected-workflow-node-ids []
+  (filter (fn [node-id]
+            (->> node-id
+                 ((juxt node-id->div-id node-id->success-ep-id node-id->fail-ep-id))
+                 (map plumb/connected?)
+                 (every? false?)))
+          (all-workflow-node-ids)))
+
+
 (defn- collect-workflow-data []
   (let [form (read-workflow-form)
-        cn (map parse-connection-info (plumb/connections->map))]
-    (assoc form :connections cn)))
-
+        cn (map parse-connection-info (plumb/connections->map))
+        un-cn (unconnected-workflow-node-ids)]
+    (merge form {:connections cn :unconnected un-cn})))
 
 ;----------------------------------------------------------------------
 ; Saving a workflow requires a workflow name, and all nodes
@@ -163,21 +196,6 @@
 (defn- connection-click-listener [cn]
   (plumb/detach-connection cn))
 
-(defn- node-id->div-id
-  "Constructs the div id for the whole node node."
-  [node-id]
-  (str "node-id-" node-id))
-
-
-(defn- node-id->success-ep-id
-  "Constructs the success endpoint div id"
-  [node-id]
-  (str "ep-success-" (node-id->div-id node-id)))
-
-(defn- node-id->fail-ep-id
-  "Constructs the fail endpoint div id"
-  [node-id]
-  (str "ep-fail-" (node-id->div-id node-id)))
 
 
 
@@ -231,19 +249,21 @@
 ;  :to-node-id 2
 ;  :from-node-id 1}
 (defn- add-one-edge [{:keys[src-id src-name dest-id dest-name src-layout dest-layout success]}]
-  (let [src-div-id (node-id->div-id src-id)
-        dest-div-id   (node-id->div-id dest-id)]
+  (let [src-div-id (node-id->div-id src-id)]
 
     (when (u/element-not-exists? src-div-id)
       (visualizer-add-node* src-id src-name src-layout))
 
-    (when (u/element-not-exists? dest-div-id)
-      (visualizer-add-node* dest-id dest-name dest-layout))
+    ; dest-id is null when there's no connection from src to anything
+    (when dest-id
+      (let [dest-div-id (node-id->div-id dest-id)
+            id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
+            src-ep-id (id-mkr src-id)]
 
-  (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
-        src-ep-id (id-mkr src-id)]
-    ; (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
-    (plumb/connect src-ep-id dest-div-id))))
+        (when (u/element-not-exists? dest-div-id)
+          (visualizer-add-node* dest-id dest-name dest-layout))
+
+        (plumb/connect src-ep-id dest-div-id)))))
 
 (defn- reconstruct-ui [data]
   (doseq [m data]
@@ -255,10 +275,10 @@
         element-id (-> (get clj-data "nodes") first)
         [node-type node-id] (u/explorer-element-id-dissect element-id)]
     (u/log (str "node dropped " element-id ", node-id: " node-id ", node-type: " node-type))
+
     (when (node-type #{:job :workflow})
-      (go
-       (let [{:keys [node-name]} (<! (rfn/fetch-node-info node-id))]
-         (visualizer-add-node* node-id node-name ""))))))
+      (let [node-name (-> (tree/get-node "#jstree" element-id) .-text)]
+        (visualizer-add-node* node-id node-name "")))))
 
 (defn- when-jstree-node-moved [e data]
   (def dnd-move-data data)
@@ -268,7 +288,8 @@
   (def dnd-started-data data)
   (u/log "node started"))
 
-(defn- enable-jstree-dnd []
+
+(defn init []
   (-> js/document $ (.bind "dnd_start.vakata" when-jstree-node-started))
   (-> js/document $ (.bind "dnd_move.vakata" when-jstree-node-moved))
   (-> js/document $ (.bind "dnd_stop.vakata" when-jstree-node-dropped)))
@@ -290,7 +311,6 @@
      ; these things can happen only after the workflow visualizer is displayed
      (hide-element "#workflow-save-success")
      (plumb/default-container :#workflow-visualization-area)
-     (enable-jstree-dnd)
      (reconstruct-ui graph))))
 
 ;----------------------------------------------------------------------

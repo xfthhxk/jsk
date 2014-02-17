@@ -4,6 +4,7 @@
             [jsk.common.util :as util]
             [jsk.common.data :as data]
             [jsk.common.job :as job]
+            [jsk.common.agent :as agent]
             [jsk.common.workflow :as workflow]
             [clojure.string :as string]
             [clojure.core.async :refer [put!]]
@@ -42,7 +43,8 @@
   "Makes a new empty job with default values and associates it to be a child
    of the specified directory-id."
   [dir-id user-id]
-  (job/new-empty-job! dir-id user-id))
+  (let [agent-id (-> (agent/ls-agents) first :agent-id)]
+    (job/new-empty-job! dir-id agent-id user-id)))
     
 (defn new-empty-workflow!
   "Makes a new empty workflow with default values and associates it to be a child

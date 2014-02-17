@@ -94,7 +94,7 @@ alter table node add constraint fk_node_updater_id foreign key (updater_id) refe
 create table job ( job_id                  int           primary key
                  , execution_directory     varchar(255)  not null
                  , command_line            varchar(255)  not null
-                 , agent_id                int           null     
+                 , agent_id                int           not null     
                  , max_concurrent          int           not null
                  , max_retries             int           not null);
 

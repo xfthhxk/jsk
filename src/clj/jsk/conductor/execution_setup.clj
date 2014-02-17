@@ -1,5 +1,6 @@
 (ns jsk.conductor.execution-setup
   (:require [taoensso.timbre :as log]
+            [clojure.string :as string]
             [jsk.common.graph :as graph]
             [jsk.common.workflow :as wf]
             [jsk.conductor.execution-model :as exm]
@@ -7,6 +8,8 @@
             [jsk.common.util :as util]
             [jsk.common.db :as db]))
 
+;; there's a bunch of (if dest-exec-vertex-id kind of code which
+;; is required for workflows which have things which execute in parallel
 
 ;-----------------------------------------------------------------------
 ; Produce the graph and make usable for quartz.
@@ -24,7 +27,7 @@
 
     (log/debug "root-wfs: " root-wfs)
 
-    (assert (= 1 (count root-wfs)) (str "Only 1 wf can be the root wf. Got: " root-wfs))
+    (assert (= 1 (count root-wfs)) (str "Only 1 wf can be the root wf, but have " (count root-wfs)))
 
     (-> tbl
         (exm/set-root-workflow root-wf)
@@ -40,15 +43,19 @@
   "Populates the execution info tbl by supplying it with vertices
    pulled from data. data is a seq of maps."
   [tbl data]
-  (let [v-fn (juxt :src-exec-vertex-id :dest-exec-vertex-id)
-        vv (into #{} (mapcat v-fn data))]
-  (exm/add-vertices tbl vv)))
+  (let [vv (into #{} (->> data
+                          (mapcat (juxt :src-exec-vertex-id :dest-exec-vertex-id))
+                          (filter identity)))]
+    (log/info "populate-vertices are " (string/join "," vv))
+    (exm/add-vertices tbl vv)))
 
 (defn- add-deps
   "Adds in dependency information in tbl pulled from data."
   [tbl data]
   (reduce (fn [ans {:keys[execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success]}]
-            (exm/add-dependency ans execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success))
+            (if dest-exec-vertex-id
+              (exm/add-dependency ans execution-workflow-id src-exec-vertex-id dest-exec-vertex-id success)
+              (exm/add-non-dependency ans execution-workflow-id src-exec-vertex-id)))
           tbl
           data))
 
@@ -58,9 +65,10 @@
   (reduce (fn[ans {:keys[src-id src-exec-vertex-id src-name src-type
                          dest-id dest-exec-vertex-id dest-name dest-type
                          workflow-id execution-workflow-id]}]
-            (-> ans
-               (exm/set-vertex-attrs src-exec-vertex-id src-id src-name src-type workflow-id execution-workflow-id)
-               (exm/set-vertex-attrs dest-exec-vertex-id dest-id dest-name dest-type workflow-id execution-workflow-id)))
+            (let [ans' (exm/set-vertex-attrs ans src-exec-vertex-id src-id src-name src-type workflow-id execution-workflow-id)]
+              (if dest-exec-vertex-id
+                (exm/set-vertex-attrs ans' dest-exec-vertex-id dest-id dest-name dest-type workflow-id execution-workflow-id)
+                ans')))
           tbl
           data))
 
@@ -107,7 +115,9 @@
   "Generates a digraph."
   [data]
   (reduce (fn[graph {:keys[src-exec-vertex-id dest-exec-vertex-id]}]
-            (graph/add-edge graph src-exec-vertex-id dest-exec-vertex-id))
+            (if dest-exec-vertex-id
+              (graph/add-edge graph src-exec-vertex-id dest-exec-vertex-id)
+              graph))
             {} data))
 
 (defn workflow-data
@@ -134,7 +144,7 @@
   [model node-cache]
   (reduce (fn [mdl v-id]
             (let [node-id (-> mdl (exm/vertex-attrs v-id) :node-id)
-                  agent-name (cache/agent-name-for-node-id node-cache node-id)]
+                  agent-name (cache/agent-name-for-job-id node-cache node-id)]
               (exm/assoc-agent-name mdl v-id agent-name)))
           model
           (exm/job-vertices model)))

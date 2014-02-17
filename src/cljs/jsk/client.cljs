@@ -9,6 +9,7 @@
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
+              [jsk.workflow :as workflow]
               [jsk.agent :as agent]
               [jsk.executions :as executions]
               [jsk.search :as search]
@@ -75,6 +76,7 @@
 
   (ju/log "Initializing the explorer.")
   (explorer/init)
+  (workflow/init)
 
   (ju/log "Adding default XHR error handler.")
   (reset! rpc/error-handler rpc-error-handler)

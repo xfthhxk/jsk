@@ -89,7 +89,7 @@
   "Makes a new job with default values for everything.
    Answers with the newly created job-id.
    Used by the explorer style ui."
-  [dir-id user-id]
+  [dir-id agent-id user-id]
   (save-job! {:job-id -1
               :job-name (str "Job " (util/now-ms))
               :job-desc ""
@@ -99,7 +99,7 @@
               :command-line ""
               :max-concurrent 1
               :max-retries 1
-              :agent-id nil}
+              :agent-id agent-id}
              user-id))
 
 

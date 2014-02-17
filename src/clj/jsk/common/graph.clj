@@ -7,7 +7,7 @@
   []
   {})
 
-(defn- add-vertex
+(defn add-vertex
   "Adds vertex to the graph if it doesn't already exist.
    Returns the updated graph."
   [g v]

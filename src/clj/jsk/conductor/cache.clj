@@ -239,9 +239,9 @@
 
 
 
-(defn agent-name-for-node-id
-  "Answers with the agent name for the node-id."
-  [c node-id]
-  (let [{:keys [agent-id]} (node c node-id)]
-    (assert agent-id (str "No agent-id for node-id " node-id))
+(defn agent-name-for-job-id
+  "Answers with the agent name for the job-id."
+  [c job-id]
+  (let [{:keys [agent-id]} (job c job-id)]
+    (assert agent-id (str "No agent-id for job-id " job-id))
     (-> c (agent agent-id) :agent-name)))

@@ -88,12 +88,18 @@
             {}
             vv)))
 
-(defn- save-graph [{:keys [workflow-id connections]} layout]
+(defn- save-unconnected-vertices [workflow-id layout node-ids]
+  (let [layout-map (key-layout-by-id layout)]
+    (doseq [n-id node-ids]
+      (db/save-workflow-vertex workflow-id n-id (layout-map n-id)))))
+
+(defn- save-graph [{:keys [workflow-id connections unconnected]} layout]
   (let [job->vertex (save-vertices workflow-id layout connections)]
     (doseq [{:keys [success? src-node-id tgt-node-id]} connections]
       (db/save-workflow-edge (job->vertex src-node-id)
                              (job->vertex tgt-node-id)
-                             success?))))
+                             success?))
+    (save-unconnected-vertices workflow-id layout unconnected)))
 
 (defn- save-workflow* [{:keys[workflow-id connections] :as w} layout user-id]
   (k/transaction
