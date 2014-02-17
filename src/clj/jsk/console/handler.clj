@@ -58,15 +58,12 @@
 
 
 (defn- broadcast-to-clients [data]
-  (log/info "broadcasting to clients " data)
   (let [data-str (pr-str data)]
     (doseq [c @ws-clients]
       (put! c data-str))))
 
 (defn process-ui-channel [ch]
-  (log/info "Process-ui-channel called")
   (go-loop [data (<! ch)]
-    (log/info "read from ui chan " data)
     (broadcast-to-clients data)
     (recur (<! ch))))
 

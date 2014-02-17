@@ -5,6 +5,7 @@
             [jsk.common.data :as data]
             [jsk.common.job :as job]
             [jsk.common.workflow :as workflow]
+            [clojure.string :as string]
             [clojure.core.async :refer [put!]]
             [taoensso.timbre :as log]))
 
@@ -34,7 +35,7 @@
    (if (directory-exists? directory-name parent-directory-id)
      (util/make-error-response ["Directory already exists."])
      (let [dir-id (db/save-directory directory-id directory-name parent-directory-id)
-           event-msg (merge dir-map {:event :directory-save :directory-id dir-id})]
+           event-msg (merge dir-map {:crud-event :directory-save :directory-id dir-id})]
        (put! @ui-chan event-msg))))
 
 (defn new-empty-job!
@@ -53,12 +54,13 @@
   "Removes any relationships to the node and deletes the node."
   [node-id user-id]
   (let [references (db/workflows-referencing-node node-id)
-        ref-csv (interpose ", " references)]
+        ref-csv (string/join ", " references)]
     (if (seq references)
       (util/make-error-response [(str "Unable to delete. Referenced in the following: " ref-csv)])
-      (do 
-        (db/rm-node! node-id)
-        {:success? true}))))
+      (let [{:keys [node-type-id]} (db/rm-node! node-id)
+            node-type (util/node-type-id->kw node-type-id)]
+        (put! @ui-chan {:crud-event :element-rm :element-type node-type :element-id node-id})
+        {:success? true :errors ""}))))
 
 (defn rm-directory!
   "Delete directory as long as there are no directories with this dir-id as the parent
@@ -67,6 +69,7 @@
   (if (db/empty-directory? dir-id)
     (do
       (db/rm-directory dir-id)
+      (put! @ui-chan {:crud-event :element-rm :element-type :directory :element-id dir-id})
       {:success? true :error ""})
     {:success? false :error "Non-empty directory."}))
 
@@ -77,5 +80,22 @@
   ([] (ls-directory data/root-directory-id)) ; nil means root
   ([directory-id]
      (db/explorer-info directory-id)))
+
+(defn change-parent-directory
+  "Change the parent directory / ownfor the job/workflow/directory specified by element-id.
+   element-type is :job :workflow or :directory."
+  [{:keys [element-id element-type new-parent-directory-id] :as msg} user-id]
+
+  (case element-type
+    :directory (db/change-directory-parent element-id new-parent-directory-id)
+    :job       (db/change-node-owning-directory element-id new-parent-directory-id)
+    :workflow  (db/change-node-owning-directory element-id new-parent-directory-id))
+
+  (let [element-name (if (= :directory element-type)
+                       (-> element-id db/get-directory-by-id :node-directory-name)
+                       (-> element-id db/get-node-by-id :node-name))]
+    ;; push update to the ui
+    (put! @ui-chan (assoc msg :crud-event :directory-change :element-name element-name)))
+  {:success? true :errors ""})
 
 

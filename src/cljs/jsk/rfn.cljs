@@ -128,9 +128,14 @@
 (defn rm-directory [id]
   (rpc/DELETE (str "/explorer/directory/" id)))
 
+(defn rm-node [id]
+  (rpc/DELETE (str "/explorer/node/" id)))
+
 (defn new-empty-workflow [dir-id]
   (rpc/POST (str "/explorer/directory/" dir-id "/new-empty-workflow") ""))
 
 (defn new-empty-job [dir-id]
   (rpc/POST (str "/explorer/directory/" dir-id "/new-empty-job") ""))
 
+(defn change-directory [data]
+  (rpc/PUT "/explorer/directory-change" data))

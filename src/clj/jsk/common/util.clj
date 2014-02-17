@@ -50,6 +50,11 @@
 (defn job-type? [id]
   (= data/job-type-id id))
 
+(def ^:private node-type-id-kw-map {data/job-type-id :job
+                                    data/workflow-type-id :workflow})
+(defn node-type-id->kw [id]
+  (get node-type-id-kw-map id))
+
 
 (defn uuid []
   (-> (UUID/randomUUID) .toString))

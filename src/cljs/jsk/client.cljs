@@ -47,11 +47,8 @@
   "#execution-search-action" (events/listen :click #(search/show-execution-search))
   "#agent-list-action"       (events/listen :click #(agent/show-agents))
   "#agent-add-action"        (events/listen :click #(agent/show-add-agent))
-  "#job-list-action"         (events/listen :click #(j/show-jobs))
-  "#job-add-action"          (events/listen :click #(j/show-add-job))
   "#schedule-list-action"    (events/listen :click #(s/show-schedules))
   "#schedule-add-action"     (events/listen :click #(s/show-add-schedule)))
-
 
 (defn ws-connect []
   (let [{:keys [in out]} (rpc/ws-connect! (str "ws://" ju/host "/events"))]

@@ -292,6 +292,13 @@
     node-id))
 
 
+(defn change-node-owning-directory
+  [node-id new-parent-dir-id]
+  (update node (set-fields {:node-directory-id new-parent-dir-id})
+          (where {:node-id node-id}))
+  node-id)
+
+
 (def insert-job-node! (partial insert-node! data/job-type-id))
 (def insert-workflow-node! (partial insert-node! data/workflow-type-id))
 
@@ -1129,6 +1136,18 @@ select w.workflow_id
   [dir-id]
   (delete node-directory (where {:node-directory-id dir-id})))
 
+(defn change-directory-parent
+  "Changes a directory's parent directory id"
+  [dir-id parent-dir-id]
+  (update node-directory (set-fields {:parent-directory-id parent-dir-id})
+          (where {:node-directory-id dir-id}))
+  dir-id)
+
+
+(defn get-directory-by-id
+  [id]
+  (first (select node-directory (where {:node-directory-id id}))))
+
 
 (def ^:private empty-directory-sql "
 select count(1) as i
@@ -1192,10 +1211,11 @@ select
 
 
 (defn rm-node!
+  "Deletes the node specified by node-id and returns the raw node data."
   [node-id]
   (assert (-> node-id workflows-referencing-node seq not) (str "workflow references exist for node-id: " node-id))
   (transaction
-   (let [{:keys [node-type-id]} (get-node-by-id)]
+   (let [{:keys [node-type-id] :as data} (get-node-by-id node-id)]
 
     ;; remove executions
     (-> node-id execution-ids-for-node rm-executions!) 
@@ -1208,7 +1228,8 @@ select
         (delete workflow (where {:workflow-id node-id}))))
 
     ;; remove from node
-    (delete node (where {:node-id node-id})))))
+    (delete node (where {:node-id node-id}))
+    data)))
 
 
 ;; gets the directories which are children of directory with id x

@@ -193,7 +193,7 @@
        (-> request :params explorer/save-directory! edn-response))
 
   (DELETE "/explorer/directory/:id" [id :as request]
-          (->> (uid request) (explorer/rm-directory! id) edn-response))
+          (->> (uid request) (explorer/rm-directory! (util/str->int id)) edn-response))
 
   (POST "/explorer/directory/:dir-id/new-empty-job" [dir-id :as request]
        (edn-response (explorer/new-empty-job! (util/str->int dir-id) (uid request))))
@@ -201,8 +201,11 @@
   (POST "/explorer/directory/:dir-id/new-empty-workflow" [dir-id :as request]
         (edn-response (explorer/new-empty-workflow! (util/str->int dir-id) (uid request))))
 
+  (PUT "/explorer/directory-change" [_ :as request]
+       (-> request :params (explorer/change-parent-directory (uid request)) edn-response))
+
   (DELETE "/explorer/node/:id" [id :as request]
-          (->> (uid request) (explorer/rm-node! id) edn-response)))
+          (->> (uid request) (explorer/rm-node! (util/str->int id)) edn-response)))
 
 
 ;-----------------------------------------------------------------------

@@ -85,7 +85,6 @@
       (put! @ui-chan event-msg) 
       {:success? true :job-id job-id})))
 
-
 (defn new-empty-job!
   "Makes a new job with default values for everything.
    Answers with the newly created job-id.

@@ -103,6 +103,15 @@
   ([url data cb]
    (rpc-call "POST" url data cb)))
 
+(defn PUT
+  ([url data]
+   (let [ch (chan 1)]
+     (async-rpc-call "PUT" url data (make-async-cb-handler ch))
+     ch))
+
+  ([url data cb]
+   (rpc-call "PUT" url data cb)))
+
 (defn DELETE
   ([url] (DELETE url ""))
   ([url data]

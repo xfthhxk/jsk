@@ -24,6 +24,9 @@
 (defn register-create-node-handler [tree-id handler]
   (register-event-handler tree-id "create_node.jstree" handler))
 
+(defn register-move-node-handler [tree-id handler]
+  (register-event-handler tree-id "move_node.jstree" handler))
+
 
 (defn instance-for-id [tree-id]
   (-> tree-id $ (.jstree true)))
@@ -53,8 +56,12 @@
 (defn mv-node [tree-id node-id parent-node-id]
   (-> tree-id instance-for-id (.move_node node-id parent-node-id)))
 
-(defn create-node
+(defn make-node
   "Creates a new node under parent-node-id in tree with id tree-id.
    node is a map"
   [tree-id parent-node-id node]
   (-> tree-id instance-for-id (.create_node parent-node-id (clj->js node))))
+
+
+(defn refresh-node [tree-id node-id]
+  (-> tree-id instance-for-id (.load_node node-id)))

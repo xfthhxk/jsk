@@ -29,6 +29,20 @@ then do broadcast pings every few secs
 Top Priority
 -------------
 Better UI
+
+jobs and workflows are added and pushed to the ui
+workflow rename works
+
+job rename
+directory additions/renames
+
+job/wf/directory move
+
+
+delete workflow needs to auto delete the edges and vertices and then delete the workflow
+
+
+
 * create directories, add jobs, workflows
 * push notification data whenever directories/jobs/workflows are added, removed, updated
 * ui needs to listen for explorer notifications and add, remove or update item
