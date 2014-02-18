@@ -47,7 +47,7 @@
 
 (defentity workflow
   (pk :workflow-id)
-  (entity-fields :workflow-id))
+  (entity-fields :workflow-id :is-visible-in-dashboard))
 
 (defentity workflow-vertex
   (pk :workflow-vertex-id)
@@ -336,13 +336,15 @@
 ; Workflow save
 ;-----------------------------------------------------------------------
 (defn- insert-workflow! [m user-id]
-  (let [{:keys [workflow-name workflow-desc is-enabled node-directory-id]} m
+  (let [{:keys [workflow-name workflow-desc is-enabled node-directory-id is-visible-in-dashboard]} m
         node-id (insert-workflow-node! workflow-name workflow-desc is-enabled node-directory-id user-id)]
-    (insert workflow (values {:workflow-id node-id}))
+    (insert workflow (values {:workflow-id node-id :is-visible-in-dashboard is-visible-in-dashboard}))
     node-id))
 
 (defn- update-workflow! [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as m} user-id]
   (update-node! workflow-id workflow-name workflow-desc is-enabled node-directory-id user-id)
+  (update workflow (set-fields (select-keys m [:is-visible-in-dashboard]))
+          (where {:workflow-id workflow-id}))
   workflow-id)
 
 (defn save-workflow

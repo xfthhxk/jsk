@@ -28,31 +28,11 @@ then do broadcast pings every few secs
 
 Top Priority
 -------------
-Better UI
+Top level workflow dashboard.
+  Shows top level workflows, last execution time, last execution
+  status.  Updates from server need to check if the execution id's
+  root wf is the top level workflow and update accordingly.
 
-jobs and workflows are added and pushed to the ui
-workflow rename works
-
-job rename
-directory additions/renames
-
-job/wf/directory move
-
-
-delete workflow needs to auto delete the edges and vertices and then delete the workflow
-
-
-
-* create directories, add jobs, workflows
-* push notification data whenever directories/jobs/workflows are added, removed, updated
-* ui needs to listen for explorer notifications and add, remove or update item
-
-* ui gets data pushed from server. 
-* ui checks to see if the parent directory is visible in the tree.
-  if not do nothing, as if that directory eventually is visible, data
-  will be loaded synchronously
-  if in tree, then apply the change, ie update name and parent dir as
-  required, add to tree
 
 
 ## TODO
@@ -62,20 +42,19 @@ delete workflow needs to auto delete the edges and vertices and then delete the 
   What about a workflow with 3 starting nodes that must finish before going on?
   ie job 1, 2, 3 can be run in parallel, when all 3 finish do job 4.
   SystemNode? It's like a Countdown lock.
+* Looping
+* File/Directory monitor jobs
 * Number of retries when a job fails
 * Allow multiple instances of a job to run concurrently or not.
-* Node search a la suggest in wf designer instead of long list on the left.
-* Replace enfocus with om
-* Looping
-* View logs in UI
-* File/Directory monitor jobs
-* Search for jobs/wfs by schedule
 * We're snapshotting the dependencies but not the actual job definition.
+* Search for jobs/wfs by schedule
+* Replace enfocus with om
+* View logs in UI
 
 
 ## Bugs
-Resuming a workflow/job doesn't set execution status to executing in DB.
-
+* Resuming a workflow/job doesn't set execution status to executing in DB.
+* Delete workflow needs to auto delete the edges and vertices and then delete the workflow
 
 
 ## SQL Korma notes

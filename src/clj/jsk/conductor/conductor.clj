@@ -90,6 +90,20 @@
   ;(log/debug "After mark-job-finished!" (state/execution-model @app-state execution-id))
   (assert-state))
 
+(defn- mark-as-runnable!
+  "vertex-ids is a set of ints representing the vertex ids to be run next.
+   The vertex ids are both jobs and workflows."
+  [execution-id vertex-ids]
+  (swap! app-state #(state/mark-as-runnable %1 execution-id vertex-ids))
+  (assert-state))
+
+(defn- unmark-as-runnable!
+  "next-nodes-set is a set of ints representing the vertex ids to be run next.
+   The vertex ids are both jobs and workflows."
+  [execution-id vertex-ids]
+  (swap! app-state #(state/unmark-as-runnable %1 execution-id vertex-ids))
+  (assert-state))
+
 (defn- mark-exec-wf-failed!
   "Marks the exec-wf-id in exec-id as failed."
   [execution-id exec-wf-id]
@@ -328,28 +342,53 @@
   (let [fin-ts (util/now)]
 
     (db/execution-vertex-finished exec-vertex-id status-id fin-ts)
-    (mark-job-finished! execution-id exec-vertex-id agent-id status-id fin-ts)
 
     ; update status memory and ack the agent so it can clear it's memory
     (publish-to-agent agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg msg-ack-kw)))
 
-    (let [new-count (state/active-jobs-count @app-state execution-id exec-wf-id)
+    (let [; execution-active-count (state/active-jobs-count @app-state execution-id)
           next-nodes (state/successor-nodes @app-state execution-id exec-vertex-id success?)
-          exec-wf-fail? (and (not success?) (empty? next-nodes))
-          exec-wf-finished? (and (zero? new-count) (empty? next-nodes))]
+          exec-wf-fail? (and (not success?) (empty? next-nodes))]
 
-      (publish-event (-> msg
-                         (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
-                         (merge {:finish-ts fin-ts :status status-id :execution-event :job-finished})))
+      
+      ;; (log/info "execution-model for " execution-id "\n"
+      ;;           (with-out-str (clojure.pprint/pprint (state/execution-model @app-state execution-id))))
 
-      (log/debug "after-job-ended: new-count" new-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
+      ;; (log/info "next-nodes" next-nodes)
 
-      (if exec-wf-fail?
-        (mark-exec-wf-failed! execution-id exec-wf-id))
+      ;; next-nodes is a set of ints identifying the exec-vertex-ids
+      ;; mark vertices as runnable before marking job as finished for
+      ;; other threads looking at the state so they don't prematurely
+      ;; mark the workflow as finished
+      (when (seq next-nodes)
+        (mark-as-runnable! execution-id next-nodes))
 
-      (if exec-wf-finished?
-        (when-wf-finished execution-id exec-wf-id exec-vertex-id)
-        (run-nodes next-nodes execution-id)))))
+      (mark-job-finished! execution-id exec-vertex-id agent-id status-id fin-ts)
+
+      ;; FIXME: check that nothing else is currently running or has
+      ;; potential to run
+      (let [runnables? (state/runnable-vertices? @app-state execution-id)
+            wf-active-count (state/active-jobs-count @app-state execution-id exec-wf-id)
+            exec-wf-finished? (and (zero? wf-active-count) (empty? next-nodes))]
+        (publish-event (-> msg
+                           (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
+                           (merge {:finish-ts fin-ts :status status-id :execution-event :job-finished})))
+
+
+        (log/debug "after-job-ended: wf-active-count " wf-active-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
+
+        (if exec-wf-fail?
+          (mark-exec-wf-failed! execution-id exec-wf-id))
+
+        (when exec-wf-finished?
+          (when-wf-finished execution-id exec-wf-id exec-vertex-id))
+
+        (when (and (not exec-wf-finished?) (seq next-nodes))
+          (run-nodes next-nodes execution-id))
+
+        ;; run nodes and unmark the things which we marked as runnable above
+        (when (seq next-nodes)
+          (unmark-as-runnable! execution-id next-nodes))))))
 
 
 
@@ -598,7 +637,8 @@
   (conf/init-db)
 
 
-  (let [host "*" bind? true]
+  (let [host "*"
+        bind? true]
    (msg/relay-reads "request-processor" host sub-port bind? msg/all-topics dispatch)
    (msg/relay-writes publish-chan host pub-port bind?))
 

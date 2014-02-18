@@ -81,7 +81,8 @@
 (defn- read-workflow-form []
   (let [form (ef/from "#workflow-save-form" (ef/read-form))
         data (u/update-str->int form :workflow-id)
-        data1 (assoc data :is-enabled (u/element-checked? "workflow-is-enabled"))]
+        data1 (merge data {:is-enabled (u/element-checked? "workflow-is-enabled")
+                           :is-visible-in-dashboard (u/element-checked? "is-visible-in-dashboard")})]
     ;(u/log (str "Form data is: " form))
     data1))
 
@@ -162,7 +163,7 @@
 ;----------------------------------------------------------------------
 ; Layout of the entire visualizer screen.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [workflow-id workflow-name workflow-desc enabled? node-dir-id]
+(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [workflow-id workflow-name workflow-desc enabled? node-dir-id visible-in-dashboard?]
   "#workflow-id" (ef/set-attr :value (str workflow-id))
   "#workflow-name" (ef/set-attr :value workflow-name)
   "#workflow-desc" (ef/set-attr :value workflow-desc)
@@ -170,6 +171,9 @@
   "#workflow-is-enabled" (ef/do->
                            (ef/set-prop "checked" enabled?)
                            (ef/set-attr :value (str enabled?)))
+  "#is-visible-in-dashboard" (ef/do->
+                              (ef/set-prop "checked" visible-in-dashboard?)
+                              (ef/set-attr :value (str visible-in-dashboard?)))
   "#workflow-save-action" (events/listen :click save-workflow)
   "#view-assoc-schedules" (if (= -1 workflow-id)
                             (ef/remove-node)

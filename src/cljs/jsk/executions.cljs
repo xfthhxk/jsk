@@ -113,7 +113,9 @@
   (remove-executing-row msg))
 
 (defmethod dispatch :default [msg]
-  (ju/log ("No message handler for " msg)))
+  ;; empty! since workflow level (job execution events are also
+  ;; dropped in here.  And here we don't care about those.
+  )
 
 
 (defn add-execution [msg]

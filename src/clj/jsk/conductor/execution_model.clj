@@ -26,7 +26,8 @@
    :failed-exec-wfs #{}
    :wf-mappings {:exec-wf-to-wf {}
                  :wf-to-exec-wf {}}
-   :root-wf nil})
+   :root-wf nil
+   :runnable-vertices #{}})
 
 (defn- deps-kw
   "Answers with :on-success or :on-failure based on success?"
@@ -133,6 +134,13 @@
   [model v]
   (get-in model [:vertices v]))
 
+(defn all-vertex-attrs
+  "Answers with a sequence of maps with all vertex attrs except for the actual vertex id."
+  [model]
+  (-> model
+      (get-in [:vertices])
+      vals))
+
 
 (defn assoc-agent-name
   "Associates the agent-name to the vertex represented by v-id.
@@ -209,18 +217,23 @@
 
 (defn filter-vertices
   [model pred]
-  (->> model
-       vertices
+  (->> model 
+       all-vertex-attrs
        (filter pred)))
 
 (defn status-count
   "Count of vertices which have the specified status."
-  [model status-id exec-wf-id]
-  (-> model
-      (filter-vertices (fn [{:keys [status belongs-to-wf]}]
-                         (and (= status status-id)
-                              (= belongs-to-wf exec-wf-id))))
-      count))
+  ([model status-id]
+    (-> model
+        (filter-vertices (fn [{:keys [status]}] (= status status-id)))
+        count))
+
+  ([model status-id exec-wf-id]
+    (-> model
+        (filter-vertices (fn [{:keys [status belongs-to-wf]}]
+                           (and (= status status-id)
+                                (= belongs-to-wf exec-wf-id))))
+        count)))
 
 (defn parent-vertex
   "vertex-id's parent vertex id or nil when vertex-id is the root."
@@ -276,7 +289,7 @@
 (defn single-workflow-context-for-vertices
   "Ensures the vertex-ids belong to the same wf-id and returns that wf-id."
   [model vertex-ids]
-  (log/info "model is " model ", vertex-ids: " (string/join "," vertex-ids))
+  (assert (seq vertex-ids) "Vertex-ids is empty.")
   (let [wf-ids (-> model (workflow-context vertex-ids) vals distinct doall)]
     (assert (= 1 (count wf-ids))
           (str "Not all vertices are in the same workflow: " (string/join "," vertex-ids) ", wf-ids: " (string/join "," wf-ids)))
@@ -294,3 +307,8 @@
   [model exec-wf-id]
   (assert exec-wf-id "nil exec-wf-id")
   (-> model (get-in [:failed-exec-wfs]) (contains? exec-wf-id)))
+
+(defn runnable-vertices?
+  "Answers if there are runnable vertices in the model."
+  [model]
+  (-> model (get-in [:runnable-vertices]) empty? not))

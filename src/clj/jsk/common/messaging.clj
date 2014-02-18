@@ -89,8 +89,8 @@
   (go-loop [data (<! ch)]
     (try
       (f data)
-      (catch Exception ex
-        (log/error ex)))
+      (catch Throwable t
+        (log/error t)))
     (recur (<! ch))))
 
 (defn relay-reads

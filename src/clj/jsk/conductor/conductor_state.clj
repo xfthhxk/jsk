@@ -1,5 +1,7 @@
 (ns jsk.conductor.conductor-state
-  (:require [jsk.common.util :as util]
+  (:require [clojure.set :as set]
+            [taoensso.timbre :as log]
+            [jsk.common.util :as util]
             [jsk.common.data :as data]
             [jsk.conductor.cache :as cache]
             [jsk.conductor.execution-model :as exm]
@@ -95,18 +97,45 @@
       (set-status-for-jobs execution-id [vertex-id] status-id)
       #_(update-in [:agent-tracker] #(track/rm-agent-job-assoc %1 agent-id vertex-id))))
 
+(defn mark-as-runnable
+  "Marks the ids in vertex-ids as runnable. ie these will be running next."
+  [state execution-id vertex-ids]
+  (-> state
+      (update-in [:execution-models execution-id :runnable-vertices] #(into %1 vertex-ids))))
+
+(defn unmark-as-runnable
+  "Unmarks the ids in vertex-ids as runnable."
+  [state execution-id vertex-ids]
+  (-> state
+      (update-in [:execution-models execution-id :runnable-vertices] #(set/difference %1 vertex-ids))))
+
+(defn runnable-vertices?
+  "Answers if there are runnable nodes for the execution-id"
+  [state execution-id]
+  (-> state (get-in [:execution-models execution-id :runnable-vertices]) empty? not))
+
 (defn count-for-job-status
   "Answers with the jobs count for the execution-id and the status-id."
-  [state execution-id exec-wf-id status-id]
-  (-> state
-      (execution-model execution-id)
-      (exm/status-count status-id exec-wf-id)))
+  ([state execution-id status-id]
+     (-> state
+         (execution-model execution-id)
+         (exm/status-count status-id)))
+  ([state execution-id exec-wf-id status-id]
+    (-> state
+        (execution-model execution-id)
+        (exm/status-count status-id exec-wf-id))))
 
 (defn active-jobs-count
   "Answers with the count of all jobs that are active status. ie pending or started"
-  [state execution-id exec-wf-id]
-  (let [f (partial count-for-job-status state execution-id exec-wf-id)]
-    (+ (f data/started-status) (f data/pending-status))))
+  ([state execution-id]
+    (let [f (partial count-for-job-status state execution-id)]
+      ; (log/info "active-jobs-count for execution:" execution-id " started: " (f data/started-status) ", pending: " (f data/pending-status))
+      (+ (f data/started-status) (f data/pending-status))))
+
+  ([state execution-id exec-wf-id]
+    (let [f (partial count-for-job-status state execution-id exec-wf-id)]
+      ; (log/info "active-jobs-count for execution:" execution-id ", exec-wf-id: " exec-wf-id ", started: " (f data/started-status) ", pending: " (f data/pending-status))
+      (+ (f data/started-status) (f data/pending-status)))))
 
 (defn mark-exec-wf-failed
   "Marks the exec wf as failed."

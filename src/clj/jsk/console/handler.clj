@@ -78,7 +78,7 @@
 
 (defn- on-data [data]
   (cond
-   (:event data) (broadcast-to-clients data)
+   (:execution-event data) (broadcast-to-clients data)
    (:msg data) (dispatch data))
 
    (reset! last-conductor-hb (util/now-ms)))
