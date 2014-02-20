@@ -4,6 +4,8 @@
             [jsk.tree :as tree]
             [jsk.workflow :as workflow]
             [jsk.job :as job]
+            [jsk.agent :as agent]
+            [jsk.schedule :as schedule]
             [cljs.core.async :as async :refer [<!]]
             [clojure.string :as string]
             [enfocus.core :as ef])
@@ -15,6 +17,10 @@
 (def ^:private directory-icon "glyphicon glyphicon-folder-open")
 (def ^:private job-icon "glyphicon glyphicon-hdd")
 (def ^:private wf-icon "glyphicon glyphicon-tasks")
+(def ^:private schedule-icon "glyphicon glyphicon-time")
+(def ^:private alert-icon "glyphicon glyphicon-bell")
+(def ^:private agent-icon "glyphicon glyphicon-cloud")
+(def ^:private section-icon "glyphicon glyphicon-home")
 
 (defn- enable-rename-directory
   ([]
@@ -44,6 +50,15 @@
   (go
    (<! (rfn/rm-directory dir-id))))
 
+(defn- rm-alert [alert-id]
+  (util/log (str "rm-alert not implemeneted")))
+
+(defn- rm-schedule [schedule-id]
+  (util/log (str "rm-schedule not implemeneted")))
+
+(defn- rm-agent [agent-id]
+  (util/log (str "rm-agent not implemeneted")))
+
 (defn- add-job [dir-id]
   (go
    (<! (rfn/new-empty-job dir-id))))
@@ -51,6 +66,15 @@
 (defn- add-workflow [dir-id]
   (go
    (<! (rfn/new-empty-workflow dir-id))))
+
+(defn- add-alert []
+  (util/log (str "add-alert not implemeneted")))
+
+(defn- add-agent []
+  (util/log (str "add-agent not implemeneted")))
+
+(defn- add-schedule []
+  (util/log (str "add-schedule not implemeneted")))
 
 (defn- dir-context-menu [node]
   (let [clj-node (js->clj node)
@@ -75,12 +99,44 @@
   (let [wf-id (-> (get node "id") util/explorer-element-id->id)]
     {:rm-workflow {:label "Delete Workflow" :action #(rfn/rm-node wf-id)}}))
 
+(defn- alert-context-menu [node]
+  (let [alert-id (-> (get node "id") util/explorer-element-id->id)]
+    {:rm-alert {:label "Delete Alert" :action #(rm-alert alert-id)}}))
+
+(defn- schedule-context-menu [node]
+  (let [schedule-id (-> (get node "id") util/explorer-element-id->id)]
+    {:rm-schedule {:label "Delete Schedule" :action #(rm-schedule schedule-id)}}))
+
+(defn- agent-context-menu [node]
+  (let [agent-id (-> (get node "id") util/explorer-element-id->id)]
+    {:rm-agent {:label "Delete Agent" :action #(rm-agent agent-id)}}))
+
+(defn- section-context-menu [node]
+  (let [node-id (get node "id")
+        [element-type element-id] (util/explorer-element-id-dissect node-id)]
+    (condp = element-type
+      :alert {:make-alert {:label "Add Alert" :action #(add-alert)}
+              :refresh-alerts {:label "Refresh Alerts" :action #(tree/refresh-node jstree-id (util/explorer-root-section-id :alert))}}
+
+      :schedule {:make-schedule {:label "Add Schedule" :action #(add-schedule)}
+                 :refresh-schedules {:label "Refresh Schedules" :action #(tree/refresh-node jstree-id (util/explorer-root-section-id :schedule))}}
+
+      :agent {:make-agent {:label "Add Agent" :action #(add-agent)}
+              :refresh-agents {:label "Refresh Agents" :action #(tree/refresh-node jstree-id (util/explorer-root-section-id :agent))}}
+
+      :directory {:refresh-directory {:label "Refresh Executables" :action #(tree/refresh-node jstree-id (util/explorer-root-section-id :directory))}})))
+
+
 (defn- pick-context-menu-fn [type]
   ; (util/log (str "type is " type))
   (condp = type
     :directory dir-context-menu
     :job job-context-menu
-    :workflow workflow-context-menu))
+    :workflow workflow-context-menu
+    :alert alert-context-menu
+    :schedule schedule-context-menu
+    :agent agent-context-menu
+    :section section-context-menu))
 
 (defn- make-context-menu [node cb]
   (let [clj-node (js->clj node)
@@ -89,7 +145,11 @@
     ; (util/log (str "make-context-menu node is " clj-node))
     (-> clj-node ctx-menu-fn clj->js cb)))
 
-(defn init [] (tree/init make-context-menu))
+(def ^:private draggable-types #{:directory :workflow :job})
+(defn- draggable? [node]
+  (-> node tree/node-type draggable-types nil? not))
+
+(defn init [] (tree/init make-context-menu draggable?))
 
 (defn- rename-directory [dir-id new-name parent-dir-id]
   (go
@@ -111,6 +171,33 @@
 (defn- create-explorer-node [e data]
   (let [{:strs [id text parent]} (-> data .-node js->clj)]
     (util/log (str "in create-node id: " id ", text: " text ", parent: " parent))))
+
+(defn- schedule-data->jstree-format [ss]
+  (map (fn [{:keys [schedule-id schedule-name]}]
+         {:id (util/->explorer-element-id schedule-id :schedule)
+          :parent (util/explorer-root-section-id :schedule)
+          :type :schedule
+          :text schedule-name
+          :children false})
+       ss))
+
+(defn- agent-data->jstree-format [aa]
+  (map (fn [{:keys [agent-id agent-name]}]
+         {:id (util/->explorer-element-id agent-id :agent)
+          :parent (util/explorer-root-section-id :agent)
+          :type :agent
+          :text agent-name
+          :children false})
+       aa))
+
+(defn- alert-data->jstree-format [aa]
+  (map (fn [{:keys [alert-id alert-name]}]
+         {:id (util/->explorer-element-id alert-id :alert)
+          :parent (util/explorer-root-section-id :alert)
+          :type :alert
+          :text alert-name
+          :children false})
+       aa))
 
 (defn- directory-data->jstree-format [nn parent-id]
   (map (fn [{:keys [element-type element-id element-name num-children]}]
@@ -146,7 +233,7 @@
 (defn when-node-activated [event sel-node]
   (util/log "when-node-activated called")
   (let [node (-> sel-node .-node)
-        node-type (-> node .-type keyword)
+        node-type (tree/node-type node)
         element-id (-> node .-id util/explorer-element-id->id)]
 
     ;(util/log (str "node-type: " node-type ", element-id: " element-id))
@@ -154,7 +241,10 @@
     (condp = node-type
       :directory nil
       :job (job/show-job-details element-id)
-      :workflow (workflow/show-workflow-node-details element-id))))
+      :workflow (workflow/show-workflow-node-details element-id)
+      :agent (agent/show-agent-details element-id)
+      :schedule (schedule/show-schedule-details element-id)
+      :section nil)))
 
 
 (defn when-node-moved [e data]
@@ -168,21 +258,73 @@
       (go
         (<! (rfn/change-directory {:element-id element-id :element-type element-type :new-parent-directory-id new-directory-id}))))))
 
+
+(def ^:private tree-sections
+    [{:id (util/explorer-root-section-id :directory)
+      :parent "#"
+      :text "Executables"
+      :type :section
+      :children true}
+     {:id (util/explorer-root-section-id :schedule)
+      :parent "#"
+      :text "Schedule"
+      :type :section
+      :children true}
+     {:id (util/explorer-root-section-id :alert)
+      :parent "#"
+      :text "Alerts"
+      :type :section
+      :children true}
+     {:id (util/explorer-root-section-id :agent)
+      :parent "#"
+      :text "Agents"
+      :type :section
+      :children true}])
+
 (defn- ls-elements
   [node cb]
-  ;(util/log (str "node is: " (js->clj node)))
-  (go
-   (let [id-str (-> node .-id)
-         id (util/explorer-element-id->id id-str)
-         clj-children (<! (rfn/fetch-explorer-directory id))
-         jstree-children (directory-data->jstree-format clj-children id)
-         children (clj->js jstree-children)]
-     (.call cb (js* "this") children))))
+  (util/log (str "node is: " (js->clj node)))
+  (let [id-str (-> node .-id)
+        tree-node-type (-> node .-type)
+        [element-type element-id] (util/explorer-element-id-dissect id-str)]
+
+    ;; initial tree loading - fetch all alerts, agents and schedule data
+    (when (= :root element-type) 
+      (.call cb (js* "this") (clj->js tree-sections)))
+
+    (go
+      (when (= :directory element-type)
+        (let [dir-id (if (zero? element-id) -1 element-id)
+              clj-children (<! (rfn/fetch-explorer-directory dir-id))
+              jstree-children (directory-data->jstree-format clj-children element-id)
+              children (clj->js jstree-children)]
+          (.call cb (js* "this") children)))
+
+      (when (= :schedule element-type)
+        (let [data (<! (rfn/fetch-all-schedules))
+              js-data (-> data schedule-data->jstree-format clj->js)]
+          (.call cb (js* "this") js-data)))
+
+      (when (= :agent element-type)
+        (let [data (<! (rfn/fetch-all-agents))
+              js-data (-> data agent-data->jstree-format clj->js)]
+          (.call cb (js* "this") js-data)))
+
+      (when (= :alert element-type)
+        (let [data (<! (rfn/fetch-all-alerts))
+              js-data (-> data agent-data->jstree-format clj->js)]
+          (.call cb (js* "this") js-data)))
+
+      ))) 
 
 (def ^:private init-data {:core {:data ls-elements :check_callback true}
                                  :types {:directory {:icon directory-icon}
                                          :job {:icon job-icon}
-                                         :workflow {:icon wf-icon}}
+                                         :workflow {:icon wf-icon}
+                                         :schedule {:icon schedule-icon}
+                                         :alert {:icon alert-icon}
+                                         :agent {:icon agent-icon}
+                                         :section {:icon section-icon}}
                                  :plugins [:contextmenu :dnd :types :sort :unique]})
 
 (defn show []

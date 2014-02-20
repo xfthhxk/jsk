@@ -12,6 +12,7 @@
             [jsk.common.workflow :as wf]
             [jsk.console.search :as search]
             [jsk.console.explorer :as explorer]
+            [jsk.common.alert :as alert]
             [jsk.common.schedule :as schedule]))
 
 
@@ -101,6 +102,22 @@
 
   (POST "/schedules/assoc" [_ :as request]
         (-> (:edn-params request) (schedule/assoc-schedules! (uid request)) edn-response)))
+
+;-----------------------------------------------------------------------
+; Routes realted to alerts
+;-----------------------------------------------------------------------
+(defroutes alert-routes
+  (GET "/alerts" []
+       (edn-response (alert/ls-alerts)))
+
+  (GET "/alerts/:id" [id]
+       (-> id util/str->int alert/get-alert edn-response))
+
+  (POST "/alerts/save" [_ :as request]
+       (-> (:params request) (alert/save-alert! (uid request)) edn-response))
+
+  (POST "/alerts/assoc" [_ :as request]
+        (-> (:edn-params request) (alert/assoc-alerts! (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to agents
@@ -213,6 +230,7 @@
 ;-----------------------------------------------------------------------
 (def all-routes (cc/routes agent-routes
                            schedule-routes
+                           alert-routes
                            node-routes
                            job-routes
                            workflow-routes

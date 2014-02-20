@@ -9,8 +9,9 @@
 (defn- register-event-handler [tree-id event-name handler]
   (-> tree-id $ (.on event-name handler)))
 
-(defn init [context-menu-fn]
-  (set! (-> js/window .-$ .-jstree .-defaults .-contextmenu .-items) context-menu-fn))
+(defn init [context-menu-fn is-draggable-fn]
+  (set! (-> js/window .-$ .-jstree .-defaults .-contextmenu .-items) context-menu-fn)
+  (set! (-> js/window .-$ .-jstree .-defaults .-dnd .-is_draggable) is-draggable-fn))
 
 (defn init-tree [tree-id init-data]
   (-> tree-id $ (.jstree (clj->js init-data))))
@@ -65,3 +66,6 @@
 
 (defn refresh-node [tree-id node-id]
   (-> tree-id instance-for-id (.load_node node-id)))
+
+(defn node-type [node]
+  (-> node .-type keyword))

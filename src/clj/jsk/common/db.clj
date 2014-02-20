@@ -63,7 +63,15 @@
 
 (defentity node-schedule
   (pk :node-schedule-id)
-  (entity-fields :node-schedule-id :job-id :schedule-id))
+  (entity-fields :node-schedule-id :node-id :schedule-id))
+
+(defentity alert
+  (pk :alert-id)
+  (entity-fields :alert-id :alert-name :alert-desc :subject :body))
+
+(defentity node-alert
+  (pk :node-alert-id)
+  (entity-fields :node-alert-id :node-id :alert-id))
 
 (def base-job-query
   (-> (select* job)
@@ -262,6 +270,136 @@
                where ns.schedule_id = ?"
              [schedule-id]]
             :results))
+
+
+;-----------------------------------------------------------------------
+; Alert fns
+;-----------------------------------------------------------------------
+(defn insert-alert! [m user-id]
+  (let [merged-map (merge (dissoc m :alert-id) {:creator-id user-id :updater-id user-id})]
+    (log/info "Creating new alert: " merged-map)
+    (-> (insert alert (values merged-map))
+         extract-identity)))
+
+
+;-----------------------------------------------------------------------
+; Update an existing alert
+; Answers with the alert-id if update is successful.
+;-----------------------------------------------------------------------
+(defn update-alert! [{:keys [alert-id] :as m} user-id]
+  (let [merged-map (merge m {:updater-id user-id :update-ts (util/now)})]
+    (log/info "Updating alert: " m)
+    (update alert (set-fields (dissoc m :alert-id))
+      (where {:alert-id alert-id})))
+  alert-id)
+
+(defn ls-alerts
+  []
+  "Lists all alerts"
+  (select alert))
+
+(defn get-alert
+  "Gets a alert for the id specified"
+  [id]
+  (first (select alert
+          (where {:alert-id id}))))
+
+(defn get-alerts [ids]
+  (select alert
+    (where {:alert-id [in ids]})))
+
+(defn get-alert-by-name
+  "Gets a alert by name if one exists otherwise returns nil"
+  [nm]
+  (first (select alert (where {:alert-name nm}))))
+
+(defn ls-node-alerts []
+  (select node-alert))
+
+(defn nodes-for-alert
+  "Lookup nodes tied to a alert"
+  [alert-id]
+  (exec-raw ["select
+                     ns.node_alert_id
+                   , ns.node_id
+                   , n.node_type_id
+                   , s.cron_expression
+                from
+                     node_alert ns
+                join alert     s
+                  on ns.alert_id = s.alert_id
+                join node n
+                  on ns.node_id = n.node_id
+               where ns.alert_id = ?"
+             [alert-id]]
+            :results))
+
+
+;-----------------------------------------------------------------------
+; Alert ids associated with the specified node id.
+;-----------------------------------------------------------------------
+(defn alerts-for-node [node-id]
+  (select node-alert (where {:node-id node-id})))
+
+(defn alert-ids-for-node [node-id]
+  (->> node-id
+       alerts-for-node
+       (map :alert-id)
+       set))
+
+;-----------------------------------------------------------------------
+; Job alert ids associated with the specified node id.
+;-----------------------------------------------------------------------
+
+(defn node-alerts-for-node [node-id]
+  (select node-alert (where {:node-id node-id})))
+
+(defn node-alert-ids-for-node [node-id]
+  (->> node-id
+       node-alerts-for-node
+       (map :node-alert-id)
+       set))
+
+
+;-----------------------------------------------------------------------
+; Deletes from node-alert all rows matching node-alert-ids
+; Also removes from quartz all jobs matching the node-alert-id
+; ie the triggers IDd by node-alertr-id
+;-----------------------------------------------------------------------
+(defn rm-node-alerts! [node-alert-ids]
+  (delete node-alert (where {:node-alert-id [in node-alert-ids]})))
+
+;-----------------------------------------------------------------------
+; Deletes from node-alert all rows matching node-id
+;-----------------------------------------------------------------------
+(defn rm-alerts-for-node! [node-id]
+  (-> node-id node-alerts-for-node rm-node-alerts!))
+
+(defn get-node-alert-info [node-id]
+  (exec-raw ["select   ns.node_alert_id
+                     , s.*
+                from   node_alert ns
+                join   alert s
+                  on   ns.alert_id = s.alert_id
+               where   node_id = ?" [node-id]] :results))
+
+
+
+;-----------------------------------------------------------------------
+; Associates a job to a set of alert-ids.
+; alert-ids is a set of integer ids
+;-----------------------------------------------------------------------
+(defn assoc-alerts!
+  ([{:keys [node-id alert-ids]} user-id]
+    (assoc-alerts! node-id alert-ids user-id))
+
+  ([node-id alert-ids user-id]
+    (let [alert-id-set (set alert-ids)
+          data {:node-id node-id :creator-id user-id}
+          insert-maps (map #(assoc %1 :alert-id %2) (repeat data) alert-id-set)]
+      (if (not (empty? insert-maps))
+        (insert node-alert (values insert-maps))))))
+
 
 
 
@@ -1273,3 +1411,5 @@ union all
   [dir-id]
   (let [q (string/replace explorer-sql #"<dir-id>" (str dir-id))]
     (exec-raw [q []] :results)))
+
+

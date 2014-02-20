@@ -189,6 +189,13 @@
     (let [[_ elem-type id-str] (string/split elem-id #"-")] 
       [(keyword elem-type) (str->int id-str)])))
 
+(defn explorer-root-section-id [element-type]
+  (->explorer-element-id 0 element-type))
+
+(defn explorer-root-section? [element-id-str]
+  (let [[element-type element-id] (explorer-element-id-dissect)]
+    (zero? element-id)))
+
 (def synthetic-workflow-id 1)
 
 (def job-type-id 1)

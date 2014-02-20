@@ -5,6 +5,8 @@ drop table if exists execution;
 drop table if exists execution_status;
 drop table if exists node_schedule;
 drop table if exists schedule;
+drop table if exists node_alert;
+drop table if exists alert;
 drop table if exists job_var;
 drop table if exists job;
 drop table if exists workflow_edge;
@@ -115,6 +117,34 @@ alter table job_var add constraint fk_job_var_job_id foreign key (job_id) refere
 
 
 
+/* ---------------------------- Alert ----------------------------------- */
+create table alert( alert_id        int            auto_increment primary key
+                  , alert_name      varchar(50)    not null
+                  , alert_desc      varchar(100)   not null
+                  , subject         varchar(100)   not null
+                  , body            varchar(255)   not null
+                  , create_ts       timestamp      not null default current_timestamp()
+                  , creator_id      int            not null
+                  , update_ts       timestamp      not null default current_timestamp()
+                  , updater_id      int            not null);
+
+alter table alert add constraint unq_alert_alert_name unique(alert_name);
+alter table alert add constraint fk_alert_creator_id foreign key (creator_id) references app_user(app_user_id);
+alter table alert add constraint fk_alert_updater_id foreign key (updater_id) references app_user(app_user_id);
+
+/* ---------------------------- Node Alert ----------------------------------- */
+/* Doesn't make sense to have update info here since you either create or delete */
+create table node_alert( node_alert_id  int       auto_increment primary key
+                       , node_id        int       not null
+                       , alert_id       int       not null
+                       , create_ts      timestamp not null default current_timestamp()
+                       , creator_id     int       not null);
+
+alter table node_alert add constraint fk_node_alert_node_id foreign key (node_id) references node(node_id);
+alter table node_alert add constraint fk_node_alert_alert_id foreign key (alert_id) references alert(alert_id);
+alter table node_alert add constraint fk_node_alert_creator_id foreign key (creator_id) references app_user(app_user_id);
+alter table node_alert add constraint unq_node_alert_node_id_alert_id unique(node_id, alert_id);
+
 
 /* ---------------------------- Schedule ----------------------------------- */
 create table schedule( schedule_id     int            auto_increment primary key
@@ -142,7 +172,7 @@ create table node_schedule ( node_schedule_id int         auto_increment primary
 alter table node_schedule add constraint fk_node_schedule_node_id foreign key (node_id) references node(node_id);
 alter table node_schedule add constraint fk_node_schedule_schedule_id foreign key (schedule_id) references schedule(schedule_id);
 alter table node_schedule add constraint fk_node_schedule_creator_id foreign key (creator_id) references app_user(app_user_id);
-alter table node_schedule add constraint unq_node_schedule_job_id_schedule_id unique(node_id, schedule_id);
+alter table node_schedule add constraint unq_node_schedule_node_id_schedule_id unique(node_id, schedule_id);
 
 
 /* ---------------------------- Workflow ----------------------------------- */

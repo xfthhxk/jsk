@@ -1,0 +1,58 @@
+<html>
+  <head></head>
+  <body>
+    <div id="alert-form-div">
+        <form id="alert-save-form" role="form" class="form-horizontal">
+          <fieldset>
+            <legend>Alert Definition</legend>
+
+            <input type="hidden" name="alert-id" id="alert-id" value=""/>
+
+            <div class="form-group">
+              <label for="alert-id-lbl" class="col-lg-2 control-label">ID</label>
+              <div class="col-lg-10">
+                <label id="alert-id-lbl" class="col-lg-2 control-label">34</label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="alert-name" class="col-lg-2 control-label">Name</label>
+              <div class="col-lg-10">
+                <input type="text" class="form-control" name="alert-name" id="alert-name"/>
+              </div>
+            </div>
+
+
+            <div class="form-group">
+              <label for="alert-desc" class="col-lg-2 control-label">Description</label>
+              <div class="col-lg-10">
+                <textarea class="form-control" rows="2" name="alert-desc" id="alert-desc"/>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="subject" class="col-lg-2 control-label">Subject</label>
+              <div class="col-lg-10">
+                <input type="text" class="form-control" name="subject" id="subject"/>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="body" class="col-lg-2 control-label">Description</label>
+              <div class="col-lg-10">
+                <textarea class="form-control" rows="2" name="body" id="body"/>
+              </div>
+            </div>
+
+          </fieldset>
+        </form>
+
+        <div class="form-group">
+          <div class="col-lg-offset-2 col-lg-10">
+            <button type="button" class="btn btn-default" name="save-btn" id="save-btn">Save</button>
+          </div>
+        </div>
+    </div> <!-- alert-form-div -->
+
+  </body>
+</html>

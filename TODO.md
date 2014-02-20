@@ -28,10 +28,15 @@ then do broadcast pings every few secs
 
 Top Priority
 -------------
-Top level workflow dashboard.
+* kill is-visible-in-dashboard, just put everything that's got a
+  schedule associated.
+* email alerts, tie to job, send on failure/success
+* freeze workflow on failure by default — for top level workflows only 
+* Top level workflow dashboard.
   Shows top level workflows, last execution time, last execution
   status.  Updates from server need to check if the execution id's
   root wf is the top level workflow and update accordingly.
+  
 
 
 

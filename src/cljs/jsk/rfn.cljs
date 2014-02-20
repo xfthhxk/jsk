@@ -19,6 +19,9 @@
 (defn fetch-schedule-associations [node-id]
   (rpc/GET (str "/nodes/schedules/" node-id)))
 
+(defn fetch-alert-associations [node-id]
+  (rpc/GET (str "/nodes/alerts/" node-id)))
+
 
 ;----------------------------------------------------------------------
 ; Job functions
@@ -54,6 +57,21 @@
 
 (defn save-schedule-associations [data]
   (rpc/POST "/schedules/assoc" data))
+
+;----------------------------------------------------------------------
+; Alert functions
+;----------------------------------------------------------------------
+(defn fetch-all-alerts []
+  (rpc/GET "/alerts"))
+
+(defn fetch-alert-details [alert-id]
+  (rpc/GET (str "/alerts/" alert-id)))
+
+(defn save-alert [data]
+  (rpc/POST "/alerts/save" data))
+
+(defn save-alert-associations [data]
+  (rpc/POST "/alerts/assoc" data))
 
 ;----------------------------------------------------------------------
 ; Workflow functions
