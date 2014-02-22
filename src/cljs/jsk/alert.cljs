@@ -1,6 +1,6 @@
 (ns jsk.alert
   (:require [jsk.rfn :as rfn]
-            [jsk.util :as ju]
+            [jsk.util :as util]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
             [enfocus.effects :as effects]
@@ -9,6 +9,7 @@
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
+
 ;; ; FIXME: show/hide element repeated in multiple places
 ;; (defn- show-element [sel]
 ;;   (-> sel $ .show))
@@ -16,71 +17,34 @@
 ;; (defn- hide-element [sel]
 ;;   (-> sel $ .hide))
 
-;; (declare save-alert alert-row-clicked)
-
-
-;; ;-----------------------------------------------------------------------
-;; ; List all alerts
-;; ;-----------------------------------------------------------------------
-;; (em/deftemplate list-alerts :compiled "public/templates/alerts.html" [ss]
-;;   ; template has 2 sample rows, so delete all but the first
-;;   ; and then apply the clone on the first child
-;;   "tbody > :not(tr:first-child)" (ef/remove-node)
-;;   "tbody > tr" (em/clone-for [s ss]
-;;                  "td.alert-id" #(ef/at (ju/parent-node %1)
-;;                                           (ef/do->
-;;                                             (ef/set-attr :data-alert-id (str (:alert-id s)))
-;;                                             (events/listen :click alert-row-clicked)))
-;;                  "td.alert-id" (ef/content (str (:alert-id s)))
-;;                  "td.alert-name" (ef/content (:alert-name s))
-;;                  "td.alert-desc" (ef/content (:alert-desc s))
-;;                  "td.cron-expr" (ef/content (:cron-expression s))
-;;                  "td.create-ts" (ef/content (str (:create-ts s)))))
-
-;; ;-----------------------------------------------------------------------
-;; ; Edit Alert
-;; ;-----------------------------------------------------------------------
-;; (em/deftemplate edit-alert :compiled "public/templates/edit-alert.html" [s]
-;;   "#alert-id"     (ef/set-attr :value (str (:alert-id s)))
-;;   "#alert-id-lbl" (ef/content (str (:alert-id s)))
-;;   "#alert-name"   (ef/set-attr :value (:alert-name s))
-;;   "#alert-desc"   (ef/content (:alert-desc s))
-;;   "#cron-expression" (ef/set-attr :value (:cron-expression s))
-;;   "#save-btn"        (events/listen :click save-alert))
+(defn- save-alert [e]
+  (go
+    (let [form (ef/from "#alert-save-form" (ef/read-form))
+          data (util/update-str->int form :alert-id)
+          {:keys [success? alert-id errors] :as save-result} (<! (rfn/save-alert data))]
+      (util/log (str "Result: " save-result))
+      (when (seq errors)
+        (util/display-errors (-> errors vals flatten))))))
 
 
 
-
-;; (defn show-alerts []
-;;   (go
-;;    (let [ss (<! (rfn/fetch-all-alerts))]
-;;      (ju/showcase (list-alerts ss)))))
-
-;; (defn- save-alert [e]
-;;   (go
-;;     (let [form (ef/from "#alert-save-form" (ef/read-form))
-;;           data (ju/update-str->int form :alert-id)
-;;           {:keys [success? alert-id errors] :as save-result} (<! (rfn/save-alert data))]
-;;       (ju/log (str "Result: " save-result))
-;;       (if success?
-;;         (show-alerts)
-;;         (when errors
-;;           (ju/display-errors (-> errors vals flatten))
-;;           (edit-alert form))))))
-
-;; (defn- show-alert-edit [s]
-;;   (ju/showcase (edit-alert s)))
+;-----------------------------------------------------------------------
+; Edit Alert
+;-----------------------------------------------------------------------
+(em/deftemplate edit-alert :compiled "public/templates/alerts.html" [{:keys [alert-id alert-name alert-desc subject body]}]
+  "#alert-id"     (ef/set-attr :value (str alert-id))
+  "#alert-id-lbl" (ef/content (str alert-id ))
+  "#alert-name"   (ef/set-attr :value alert-name)
+  "#alert-desc"   (ef/content alert-desc)
+  "#subject"      (ef/set-attr :value subject)
+  "#body"         (ef/content body)
+  "#save-btn"     (events/listen :click save-alert))
 
 
-;; (defn- alert-row-clicked [e]
-;;   (go
-;;     (let [id (ef/from (ju/event-source e) (ef/get-attr :data-alert-id))
-;;           sched (<! (rfn/fetch-alert-details id))]
-;;       (show-alert-edit sched))))
-
-;; (defn show-add-alert []
-;;   (show-alert-edit {:alert-id -1}))
-
+(defn show-alert-details [alert-id]
+  (go
+   (let [alert-data (<! (rfn/fetch-alert-details alert-id))]
+     (util/show-explorer-node (edit-alert alert-data)))))
 
 
 ;; ;-----------------------------------------------------------------------

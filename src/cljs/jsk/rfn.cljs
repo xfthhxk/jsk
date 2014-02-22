@@ -58,6 +58,9 @@
 (defn save-schedule-associations [data]
   (rpc/POST "/schedules/assoc" data))
 
+(defn rm-schedule [id]
+  (rpc/DELETE (str "/schedules/" id)))
+
 ;----------------------------------------------------------------------
 ; Alert functions
 ;----------------------------------------------------------------------
@@ -72,6 +75,9 @@
 
 (defn save-alert-associations [data]
   (rpc/POST "/alerts/assoc" data))
+
+(defn rm-alert [id]
+  (rpc/DELETE (str "/alerts/" id)))
 
 ;----------------------------------------------------------------------
 ; Workflow functions
@@ -128,6 +134,9 @@
 (defn save-agent [data]
   (rpc/POST "/agents/save" data))
 
+(defn rm-agent [id]
+  (rpc/DELETE (str "/agents/" id)))
+
 
 
 
@@ -154,6 +163,15 @@
 
 (defn new-empty-job [dir-id]
   (rpc/POST (str "/explorer/directory/" dir-id "/new-empty-job") ""))
+
+(defn new-empty-schedule []
+  (rpc/POST (str "/explorer/new-empty-schedule") ""))
+
+(defn new-empty-alert []
+  (rpc/POST (str "/explorer/new-empty-alert") ""))
+
+(defn new-empty-agent []
+  (rpc/POST (str "/explorer/new-empty-agent") ""))
 
 (defn change-directory [data]
   (rpc/PUT "/explorer/directory-change" data))

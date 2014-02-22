@@ -5,6 +5,8 @@
             [jsk.common.data :as data]
             [jsk.common.job :as job]
             [jsk.common.agent :as agent]
+            [jsk.common.alert :as alert]
+            [jsk.common.schedule :as schedule]
             [jsk.common.workflow :as workflow]
             [clojure.string :as string]
             [clojure.core.async :refer [put!]]
@@ -51,6 +53,21 @@
    of the specified directory-id."
   [dir-id user-id]
   (workflow/new-empty-workflow! dir-id user-id))
+
+(defn new-empty-schedule!
+  "Makes a new empty schedule"
+  [user-id]
+  (schedule/new-empty-schedule! user-id))
+
+(defn new-empty-agent!
+  "Makes a new empty agent"
+  [user-id]
+  (agent/new-empty-agent! user-id))
+
+(defn new-empty-alert!
+  "Makes a new empty alert"
+  [user-id]
+  (alert/new-empty-alert! user-id))
 
 (defn rm-node!
   "Removes any relationships to the node and deletes the node."

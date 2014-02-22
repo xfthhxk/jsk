@@ -45,11 +45,7 @@
   "#jsk-home-action"         (events/listen :click #(ju/display-dashboard))
   "#explorer-action"         (events/listen :click #(explorer/show))
   "#show-dashboard-action"   (events/listen :click #(ju/display-dashboard))
-  "#execution-search-action" (events/listen :click #(search/show-execution-search))
-  "#agent-list-action"       (events/listen :click #(agent/show-agents))
-  "#agent-add-action"        (events/listen :click #(agent/show-add-agent))
-  "#schedule-list-action"    (events/listen :click #(s/show-schedules))
-  "#schedule-add-action"     (events/listen :click #(s/show-add-schedule)))
+  "#execution-search-action" (events/listen :click #(search/show-execution-search)))
 
 (defn ws-connect []
   (let [{:keys [in out]} (rpc/ws-connect! (str "ws://" ju/host "/events"))]

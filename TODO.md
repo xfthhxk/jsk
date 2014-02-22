@@ -30,7 +30,10 @@ Top Priority
 -------------
 * kill is-visible-in-dashboard, just put everything that's got a
   schedule associated.
-* email alerts, tie to job, send on failure/success
+* alerts need to be associated with which accounts should get them
+  (hack would be to just put csv email addresses for example)
+* associate alerts to nodes
+* conductor needs to send alerts on job/wf failure/success
 * freeze workflow on failure by default — for top level workflows only 
 * Top level workflow dashboard.
   Shows top level workflows, last execution time, last execution

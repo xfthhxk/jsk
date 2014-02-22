@@ -3,16 +3,19 @@
             [bouncer [core :as b] [validators :as v]]
             [jsk.common.db :as db]
             [korma.db :as k]
+            [clojure.string :as string]
             [jsk.common.util :as util]
             [clojure.core.async :refer [put!]])
   (:use [bouncer.validators :only [defvalidator]]))
 
-(def ^:private out-chan (atom nil))
+(defonce ^:private out-chan (atom nil))
+(defonce ^:private ui-chan (atom nil))
 
 (defn init
   "Sets the channel to use when updates are made to alerts or associations."
-  [ch]
-  (reset! out-chan ch))
+  [ch ui-ch]
+  (reset! out-chan ch)
+  (reset! ui-chan ui-ch)) 
 
 
 ;-----------------------------------------------------------------------
@@ -48,35 +51,55 @@
 ; Validates if the s-name can be used
 ;-----------------------------------------------------------------------
 (defn unique-name?  [id sname]
-  (if-let [s (db/get-alert-by-name sname)]
-    (= id (:alert-id s))
+  (if-let [a (db/get-alert-by-name sname)]
+    (= id (:alert-id a))
     true))
 
 ; NB the first is used to see if bouncer generated any errors
 ; bouncer returns a vector where the first item is a map of errors
-(defn validate-save [{:keys [alert-id] :as s}]
-  (-> s
+(defn validate-save [{:keys [alert-id] :as a}]
+  (-> a
     (b/validate
        :alert-name [v/required [(partial unique-name? alert-id) :message "Alert name must be unique."]])
     first))
 
 
 
-(defn- save-alert* [{:keys [alert-id] :as s} user-id]
+(defn- save-alert* [{:keys [alert-id] :as a} user-id]
   (if (db/id? alert-id)
-      (db/update-alert! s user-id)
-      (db/insert-alert! s user-id)))
+      (db/update-alert! a user-id)
+      (db/insert-alert! a user-id)))
 
 ;-----------------------------------------------------------------------
 ; Saves the alert either inserting or updating depending on the
 ; alert-id. If it is negative insert otherwise update.
 ;-----------------------------------------------------------------------
-(defn save-alert! [s user-id]
-  (if-let [errors (validate-save s)]
+(defn save-alert! [{:keys [alert-name] :as a} user-id]
+  (if-let [errors (validate-save a)]
     (util/make-error-response errors)
-    (let [s-id (save-alert* s user-id)]
-      (put! @out-chan {:msg :alert-save :alert-id s-id}) ; this will be published to conductor
-      {:success? true :alert-id s-id})))
+    (let [a-id (save-alert* a user-id)]
+      (put! @out-chan {:msg :alert-save :alert-id a-id}) ; this will be published to conductor
+      (put! @ui-chan {:crud-event :alert-save :alert-id a-id :alert-name alert-name}) ; this will be published to conductor
+      {:success? true :alert-id a-id})))
+
+
+(defn new-empty-alert! [user-id]
+  (save-alert! {:alert-id -1
+                :alert-name (str "Alert " (util/now-ms))
+                :alert-desc ""
+                :subject ""
+                :body ""}
+               user-id))
+
+(defn rm-alert! [alert-id user-id]
+  (let [references (db/nodes-referencing-alert alert-id)
+        ref-csv (string/join ", " references)]
+    (if (seq references)
+      (util/make-error-response [(str "Unable to delete. Referenced in the following: " ref-csv)])
+      (do
+        (db/rm-alert! alert-id)
+        (put! @ui-chan {:crud-event :alert-rm :alert-id alert-id})
+        {:success? true :errors ""}))))
 
 
 ;-----------------------------------------------------------------------

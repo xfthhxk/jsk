@@ -2,16 +2,19 @@
   (:require [taoensso.timbre :as log]
             [bouncer [core :as b] [validators :as v]]
             [jsk.common.db :as db]
+            [clojure.string :as string]
             [jsk.common.util :as util]
             [clojure.core.async :refer [put!]])
   (:use [bouncer.validators :only [defvalidator]]))
 
 (def ^:private out-chan (atom nil))
+(def ^:private ui-chan (atom nil))
 
 (defn init
   "Sets the channel to use for publishing updates."
-  [ch]
-  (reset! out-chan ch))
+  [ch ui-ch]
+  (reset! out-chan ch)
+  (reset! ui-chan ui-ch))
 
 
 ;-----------------------------------------------------------------------
@@ -70,9 +73,26 @@
 ; Saves the agent either inserting or updating depending on the
 ; agent-id. If it is negative insert otherwise update.
 ;-----------------------------------------------------------------------
-(defn save-agent! [a user-id]
+(defn save-agent! [{:keys [agent-name] :as a} user-id]
   (if-let [errors (validate-save a)]
     (util/make-error-response errors)
-    (let [s-id (save-agent* a user-id)]
-      ;(put! @out-chan {:msg :agent-save :agent-id s-id}) ; this will be published to conductor
-      {:success? true :agent-id s-id})))
+    (let [a-id (save-agent* a user-id)]
+      (put! @out-chan {:msg :agent-save :agent-id a-id}) ; this will be published to conductor
+      (put! @ui-chan {:crud-event :agent-save :agent-id a-id :agent-name agent-name}) ; this will be published to UIs
+      {:success? true :agent-id a-id})))
+
+
+(defn new-empty-agent! [user-id]
+  (save-agent! {:agent-id -1
+                :agent-name (str "Agent " (util/now-ms))}
+               user-id))
+
+(defn rm-agent! [agent-id user-id]
+  (let [references (db/jobs-referencing-agent agent-id)
+        ref-csv (string/join ", " references)]
+    (if (seq references)
+      (util/make-error-response [(str "Unable to delete. Referenced in the following: " ref-csv)])
+      (do
+        (db/rm-agent! agent-id)
+        (put! @ui-chan {:crud-event :agent-rm :agent-id agent-id})
+        {:success? true :errors ""}))))

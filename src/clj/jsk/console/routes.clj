@@ -100,6 +100,9 @@
   (POST "/schedules/save" [_ :as request]
        (-> (:params request) (schedule/save-schedule! (uid request)) edn-response))
 
+  (DELETE "/schedules/:id" [id :as request]
+       (-> id util/str->int (schedule/rm-schedule! (uid request)) edn-response))
+
   (POST "/schedules/assoc" [_ :as request]
         (-> (:edn-params request) (schedule/assoc-schedules! (uid request)) edn-response)))
 
@@ -116,6 +119,9 @@
   (POST "/alerts/save" [_ :as request]
        (-> (:params request) (alert/save-alert! (uid request)) edn-response))
 
+  (DELETE "/alerts/:id" [id :as request]
+       (-> id util/str->int (alert/rm-alert! (uid request)) edn-response))
+
   (POST "/alerts/assoc" [_ :as request]
         (-> (:edn-params request) (alert/assoc-alerts! (uid request)) edn-response)))
 
@@ -130,7 +136,10 @@
        (-> id util/str->int agent/get-agent edn-response))
 
   (POST "/agents/save" [_ :as request]
-       (-> (:params request) (agent/save-agent! (uid request)) edn-response)))
+        (-> (:params request) (agent/save-agent! (uid request)) edn-response))
+
+  (DELETE "/agents/:id" [id :as request]
+       (-> id util/str->int (agent/rm-agent! (uid request)) edn-response)))
 
 
 ;-----------------------------------------------------------------------
@@ -217,6 +226,15 @@
 
   (POST "/explorer/directory/:dir-id/new-empty-workflow" [dir-id :as request]
         (edn-response (explorer/new-empty-workflow! (util/str->int dir-id) (uid request))))
+
+  (POST "/explorer/new-empty-schedule" [_ :as request]
+        (edn-response (explorer/new-empty-schedule! (uid request))))
+
+  (POST "/explorer/new-empty-agent" [_ :as request]
+        (edn-response (explorer/new-empty-agent! (uid request))))
+
+  (POST "/explorer/new-empty-alert" [_ :as request]
+        (edn-response (explorer/new-empty-alert! (uid request))))
 
   (PUT "/explorer/directory-change" [_ :as request]
        (-> request :params (explorer/change-parent-directory (uid request)) edn-response))

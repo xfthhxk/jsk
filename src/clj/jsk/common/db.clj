@@ -226,6 +226,8 @@
       (where {:schedule-id schedule-id})))
   schedule-id)
 
+(defn rm-schedule! [schedule-id]
+  (delete schedule (where {:schedule-id schedule-id})))
 
 ;-----------------------------------------------------------------------
 ; Schedule lookups
@@ -292,6 +294,9 @@
     (update alert (set-fields (dissoc m :alert-id))
       (where {:alert-id alert-id})))
   alert-id)
+
+(defn rm-alert! [alert-id]
+  (delete alert (where {:alert-id alert-id})))
 
 (defn ls-alerts
   []
@@ -1220,6 +1225,9 @@ select w.workflow_id
       (where {:agent-id agent-id})))
   agent-id)
 
+(defn rm-agent! [agent-id]
+  (delete agent (where {:agent-id agent-id})))
+
 (defn ls-agents
   []
   "Lists all agents"
@@ -1413,3 +1421,44 @@ union all
     (exec-raw [q []] :results)))
 
 
+(def ^:private node-ref-alert-sql "
+select n.node_name
+  from node_alert na
+  join node       n
+    on na.node_id = n.node_id
+ where na.alert_id = <id>
+")
+
+(defn nodes-referencing-alert
+  "Answers with a list of node names referencing alert-id."
+  [alert-id]
+  (let [q (string/replace node-ref-alert-sql #"<id>" (str alert-id))]
+    (exec-raw [q []] :results)))
+
+(def ^:private node-ref-schedule-sql "
+select n.node_name
+  from node_schedule ns
+  join node       n
+    on ns.node_id = n.node_id
+ where ns.schedule_id = <id>
+")
+
+(defn nodes-referencing-schedule
+  "Answers with a list of node names referencing schedule-id."
+  [schedule-id]
+  (let [q (string/replace node-ref-schedule-sql #"<id>" (str schedule-id))]
+    (exec-raw [q []] :results)))
+
+(def ^:private job-ref-agent-sql "
+select n.node_name
+  from job  j
+  join node n
+    on j.job_id = n.node_id
+ where j.agent_id = <id>
+")
+
+(defn jobs-referencing-agent
+  "Answers with a list of job names referencing agent-id."
+  [agent-id]
+  (let [q (string/replace job-ref-agent-sql #"<id>" (str agent-id))]
+    (exec-raw [q []] :results)))

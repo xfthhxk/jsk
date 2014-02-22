@@ -5,6 +5,7 @@
             [jsk.workflow :as workflow]
             [jsk.job :as job]
             [jsk.agent :as agent]
+            [jsk.alert :as alert]
             [jsk.schedule :as schedule]
             [cljs.core.async :as async :refer [<!]]
             [clojure.string :as string]
@@ -50,14 +51,22 @@
   (go
    (<! (rfn/rm-directory dir-id))))
 
+
+
+(defn- rm-element [rm-fn element-id]
+  (go
+   (let [{:keys [success? errors]} (<! (rm-fn element-id))]
+     (when-not success?
+       (util/display-errors errors)))))
+
 (defn- rm-alert [alert-id]
-  (util/log (str "rm-alert not implemeneted")))
+  (rm-element rfn/rm-alert alert-id))
 
 (defn- rm-schedule [schedule-id]
-  (util/log (str "rm-schedule not implemeneted")))
-
+  (rm-element rfn/rm-schedule schedule-id))
+  
 (defn- rm-agent [agent-id]
-  (util/log (str "rm-agent not implemeneted")))
+  (rm-element rfn/rm-agent agent-id))
 
 (defn- add-job [dir-id]
   (go
@@ -68,13 +77,16 @@
    (<! (rfn/new-empty-workflow dir-id))))
 
 (defn- add-alert []
-  (util/log (str "add-alert not implemeneted")))
+  (go
+   (<! (rfn/new-empty-alert))))
 
 (defn- add-agent []
-  (util/log (str "add-agent not implemeneted")))
+  (go
+   (<! (rfn/new-empty-agent))))
 
 (defn- add-schedule []
-  (util/log (str "add-schedule not implemeneted")))
+  (go
+   (<! (rfn/new-empty-schedule))))
 
 (defn- dir-context-menu [node]
   (let [clj-node (js->clj node)
@@ -236,13 +248,15 @@
         node-type (tree/node-type node)
         element-id (-> node .-id util/explorer-element-id->id)]
 
-    ;(util/log (str "node-type: " node-type ", element-id: " element-id))
+    (def activated-node sel-node)
+    (util/log (str "node-type: " node-type ", element-id: " element-id))
 
     (condp = node-type
       :directory nil
       :job (job/show-job-details element-id)
       :workflow (workflow/show-workflow-node-details element-id)
       :agent (agent/show-agent-details element-id)
+      :alert (alert/show-alert-details element-id)
       :schedule (schedule/show-schedule-details element-id)
       :section nil)))
 
@@ -312,7 +326,7 @@
 
       (when (= :alert element-type)
         (let [data (<! (rfn/fetch-all-alerts))
-              js-data (-> data agent-data->jstree-format clj->js)]
+              js-data (-> data alert-data->jstree-format clj->js)]
           (.call cb (js* "this") js-data)))
 
       ))) 
@@ -416,7 +430,24 @@
         (tree/make-node jstree-id explorer-dir-id node-params)))))
 
 
-               
+(defn- handle-non-executable-save-events [element-id element-name element-type]
+  (let [explorer-sched-id (util/->explorer-element-id element-id element-type)
+        element-node (tree/get-node jstree-id explorer-sched-id)]
+
+    ; update element name
+    (when (and element-node (not= element-name (-> element-node .-text)))
+      (tree/rename-node jstree-id explorer-sched-id element-name))
+
+    ; create new element in tree
+    (when-not element-node
+      (let [element-section-id (util/explorer-root-section-id element-type)
+            node-params {:id explorer-sched-id :type element-type :text element-name :parent element-section-id :children false}]
+        (tree/make-node jstree-id element-section-id node-params))))) 
+
+(defn- handle-non-executable-rm-events [element-id element-name element-type]
+  (let [tree-element-id (util/->explorer-element-id element-id element-type)]
+    (when (tree/node-exists? jstree-id tree-element-id)
+      (tree/rm-node jstree-id tree-element-id))))
 
 ; when the directory the node is in is not visible, do nothing. that
 ; data will be retrieved as required when that part of the tree is
@@ -431,6 +462,27 @@
   (let [explorer-dir-id (util/->explorer-element-id parent-directory-id :directory)]
     (when (tree/node-exists? jstree-id explorer-dir-id)
       (handle-directory msg))))
+
+
+
+; schedule created/updated
+(defmethod dispatch :schedule-save [{:keys [schedule-id schedule-name] :as msg}]
+  (handle-non-executable-save-events schedule-id schedule-name :schedule))
+
+(defmethod dispatch :alert-save [{:keys [alert-id alert-name] :as msg}]
+  (handle-non-executable-save-events alert-id alert-name :alert))
+
+(defmethod dispatch :agent-save [{:keys [agent-id agent-name] :as msg}]
+  (handle-non-executable-save-events agent-id agent-name :agent))
+
+(defmethod dispatch :schedule-rm [{:keys [schedule-id schedule-name] :as msg}]
+  (handle-non-executable-rm-events schedule-id schedule-name :schedule))
+
+(defmethod dispatch :alert-rm [{:keys [alert-id alert-name] :as msg}]
+  (handle-non-executable-rm-events alert-id alert-name :alert))
+
+(defmethod dispatch :agent-rm [{:keys [agent-id agent-name] :as msg}]
+  (handle-non-executable-rm-events agent-id agent-name :agent))
 
 (defmethod dispatch :directory-change [{:keys [element-id element-type new-parent-directory-id] :as msg}]
   (let [explorer-dir-id (util/->explorer-element-id new-parent-directory-id :directory)]

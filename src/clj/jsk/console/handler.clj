@@ -4,6 +4,7 @@
   (:require
             [jsk.common.conf :as conf]
             [jsk.common.agent :as agent]
+            [jsk.common.alert :as alert]
             [jsk.console.routes :as routes]
             [jsk.common.util :as util]
             [jsk.common.job :as job]
@@ -114,9 +115,10 @@
 
   ; schedule or schedule assoc changes need to be published to conductor
 
-  (log/debug "Setting conductor write chan")
-  (agent/init conductor-write-chan)
-  (schedule/init conductor-write-chan)
+  (log/debug "Setting conductor write and ui channels for crud events.")
+  (agent/init conductor-write-chan ui-channel)
+  (alert/init conductor-write-chan ui-channel)
+  (schedule/init conductor-write-chan ui-channel)
   (job/init conductor-write-chan ui-channel)
   (workflow/init conductor-write-chan ui-channel)
   (explorer/init ui-channel)
