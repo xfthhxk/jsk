@@ -15,6 +15,8 @@
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
+(def designer-area "#workflow-visualization-area")
+
 (declare show-execution-workflow-details)
 
 ; stores for the current execution the execution workflow id and name
@@ -25,6 +27,11 @@
 (def current-execution-id (atom nil))
 
 (defn- workflow-type? [node-type-id] (= 2 node-type-id))
+
+(defn xy->css-layout
+  "Given integers x and y generates the css-layout string."
+  [x y]
+  (str "left: " x "px; " "top: " y "px;"))
 
 (defn- show-element [sel]
   (-> sel $ .show))
@@ -81,8 +88,7 @@
 (defn- read-workflow-form []
   (let [form (ef/from "#workflow-save-form" (ef/read-form))
         data (u/update-str->int form :workflow-id)
-        data1 (merge data {:is-enabled (u/element-checked? "workflow-is-enabled")
-                           :is-visible-in-dashboard (u/element-checked? "is-visible-in-dashboard")})]
+        data1 (merge data {:is-enabled (u/element-checked? "workflow-is-enabled")})]
     ;(u/log (str "Form data is: " form))
     data1))
 
@@ -159,11 +165,10 @@
     7 "glyphicon-time"              ; pending
     ))   ; unknown-status
 
-
 ;----------------------------------------------------------------------
 ; Layout of the entire visualizer screen.
 ;----------------------------------------------------------------------
-(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [workflow-id workflow-name workflow-desc enabled? node-dir-id visible-in-dashboard?]
+(em/defsnippet workflow-visualizer :compiled "public/templates/workflow.html" "#workflow-visualizer" [workflow-id workflow-name workflow-desc enabled? node-dir-id]
   "#workflow-id" (ef/set-attr :value (str workflow-id))
   "#workflow-name" (ef/set-attr :value workflow-name)
   "#workflow-desc" (ef/set-attr :value workflow-desc)
@@ -171,9 +176,6 @@
   "#workflow-is-enabled" (ef/do->
                            (ef/set-prop "checked" enabled?)
                            (ef/set-attr :value (str enabled?)))
-  "#is-visible-in-dashboard" (ef/do->
-                              (ef/set-prop "checked" visible-in-dashboard?)
-                              (ef/set-attr :value (str visible-in-dashboard?)))
   "#workflow-save-action" (events/listen :click save-workflow)
   "#view-assoc-schedules" (if (= -1 workflow-id)
                             (ef/remove-node)
@@ -215,12 +217,11 @@
 ; Creates a visible node in the visualizer.
 ; layout is the csstext property to apply to the node
 ;----------------------------------------------------------------------
-(defn- visualizer-add-node*
+(defn design-visualizer-add-node
   [node-id node-name layout]
   (let [node-id-str     (str node-id)
         div-id         (node-id->div-id node-id)
         div-sel        (str "#" div-id)
-        ;;node-name       (get @node-store node-id)
         success-div-id (node-id->success-ep-id node-id)
         fail-div-id    (node-id->fail-ep-id node-id)
         rm-btn-id      (str "rm-node-id-" node-id-str)
@@ -256,7 +257,7 @@
   (let [src-div-id (node-id->div-id src-id)]
 
     (when (u/element-not-exists? src-div-id)
-      (visualizer-add-node* src-id src-name src-layout))
+      (design-visualizer-add-node src-id src-name src-layout))
 
     ; dest-id is null when there's no connection from src to anything
     (when dest-id
@@ -265,7 +266,7 @@
             src-ep-id (id-mkr src-id)]
 
         (when (u/element-not-exists? dest-div-id)
-          (visualizer-add-node* dest-id dest-name dest-layout))
+          (design-visualizer-add-node dest-id dest-name dest-layout))
 
         (plumb/connect src-ep-id dest-div-id)))))
 
@@ -273,30 +274,8 @@
   (doseq [m data]
     (add-one-edge m)))
 
-(defn- when-jstree-node-dropped [e data]
-  (def dnd-drop-data data)
-  (let [clj-data (-> data .-data js->clj)
-        element-id (-> (get clj-data "nodes") first)
-        [node-type node-id] (u/explorer-element-id-dissect element-id)]
-    (u/log (str "node dropped " element-id ", node-id: " node-id ", node-type: " node-type))
 
-    (when (node-type #{:job :workflow})
-      (let [node-name (-> (tree/get-node "#jstree" element-id) .-text)]
-        (visualizer-add-node* node-id node-name "")))))
-
-(defn- when-jstree-node-moved [e data]
-  (def dnd-move-data data)
-  (u/log "node moved"))
-
-(defn- when-jstree-node-started [e data]
-  (def dnd-started-data data)
-  (u/log "node started"))
-
-
-(defn init []
-  (-> js/document $ (.bind "dnd_start.vakata" when-jstree-node-started))
-  (-> js/document $ (.bind "dnd_move.vakata" when-jstree-node-moved))
-  (-> js/document $ (.bind "dnd_stop.vakata" when-jstree-node-dropped)))
+(defn init [])
 
 ;----------------------------------------------------------------------
 ; Shows a new workflow visualizer.

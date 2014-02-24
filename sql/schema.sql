@@ -177,8 +177,7 @@ alter table node_schedule add constraint unq_node_schedule_node_id_schedule_id u
 
 /* ---------------------------- Workflow ----------------------------------- */
 
-create table workflow ( workflow_id             int     primary key
-                      , is_visible_in_dashboard boolean not null default false);
+create table workflow ( workflow_id int primary key);
 
 alter table workflow add constraint fk_workflow_workflow_id foreign key (workflow_id) references node(node_id);
 

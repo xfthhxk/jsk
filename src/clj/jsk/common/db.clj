@@ -47,7 +47,7 @@
 
 (defentity workflow
   (pk :workflow-id)
-  (entity-fields :workflow-id :is-visible-in-dashboard))
+  (entity-fields :workflow-id))
 
 (defentity workflow-vertex
   (pk :workflow-vertex-id)
@@ -479,15 +479,13 @@
 ; Workflow save
 ;-----------------------------------------------------------------------
 (defn- insert-workflow! [m user-id]
-  (let [{:keys [workflow-name workflow-desc is-enabled node-directory-id is-visible-in-dashboard]} m
+  (let [{:keys [workflow-name workflow-desc is-enabled node-directory-id]} m
         node-id (insert-workflow-node! workflow-name workflow-desc is-enabled node-directory-id user-id)]
-    (insert workflow (values {:workflow-id node-id :is-visible-in-dashboard is-visible-in-dashboard}))
+    (insert workflow (values {:workflow-id node-id}))
     node-id))
 
 (defn- update-workflow! [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as m} user-id]
   (update-node! workflow-id workflow-name workflow-desc is-enabled node-directory-id user-id)
-  (update workflow (set-fields (select-keys m [:is-visible-in-dashboard]))
-          (where {:workflow-id workflow-id}))
   workflow-id)
 
 (defn save-workflow
@@ -510,6 +508,22 @@
        schedules-for-node
        (map :schedule-id)
        set))
+
+(def ^:private node-schedule-assoc-sql "
+select
+       ns.node_schedule_id
+     , s.schedule_id
+     , s.schedule_name
+  from node_schedule ns
+  join schedule      s
+    on ns.schedule_id = s.schedule_id
+ where ns.node_id = ?
+")
+
+(defn node-schedule-associations
+  "Answers with schedule id, schedule name, node schedule id"
+  [node-id]
+  (exec-raw [node-schedule-assoc-sql [node-id]] :results))
 
 ;-----------------------------------------------------------------------
 ; Job schedule ids associated with the specified node id.

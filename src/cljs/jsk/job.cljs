@@ -28,11 +28,10 @@
              (str "<option value='" agent-id "'" sel-txt ">" agent-name "</option>"))))
     (apply str)))
 
-
 ;-----------------------------------------------------------------------
 ; Edit Job
 ;-----------------------------------------------------------------------
-(em/deftemplate edit-job :compiled "public/templates/edit-job.html" [j agents]
+(em/defsnippet job-details :compiled "public/templates/job.html" "#job-info" [j schedules agents]
   "#job-id"                  (ef/set-attr :value (str (:job-id j)))
   "#node-directory-id"       (ef/set-attr :value (str (:node-directory-id j)))
   "#job-id-lbl"              (ef/content (str (:job-id j)))
@@ -47,14 +46,17 @@
   "#is-enabled"              (ef/do->
                                (ef/set-prop "checked" (:is-enabled j)
                                (ef/set-attr :value (str (:is-enabled j)))))
-  "#save-btn"            (events/listen :click save-job)
-  "#view-assoc-schedules"    (if (= -1 (:job-id j))
-                               (ef/remove-node)
-                               (events/listen :click #(s/show-schedule-assoc (:job-id j)))))
+  "#node-schedules-list > :not(li:first-child)" (ef/remove-node)
+  "#node-schedules-list > li" (em/clone-for [{:keys [schedule-name schedule-id node-schedule-id]} schedules]
+                                  "label" #(ef/at (ju/parent-node %1)
+                                                  (ef/set-attr :id (str "node-schedule-" node-schedule-id)))
+                                  "label" (ef/content schedule-name))
+  "#save-btn"                (events/listen :click save-job))
 
 
 (defn show-job-details [job-id]
   (go
     (let [j (<! (rfn/fetch-job-details job-id))
+          schedules (<! (rfn/fetch-schedule-associations job-id))
           agents (<! (rfn/fetch-all-agents))]
-      (ju/show-explorer-node (edit-job j agents)))))
+      (ju/show-explorer-node (job-details j schedules agents)))))

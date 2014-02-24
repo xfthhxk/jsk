@@ -157,11 +157,70 @@
     ; (util/log (str "make-context-menu node is " clj-node))
     (-> clj-node ctx-menu-fn clj->js cb)))
 
-(def ^:private draggable-types #{:directory :workflow :job})
+;-----------------------------------------------------------------------
+; Begin Drag and Drop Stuff
+;-----------------------------------------------------------------------
+
+(def ^:private draggable-types #{:directory :workflow :job :schedule :alert})
 (defn- draggable? [node]
   (-> node tree/node-type draggable-types nil? not))
 
-(defn init [] (tree/init make-context-menu draggable?))
+(defn- dnd-node-info [data]
+  (let [clj-data (-> data .-data js->clj)
+        element-id (-> (get clj-data "nodes") first)
+        [node-type node-id] (util/explorer-element-id-dissect element-id)]
+    [node-type node-id element-id]))
+
+;; element-distance has to be 1 if the drag/drop action occured
+;; within the boundaries of target-element-sel
+;; .closest accounts for items begind dropped on the target or
+;; even if the target is the parent of the element where the drop
+;; action occurred
+(defn- above-target?
+  "Answers if the drag/drop event data (dnd-data) is allowed to be dragged to or
+   dropped on top of target-sel.  dnd-data is jstree dnd data object graph.
+   target-sel is a selector string ie '#div-id'"
+  [dnd-data target-sel]
+  (let [{:keys [client-x client-y]} (tree/dnd-event-coordinates dnd-data)
+        element-at-point (-> js/document (.elementFromPoint client-x client-y))
+        element-at-point-id (-> element-at-point .-id)
+        element-distance (-> element-at-point $ (.closest target-sel) .-length)]
+    ;;(util/log (str "client-x " client-x " client-y " client-y " element-at-point-id " element-at-point-id " element-distance " element-distance))
+    (pos? element-distance)))
+
+(defn- when-jstree-node-dropped [e data]
+  (let [[node-type node-id element-id] (dnd-node-info data)
+        above-tree? (above-target? data jstree-id)
+        above-workflow-designer? (above-target? data workflow/designer-area)
+        {:keys [offset-x offset-y]} (tree/dnd-event-coordinates data)]
+
+    ; (util/log (str "node dropped " element-id ", node-id: " node-id ", node-type: " node-type "offset-x " offset-x ", offset-y" offset-y))
+    (when (and above-workflow-designer? (node-type #{:job :workflow})
+      (let [node-name (-> (tree/get-node jstree-id element-id) .-text)
+            layout-info (workflow/xy->css-layout offset-x offset-y)]
+        (workflow/design-visualizer-add-node node-id node-name layout-info))))))
+
+;; jobs and workflows can be above the workflow vis area, or within
+;; the jstree
+;;
+;; schedules can only be moved to the schedule-association-area
+;; alerts can only be moved to the alert-association-area
+(defn- when-jstree-node-moved [e data]
+  (let [[node-type node-id element-id] (dnd-node-info data)
+        dnd-valid? (above-target? data workflow/designer-area)]
+    (tree/show-dnd-drag-status data dnd-valid?)))
+
+
+
+
+(defn init []
+  (tree/init make-context-menu draggable?)
+  (-> js/document $ (.bind "dnd_move.vakata" when-jstree-node-moved))
+  (-> js/document $ (.bind "dnd_stop.vakata" when-jstree-node-dropped)))
+
+;-----------------------------------------------------------------------
+; End Drag and Drop Stuff
+;-----------------------------------------------------------------------
 
 (defn- rename-directory [dir-id new-name parent-dir-id]
   (go
@@ -281,7 +340,7 @@
       :children true}
      {:id (util/explorer-root-section-id :schedule)
       :parent "#"
-      :text "Schedule"
+      :text "Schedules"
       :type :section
       :children true}
      {:id (util/explorer-root-section-id :alert)

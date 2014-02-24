@@ -1,0 +1,115 @@
+<html>
+  <head></head>
+  <body>
+
+    <!-- Job details -->
+    <div id="job-info">
+      <ul class="nav nav-tabs">
+        <li class="active"><a href="#job-details" data-toggle="tab">Details</a></li>
+        <li><a href="#job-schedules" data-toggle="tab">Schedules</a></li>
+        <li><a href="#job-alerts" data-toggle="tab">Alerts</a></li>
+      </ul>
+
+      <div class="tab-content">
+
+        <!-- ########################### Job Details Tab ##########################  -->
+        <div class="tab-pane active" id="job-details">
+          <form id="job-save-form" role="form" class="form-horizontal">
+            <fieldset>
+              <input type="hidden" name="job-id" id="job-id" value=""/>
+              <input type="hidden" name="node-directory-id" id="node-directory-id" value=""/>
+
+              <div class="form-group">
+                <label for="job-id-lbl" class="col-lg-2 control-label">ID</label>
+                <div class="col-lg-10">
+                  <label class="control-label text-left" id="job-id-lbl">34</label>
+                </div>
+              </div>
+  
+              <div class="form-group">
+                <label for="job-name" class="col-lg-2 control-label">Name</label>
+                <div class="col-lg-10">
+                  <input type="text" class="form-control" name="job-name" id="job-name"/>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="job-desc" class="col-lg-2 control-label">Description</label>
+                <div class="col-lg-10">
+                  <textarea class="form-control" rows="2" name="job-desc" id="job-desc"></textarea>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="execution-directory" class="col-lg-2 control-label">Execution Directory</label>
+                <div class="col-lg-10">
+                  <input type="text" class="form-control" name="execution-directory" id="execution-directory">
+                </div>
+              </div>
+      
+              <div class="form-group">
+                <label for="command-line" class="col-lg-2 control-label">Command Line</label>
+                <div class="col-lg-10">
+                  <textarea class="form-control" rows="2" name="command-line" id="command-line"></textarea>
+                </div>
+              </div>
+      
+              <div class="form-group">
+                <label for="agent-id" class="col-lg-2 control-label">Agent</label>
+                <div class="col-lg-10">
+                  <select id="agent-id" name="agent-id" class="form-control">
+                    <option value="1">Agent 1 Name</option>
+                    <option value="2">Agent 2 Name</option>
+                  </select>
+                </div>
+              </div>
+      
+              <div class="form-group">
+                <div class="col-lg-offset-2 col-lg-10">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" id="is-enabled" name="is-enabled"> Enabled
+                    </label>
+                  </div>
+                </div>
+              </div>
+      
+              <div class="form-group">
+                <label for="max-concurrent" class="col-lg-2 control-label">Max Concurrent (int)</label>
+                <div class="col-lg-10">
+                  <input type="text" class="form-control" name="max-concurrent" id="max-concurrent"/>
+                </div>
+              </div>
+      
+              <div class="form-group">
+                <label for="max-retries" class="col-lg-2 control-label">Max Retries (int)</label>
+                <div class="col-lg-10">
+                  <input type="text" class="form-control" name="max-retries" id="max-retries"/>
+                </div>
+              </div>
+
+            </fieldset>
+          </form>
+        </div>  <!-- job-details div -->
+
+        <!-- ########################### Job Schedules Tab ##########################  -->
+        <div class="tab-pane" id="job-schedules">
+          <ul class="list-group" id="node-schedules-list">
+            <li class="list-group-item" id="node-schedule-23">
+              <label>Schedule Name</label>
+            </li>
+          </ul>
+        </div> <!-- job-schedules div -->
+
+        <!-- ########################### Job Alerts Tab ##########################  -->
+        <div class="tab-pane" id="job-alerts">
+        </div> <!-- job-alerts div -->
+
+      </div> <!-- tab-content div -->
+      
+    </div> <!-- job-info div -->
+
+
+    
+ </body>
+</html>

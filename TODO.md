@@ -28,8 +28,11 @@ then do broadcast pings every few secs
 
 Top Priority
 -------------
-* kill is-visible-in-dashboard, just put everything that's got a
-  schedule associated.
+* make everything draggable in tree
+* view schedules 
+  -- show in explorer tree area
+  -- allow dragging / drop to do the association -- no save button reqd
+      
 * alerts need to be associated with which accounts should get them
   (hack would be to just put csv email addresses for example)
 * associate alerts to nodes

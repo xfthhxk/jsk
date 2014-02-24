@@ -171,6 +171,5 @@
             :workflow-name (str "Workflow " (util/now-ms))
             :workflow-desc ""
             :node-directory-id dir-id
-            :is-enabled true
-            :is-visible-in-dashboard false}]
+            :is-enabled true}]
     (save-workflow! {:workflow wf :layout []} user-id)))

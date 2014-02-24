@@ -69,3 +69,27 @@
 
 (defn node-type [node]
   (-> node .-type keyword))
+
+(defn dnd-event-coordinates
+  "Returns with a map of :clientX, :clientY, :offsetX and :offsetY.
+   data is the data from the vataka dnd callback events."
+  [dnd-data]
+  (let [e (-> dnd-data .-event)
+        cx (-> e .-clientX)
+        cy (-> e .-clientY)
+        ox (-> e .-offsetX)
+        oy (-> e .-offsetY)]
+    {:client-x cx :client-y cy
+     :offset-x ox :offset-y oy}))
+
+;;-----------------------------------------------------------------------
+;; When a node is dragged the dnd-data given via the callback has a
+;; helper function which can be invoked to change the x to a checkmark
+;; and vice versa to indicate what's appropriate to drag and drop
+;; on an element.
+;;-----------------------------------------------------------------------
+(defn show-dnd-drag-status [dnd-data valid?]
+  (let [rm-class (if valid? "jstree-er" "jstree-ok")
+        add-class (if (= "jstree-er" rm-class) "jstree-ok" "jstree-er")]
+    (-> dnd-data .-helper (.find ".jstree-icon") (.removeClass rm-class) (.addClass add-class))))
+
