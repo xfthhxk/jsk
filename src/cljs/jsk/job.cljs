@@ -2,12 +2,14 @@
   (:require [jsk.rpc :as rpc]
             [jsk.util :as ju]
             [jsk.schedule :as s]
+            [jsk.node :as node]
             [jsk.rfn :as rfn]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
             [enfocus.events :as events])
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
+
 
 (defn- save-job [e]
   (go
@@ -31,7 +33,7 @@
 ;-----------------------------------------------------------------------
 ; Edit Job
 ;-----------------------------------------------------------------------
-(em/defsnippet job-details :compiled "public/templates/job.html" "#job-info" [j schedules agents]
+(em/defsnippet job-details :compiled "public/templates/job.html" "#job-info" [j agents]
   "#job-id"                  (ef/set-attr :value (str (:job-id j)))
   "#node-directory-id"       (ef/set-attr :value (str (:node-directory-id j)))
   "#job-id-lbl"              (ef/content (str (:job-id j)))
@@ -46,11 +48,6 @@
   "#is-enabled"              (ef/do->
                                (ef/set-prop "checked" (:is-enabled j)
                                (ef/set-attr :value (str (:is-enabled j)))))
-  "#node-schedules-list > :not(li:first-child)" (ef/remove-node)
-  "#node-schedules-list > li" (em/clone-for [{:keys [schedule-name schedule-id node-schedule-id]} schedules]
-                                  "label" #(ef/at (ju/parent-node %1)
-                                                  (ef/set-attr :id (str "node-schedule-" node-schedule-id)))
-                                  "label" (ef/content schedule-name))
   "#save-btn"                (events/listen :click save-job))
 
 
@@ -58,5 +55,9 @@
   (go
     (let [j (<! (rfn/fetch-job-details job-id))
           schedules (<! (rfn/fetch-schedule-associations job-id))
+          alerts (<! (rfn/fetch-alert-associations job-id))
           agents (<! (rfn/fetch-all-agents))]
-      (ju/show-explorer-node (job-details j schedules agents)))))
+      (ju/show-explorer-node (job-details j agents))
+      (node/populate-schedule-assoc-list job-id schedules)
+      (node/populate-alert-assoc-list job-id alerts))))
+

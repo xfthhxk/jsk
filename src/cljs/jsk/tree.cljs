@@ -70,6 +70,9 @@
 (defn node-type [node]
   (-> node .-type keyword))
 
+(defn node-text [tree-id node-id]
+  (-> (get-node tree-id node-id) .-text))
+
 (defn dnd-event-coordinates
   "Returns with a map of :clientX, :clientY, :offsetX and :offsetY.
    data is the data from the vataka dnd callback events."

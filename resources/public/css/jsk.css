@@ -93,3 +93,6 @@ div.visible {
 #jstree { background: #f5f5f5; width: 20%; height: 100%; overflow: scroll; }
 /* #explorer-node-detail {height: 100%; overflow: scroll;} */
     
+
+#node-schedules-list { height: 100%; width 100%; }
+#node-alerts-list { height: 100%; width 100%; }

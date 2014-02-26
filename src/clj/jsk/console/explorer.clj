@@ -116,5 +116,3 @@
     ;; push update to the ui
     (put! @ui-chan (assoc msg :crud-event :directory-change :element-name element-name)))
   {:success? true :errors ""})
-
-

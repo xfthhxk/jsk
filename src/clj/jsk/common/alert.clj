@@ -102,23 +102,30 @@
         {:success? true :errors ""}))))
 
 
-;-----------------------------------------------------------------------
-; Associates a job to a set of alert-ids.
-; alert-ids is a set of integer ids
-;-----------------------------------------------------------------------
-(defn assoc-alerts!
-  ([{:keys [node-id alert-ids]} user-id]
-    (assoc-alerts! node-id alert-ids user-id))
+(defn add-node-alert-assoc!
+  "Add a node alert association"
+  ([{:keys [node-id alert-id]} user-id]
+     (add-node-alert-assoc! node-id alert-id user-id))
 
-  ([node-id alert-ids user-id]
-     (let [node-alert-ids (db/node-alert-ids-for-node node-id)]
-       (log/info "user-id " user-id " requests job-id " node-id " be associated with alerts " alert-ids)
+  ([node-id alert-id user-id]
+    (let [node-alert-id (db/insert-node-alert! node-id alert-id user-id)
+          {:keys [alert-name]} (get-alert alert-id)]
+      (put! @out-chan {:msg :alert-assoc :node-id node-id})
+      (put! @ui-chan {:crud-event :alert-assoc-add
+                      :node-alert-id node-alert-id
+                      :node-id node-id
+                      :alert-id alert-id
+                      :alert-name alert-name}))))
 
-       (k/transaction
-         (db/rm-node-alerts! node-alert-ids)
-         (db/assoc-alerts! node-id alert-ids user-id))
+(defn rm-node-alert-assoc!
+  "Removes a node alert association"
+  [node-alert-id user-id]
+  (log/info "User" user-id "is deleting alert association" node-alert-id)
 
-       (put! @out-chan {:msg :alert-assoc :node-id node-id})
-
-       (log/info "job alert associations made for job-id: " node-id)
-       true)))
+  (let [{:keys [node-id alert-id]} (db/get-node-alert node-alert-id)]
+    (db/rm-node-alert! node-alert-id)
+    (put! @out-chan {:msg :alert-assoc :node-id node-id})
+    (put! @ui-chan {:crud-event :alert-assoc-rm
+                    :node-alert-id node-alert-id
+                    :alert-id alert-id
+                    :node-id node-id})))

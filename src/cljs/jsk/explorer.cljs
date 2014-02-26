@@ -4,6 +4,7 @@
             [jsk.tree :as tree]
             [jsk.workflow :as workflow]
             [jsk.job :as job]
+            [jsk.node]
             [jsk.agent :as agent]
             [jsk.alert :as alert]
             [jsk.schedule :as schedule]
@@ -188,17 +189,27 @@
     ;;(util/log (str "client-x " client-x " client-y " client-y " element-at-point-id " element-at-point-id " element-distance " element-distance))
     (pos? element-distance)))
 
+
 (defn- when-jstree-node-dropped [e data]
   (let [[node-type node-id element-id] (dnd-node-info data)
+        node-name (tree/node-text jstree-id element-id) 
         above-tree? (above-target? data jstree-id)
         above-workflow-designer? (above-target? data workflow/designer-area)
+        above-node-schedule-list? (above-target? data jsk.node/node-schedules-tab-sel)
+        above-node-alert-list? (above-target? data jsk.node/node-alerts-tab-sel)
         {:keys [offset-x offset-y]} (tree/dnd-event-coordinates data)]
 
     ; (util/log (str "node dropped " element-id ", node-id: " node-id ", node-type: " node-type "offset-x " offset-x ", offset-y" offset-y))
     (when (and above-workflow-designer? (node-type #{:job :workflow})
-      (let [node-name (-> (tree/get-node jstree-id element-id) .-text)
-            layout-info (workflow/xy->css-layout offset-x offset-y)]
-        (workflow/design-visualizer-add-node node-id node-name layout-info))))))
+      (let [layout-info (workflow/xy->css-layout offset-x offset-y)]
+        (workflow/design-visualizer-add-node node-id node-name layout-info))))
+
+
+    (when (and above-node-schedule-list? (= node-type :schedule))
+      (jsk.node/save-schedule-assoc node-id))
+
+    (when (and above-node-alert-list? (= node-type :alert))
+      (jsk.node/save-alert-assoc node-id))))
 
 ;; jobs and workflows can be above the workflow vis area, or within
 ;; the jstree
@@ -553,6 +564,27 @@
   (let [tree-element-id (util/->explorer-element-id element-id element-type)]
     (when (tree/node-exists? jstree-id tree-element-id)
       (tree/rm-node jstree-id tree-element-id))))
+
+
+(defmethod dispatch :schedule-assoc-add [{:keys [node-id schedule-id node-schedule-id schedule-name]}]
+  (util/log (str "schedule-assoc " node-schedule-id " added for node " node-id))
+  (jsk.node/append-schedule-assoc node-id node-schedule-id schedule-name))
+
+(defmethod dispatch :schedule-assoc-rm [{:keys [node-id schedule-id node-schedule-id]}]
+  (let [element-id (str "node-schedule-" node-schedule-id)
+        sel (str "#" element-id)]
+    (when (util/element-exists? element-id)
+      (ef/at sel (ef/remove-node)))))
+
+(defmethod dispatch :alert-assoc-add [{:keys [node-id alert-id node-alert-id alert-name]}]
+  (util/log (str "alert-assoc " node-alert-id " added for node " node-id))
+  (jsk.node/append-alert-assoc node-id node-alert-id alert-name))
+
+(defmethod dispatch :alert-assoc-rm [{:keys [node-id alert-id node-alert-id]}]
+  (let [element-id (str "node-alert-" node-alert-id)
+        sel (str "#" element-id)]
+    (when (util/element-exists? element-id)
+      (ef/at sel (ef/remove-node)))))
 
 (defmethod dispatch :default [msg]
   (util/log (str "explorer unexpected crud-event " msg)))

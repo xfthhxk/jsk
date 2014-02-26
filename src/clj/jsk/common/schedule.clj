@@ -103,23 +103,30 @@
         (put! @ui-chan {:crud-event :schedule-rm :schedule-id schedule-id})
         {:success? true :errors ""}))))
 
-;-----------------------------------------------------------------------
-; Associates a job to a set of schedule-ids.
-; schedule-ids is a set of integer ids
-;-----------------------------------------------------------------------
-(defn assoc-schedules!
-  ([{:keys [node-id schedule-ids]} user-id]
-    (assoc-schedules! node-id schedule-ids user-id))
+(defn add-node-schedule-assoc!
+  "Add a node schedule association"
+  ([{:keys [node-id schedule-id]} user-id]
+     (add-node-schedule-assoc! node-id schedule-id user-id))
 
-  ([node-id schedule-ids user-id]
-     (let [node-schedule-ids (db/node-schedule-ids-for-node node-id)]
-       (log/info "user-id " user-id " requests job-id " node-id " be associated with schedules " schedule-ids)
+  ([node-id schedule-id user-id]
+    (let [node-schedule-id (db/insert-node-schedule! node-id schedule-id user-id)
+          {:keys [schedule-name]} (get-schedule schedule-id)]
+      (put! @out-chan {:msg :schedule-assoc :node-id node-id})
+      (put! @ui-chan {:crud-event :schedule-assoc-add
+                      :node-schedule-id node-schedule-id
+                      :node-id node-id
+                      :schedule-id schedule-id
+                      :schedule-name schedule-name}))))
 
-       (k/transaction
-         (db/rm-node-schedules! node-schedule-ids)
-         (db/assoc-schedules! node-id schedule-ids user-id))
+(defn rm-node-schedule-assoc!
+  "Removes a node schedule association"
+  [node-schedule-id user-id]
+  (log/info "User" user-id "is deleting schedule association" node-schedule-id)
 
-       (put! @out-chan {:msg :schedule-assoc :node-id node-id})
-
-       (log/info "job schedule associations made for job-id: " node-id)
-       true)))
+  (let [{:keys [node-id schedule-id]} (db/get-node-schedule node-schedule-id)]
+    (db/rm-node-schedule! node-schedule-id)
+    (put! @out-chan {:msg :schedule-assoc :node-id node-id})
+    (put! @ui-chan {:crud-event :schedule-assoc-rm
+                    :node-schedule-id node-schedule-id
+                    :schedule-id schedule-id
+                    :node-id node-id})))

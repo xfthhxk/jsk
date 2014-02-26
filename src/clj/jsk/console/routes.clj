@@ -104,7 +104,10 @@
        (-> id util/str->int (schedule/rm-schedule! (uid request)) edn-response))
 
   (POST "/schedules/assoc" [_ :as request]
-        (-> (:edn-params request) (schedule/assoc-schedules! (uid request)) edn-response)))
+       (-> (:params request) (schedule/add-node-schedule-assoc!  (uid request)) edn-response))
+
+  (DELETE "/schedules/assoc/:id" [id :as request]
+       (-> (schedule/rm-node-schedule-assoc!  (util/str->int id) (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to alerts
@@ -123,7 +126,10 @@
        (-> id util/str->int (alert/rm-alert! (uid request)) edn-response))
 
   (POST "/alerts/assoc" [_ :as request]
-        (-> (:edn-params request) (alert/assoc-alerts! (uid request)) edn-response)))
+       (-> (:params request) (alert/add-node-alert-assoc!  (uid request)) edn-response))
+
+  (DELETE "/alerts/assoc/:id" [id :as request]
+       (-> (alert/rm-node-alert-assoc!  (util/str->int id) (uid request)) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Routes realted to agents
@@ -202,7 +208,10 @@
        (-> id util/str->int db/get-node-by-id edn-response))
 
   (GET "/nodes/schedules/:id" [id]
-       (-> id util/str->int db/node-schedule-associations edn-response)))
+       (-> id util/str->int db/node-schedule-associations edn-response))
+
+  (GET "/nodes/alerts/:id" [id]
+       (-> id util/str->int db/node-alert-associations edn-response)))
 
 
 ;-----------------------------------------------------------------------

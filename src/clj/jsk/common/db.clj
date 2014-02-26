@@ -406,6 +406,35 @@
         (insert node-alert (values insert-maps))))))
 
 
+(defn insert-node-alert! [node-id alert-id user-id]
+  (let [data {:node-id node-id
+              :alert-id alert-id
+              :creator-id user-id}]
+
+    (-> (insert node-alert (values data))
+        extract-identity)))
+
+(defn rm-node-alert! [node-alert-id]
+  (delete node-alert (where {:node-alert-id node-alert-id})))
+
+(defn get-node-alert [node-alert-id]
+  (-> (select node-alert (where {:node-alert-id node-alert-id})) first))
+
+(def ^:private node-alert-assoc-sql "
+select
+       ns.node_alert_id
+     , a.alert_id
+     , a.alert_name
+  from node_alert ns
+  join alert      a
+    on ns.alert_id = a.alert_id
+ where ns.node_id = ?
+")
+
+(defn node-alert-associations
+  "Answers with alert id, alert name, node alert id"
+  [node-id]
+  (exec-raw [node-alert-assoc-sql [node-id]] :results))
 
 
 ;-----------------------------------------------------------------------
@@ -562,6 +591,19 @@ select
                where   node_id = ?" [node-id]] :results))
 
 
+(defn insert-node-schedule! [node-id schedule-id user-id]
+  (let [data {:node-id node-id
+              :schedule-id schedule-id
+              :creator-id user-id}]
+
+    (-> (insert node-schedule (values data))
+        extract-identity)))
+
+(defn rm-node-schedule! [node-schedule-id]
+  (delete node-schedule (where {:node-schedule-id node-schedule-id})))
+
+(defn get-node-schedule [node-schedule-id]
+  (-> (select node-schedule (where {:node-schedule-id node-schedule-id})) first))
 
 ;-----------------------------------------------------------------------
 ; Associates a job to a set of schedule-ids.

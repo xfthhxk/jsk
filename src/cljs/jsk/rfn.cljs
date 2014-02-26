@@ -55,11 +55,14 @@
 (defn save-schedule [data]
   (rpc/POST "/schedules/save" data))
 
-(defn save-schedule-associations [data]
-  (rpc/POST "/schedules/assoc" data))
-
 (defn rm-schedule [id]
   (rpc/DELETE (str "/schedules/" id)))
+
+(defn save-schedule-assoc [node-id schedule-id]
+  (rpc/POST "/schedules/assoc" {:node-id node-id :schedule-id schedule-id}))
+
+(defn rm-schedule-assoc [id]
+  (rpc/DELETE (str "/schedules/assoc/" id)))
 
 ;----------------------------------------------------------------------
 ; Alert functions
@@ -73,8 +76,11 @@
 (defn save-alert [data]
   (rpc/POST "/alerts/save" data))
 
-(defn save-alert-associations [data]
-  (rpc/POST "/alerts/assoc" data))
+(defn save-alert-assoc [node-id alert-id]
+  (rpc/POST "/alerts/assoc" {:node-id node-id :alert-id alert-id}))
+
+(defn rm-alert-assoc [id]
+  (rpc/DELETE (str "/alerts/assoc/" id)))
 
 (defn rm-alert [id]
   (rpc/DELETE (str "/alerts/" id)))
