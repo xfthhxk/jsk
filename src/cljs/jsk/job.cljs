@@ -1,27 +1,39 @@
 (ns jsk.job
   (:require [jsk.rpc :as rpc]
-            [jsk.util :as ju]
+            [jsk.util :as util]
             [jsk.schedule :as s]
             [jsk.node :as node]
             [jsk.rfn :as rfn]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
+            [enfocus.effects :as effects]
             [enfocus.events :as events])
+  (:use [jayq.core :only [$]])
   (:require-macros [enfocus.macros :as em]
                    [cljs.core.async.macros :refer [go]]))
 
+(defn- show-element [sel]
+  (-> sel $ .show))
+
+(defn- hide-element [sel]
+  (-> sel $ .hide))
+
+(defn- show-save-success []
+  (show-element "#job-save-success")
+  (ef/at "#job-save-success"  (effects/fade-out 1000)))
 
 (defn- save-job [e]
   (go
     (let [form (ef/from "#job-save-form" (ef/read-form))
-          data (ju/update-str->int form :job-id)
-          agent-id (-> form :agent-id first ju/update-str->int)
-          data1 (assoc data :is-enabled (ju/element-checked? "is-enabled"))
+          data (util/update-str->int form :job-id)
+          agent-id (-> form :agent-id first util/update-str->int)
+          data1 (assoc data :is-enabled (util/element-checked? "is-enabled"))
           data2 (merge data1 {:max-concurrent 1 :max-retries 1 :agent-id agent-id})
           job-id (<! (rfn/save-job data2))]
-      (ju/log (str "Form is:__>" form))
-      (ju/log (str "agent-id is " agent-id))
-      (ju/log (str "Job saved with id " job-id)))))
+      (show-save-success)
+      (util/log (str "Form is:__>" form))
+      (util/log (str "agent-id is " agent-id))
+      (util/log (str "Job saved with id " job-id)))))
 
 (defn- gen-agent-options [agents selected-agent-id]
   (->> agents
@@ -50,14 +62,14 @@
                                (ef/set-attr :value (str (:is-enabled j)))))
   "#save-btn"                (events/listen :click save-job))
 
-
 (defn show-job-details [job-id]
   (go
     (let [j (<! (rfn/fetch-job-details job-id))
           schedules (<! (rfn/fetch-schedule-associations job-id))
           alerts (<! (rfn/fetch-alert-associations job-id))
           agents (<! (rfn/fetch-all-agents))]
-      (ju/show-explorer-node (job-details j agents))
+      (util/show-explorer-node (job-details j agents))
+      (hide-element "#job-save-success")
       (node/populate-schedule-assoc-list job-id schedules)
       (node/populate-alert-assoc-list job-id alerts))))
 

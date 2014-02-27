@@ -1,9 +1,10 @@
 (ns jsk.workflow
   (:require [jsk.plumb :as plumb]
-            [jsk.util :as u]
+            [jsk.util :as util]
             [jsk.rfn :as rfn]
             [jsk.schedule :as s]
             [jsk.tree :as tree]
+            [jsk.node]
             [enfocus.core :as ef]
             [enfocus.events :as events]
             [enfocus.effects :as effects]
@@ -16,6 +17,7 @@
                    [cljs.core.async.macros :refer [go]]))
 
 (def designer-area "#workflow-visualization-area")
+
 
 (declare show-execution-workflow-details)
 
@@ -42,7 +44,7 @@
 (defn- node->layout-info [n]
   (let [node-id (ef/from n (ef/get-attr :data-node-id))
         css-text (-> n .-style .-cssText)]
-    {:node-id (u/str->int node-id) :css-text css-text}))
+    {:node-id (util/str->int node-id) :css-text css-text}))
 
 
 (defn- collect-workflow-layout-info []
@@ -73,23 +75,23 @@
 ; Returns {:success? false :src-node-id 1 :tgt-node-id 2}
 ;----------------------------------------------------------------------
 (defn- parse-connection-info [{:keys [src tgt]}]
-  ;(u/log (str "src: " src ", tgt: " tgt))
+  ;(util/log (str "src: " src ", tgt: " tgt))
   (let [tt (-> src (string/split #"-"))
         status (second tt)
         src-id (last tt)
         tgt-id (-> tgt (string/split #"-") last)]
-    ;(u/log (str "status: " status ", src-id: " src-id ", tgt-id: " tgt-id))
+    ;(util/log (str "status: " status ", src-id: " src-id ", tgt-id: " tgt-id))
     {:success? (= "success" status)
-     :src-node-id (u/str->int src-id)
-     :tgt-node-id (u/str->int tgt-id)}))
+     :src-node-id (util/str->int src-id)
+     :tgt-node-id (util/str->int tgt-id)}))
 
 
 
 (defn- read-workflow-form []
   (let [form (ef/from "#workflow-save-form" (ef/read-form))
-        data (u/update-str->int form :workflow-id)
-        data1 (merge data {:is-enabled (u/element-checked? "workflow-is-enabled")})]
-    ;(u/log (str "Form data is: " form))
+        data (util/update-str->int form :workflow-id)
+        data1 (merge data {:is-enabled (util/element-checked? "workflow-is-enabled")})]
+    ;(util/log (str "Form data is: " form))
     data1))
 
 
@@ -143,11 +145,11 @@
          {:keys [success? schedule-id errors] :as save-result} (<! (rfn/save-workflow data))]
      (if success?
        (show-save-success)
-       (u/display-errors (-> errors vals flatten))))))
+       (util/display-errors (-> errors vals flatten))))))
 
 (defn trigger-workflow-now [e]
   (.stopPropagation e)
-  (let [source (u/event-source e)
+  (let [source (util/event-source e)
         wf-id (ef/from source (ef/get-attr :data-workflow-id))]
     (rfn/trigger-workflow-now wf-id)))
 
@@ -241,8 +243,6 @@
       (plumb/make-failure-source (str "#" fail-div-id))
       (plumb/make-target div-sel)))
 
-
-
 ; The data in the input map is like:
 ; {:to-node-layout "top: 142px; left: 50.5px;"
 ;  :from-node-layout "top: 30px; left: 39.5px;"
@@ -253,10 +253,10 @@
 ;  :success true
 ;  :to-node-id 2
 ;  :from-node-id 1}
-(defn- add-one-edge [{:keys[src-id src-name dest-id dest-name src-layout dest-layout success]}]
+(defn- add-one-edge [{:keys[src-id src-name dest-id dest-name src-layout dest-layout success] :as edge-info}]
   (let [src-div-id (node-id->div-id src-id)]
 
-    (when (u/element-not-exists? src-div-id)
+    (when (util/element-not-exists? src-div-id)
       (design-visualizer-add-node src-id src-name src-layout))
 
     ; dest-id is null when there's no connection from src to anything
@@ -265,14 +265,15 @@
             id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
             src-ep-id (id-mkr src-id)]
 
-        (when (u/element-not-exists? dest-div-id)
+        (when (util/element-not-exists? dest-div-id)
           (design-visualizer-add-node dest-id dest-name dest-layout))
 
         (plumb/connect src-ep-id dest-div-id)))))
 
 (defn- reconstruct-ui [data]
   (doseq [m data]
-    (add-one-edge m)))
+    (add-one-edge m))
+  (plumb/repaint!))
 
 
 (defn init [])
@@ -284,11 +285,16 @@
 (defn show-workflow-node-details [wf-id]
   (go
    (let [{:keys [workflow-id workflow-name workflow-desc is-enabled node-directory-id] :as wf} (<! (rfn/fetch-workflow-details wf-id)) 
-         graph (<! (rfn/fetch-workflow-graph wf-id))]
+         graph (<! (rfn/fetch-workflow-graph wf-id))
+         schedules (<! (rfn/fetch-schedule-associations wf-id))
+         alerts (<! (rfn/fetch-alert-associations wf-id))]
 
      (plumb/reset) ; clear any state it may have had
 
-     (u/show-explorer-node (workflow-visualizer workflow-id workflow-name workflow-desc is-enabled node-directory-id))
+     (util/show-explorer-node (workflow-visualizer workflow-id workflow-name workflow-desc is-enabled node-directory-id))
+
+     (jsk.node/populate-schedule-assoc-list wf-id schedules)
+     (jsk.node/populate-alert-assoc-list wf-id alerts)
      (plumb/register-connection-click-handler connection-click-listener)
 
      ; these things can happen only after the workflow visualizer is displayed
@@ -308,10 +314,10 @@
 (em/defsnippet execution-visualizer :compiled "public/templates/workflow.html" "#execution-visualizer" [{:keys[workflow-name execution-id status-id start-ts finish-ts]}]
   "#execution-id" (ef/content (str execution-id))
   "#workflow-name" (ef/content workflow-name)
-  "#execution-status" (ef/content (u/status-id->desc status-id))
+  "#execution-status" (ef/content (util/status-id->desc status-id))
   "#start-ts" (ef/content (str start-ts))
   "#finish-ts" (ef/content (str finish-ts))
-  "#execution-abort-action" (if (u/executing-status? status-id)
+  "#execution-abort-action" (if (util/executing-status? status-id)
                               (events/listen :click (fn[event] (rfn/abort-execution execution-id)))
                               (ef/remove-node)))
 
@@ -366,7 +372,7 @@
                  "td.execution-vertex-name" (ef/content node-nm )
                  "td.execution-vertex-status" (ef/do->
                                                 (ef/set-attr :id (execution-vertex-status-td-id execution-vertex-id))
-                                                (ef/content (u/status-id->desc status )))
+                                                (ef/content (util/status-id->desc status )))
                  "td.execution-vertex-start" (ef/do->
                                                (ef/set-attr :id (execution-vertex-start-td-id execution-vertex-id))
                                                (ef/content (str start-ts)))
@@ -418,16 +424,16 @@
   (let [src-div-id (node-id->div-id src-vertex-id)
         dest-div-id   (node-id->div-id dest-vertex-id)]
 
-    (if (u/element-not-exists? src-div-id)
+    (if (util/element-not-exists? src-div-id)
       (execution-visualizer-add-node src-vertex-id src-node-name src-node-type src-runs-execution-workflow-id src-status-id src-layout))
 
-    (if (and dest-vertex-id (u/element-not-exists? dest-div-id))
+    (if (and dest-vertex-id (util/element-not-exists? dest-div-id))
       (execution-visualizer-add-node dest-vertex-id dest-node-name dest-node-type dest-runs-execution-workflow-id dest-status-id dest-layout))
 
     (if dest-vertex-id
       (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
             src-ep-id (id-mkr src-vertex-id)]
-        ; (u/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
+        ; (util/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
         (plumb/connect src-ep-id dest-div-id)))))
 
 
@@ -479,7 +485,7 @@
 
 
 (defn- show-execution-workflow-details [exec-wf-id]
-  ;(u/log (str"exec-wf-id is:" exec-wf-id))
+  ;(util/log (str"exec-wf-id is:" exec-wf-id))
   (go
    (let [{:keys[wf-info nodes] :as exec-wf-info} (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
 
@@ -498,7 +504,7 @@
 
 (defn show-execution-visualizer
   [execution-id]
-  ;(u/log (str "execution-id is:" execution-id))
+  ;(util/log (str "execution-id is:" execution-id))
 
 
   (reset! current-execution-id execution-id)
@@ -507,7 +513,7 @@
   (go
    (let [{:keys[root-execution-workflow-id] :as exec-info}
          (<! (rfn/fetch-execution-details execution-id))]
-     (u/showcase (execution-visualizer exec-info))
+     (util/showcase (execution-visualizer exec-info))
      (show-execution-workflow-details root-execution-workflow-id))))
 
 
@@ -527,7 +533,7 @@
         class-text (str "glyphicon " (status-id->glyph status))
         status-sel (str "#" status-td-id)
         start-sel (str "#" start-td-id)]
-    (ef/at status-sel (ef/content (u/status-id->desc status)))
+    (ef/at status-sel (ef/content (util/status-id->desc status)))
     (ef/at start-sel (ef/content (str start-ts)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
@@ -539,7 +545,7 @@
         finish-sel (str "#" finish-td-id)
         glyph-sel (str "#" glyph-id)
         class-text (str "glyphicon " (status-id->glyph status)) ]
-    (ef/at status-sel (ef/content (u/status-id->desc status)))
+    (ef/at status-sel (ef/content (util/status-id->desc status)))
     (ef/at finish-sel (ef/content (str finish-ts)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
@@ -554,22 +560,22 @@
 
 
 (defmethod dispatch :wf-started [{:keys[exec-vertex-id start-ts]}]
-  (update-ui-exec-vertex-start exec-vertex-id start-ts u/started-status))
+  (update-ui-exec-vertex-start exec-vertex-id start-ts util/started-status))
 
 ; FIXME: the success? should be status!
 (defmethod dispatch :wf-finished [{:keys[execution-vertices finish-ts success?]}]
-  (let [status (if success? u/success-status u/error-status)]
+  (let [status (if success? util/success-status util/error-status)]
     (doseq [exec-vertex-id execution-vertices]
       (update-ui-exec-vertex-finish exec-vertex-id finish-ts status))))
 
 (defmethod dispatch :execution-finished [{:keys[status finish-ts]}]
-  (ef/at "#execution-status" (ef/content (u/status-id->desc status)))
+  (ef/at "#execution-status" (ef/content (util/status-id->desc status)))
   (ef/at "#finish-ts" (ef/content (str finish-ts)))
   (ef/at "#execution-abort-action" (ef/remove-node)))
 
 ; notify the workflow/execution-visualizer that job is started
 (defmethod dispatch :job-started [{:keys[execution-id exec-vertex-id start-ts]}]
-  (update-ui-exec-vertex-start exec-vertex-id start-ts u/started-status))
+  (update-ui-exec-vertex-start exec-vertex-id start-ts util/started-status))
 
 ; now need to update the glyphicons
 ;status-span-id (str "execution-status-node-id-" node-id)]

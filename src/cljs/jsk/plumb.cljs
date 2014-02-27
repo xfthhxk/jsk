@@ -11,19 +11,21 @@
 ; Definitions governing success endpoints
 ; Lines are green and solid indicating succcess job link.
 ;-----------------------------------------------------------------------
-(def success-endpoint-options
-  {:anchor :Continuous
-   :connector [:StateMachine {:curviness 20}]
-   :connectorStyle {:strokeStyle :green :lineWidth 2 :outlineColor "transparent" :outlineWidth 4}})
+(def ^:private success-endpoint-options
+  (clj->js 
+    {:anchor :Continuous
+     :connector [:StateMachine {:curviness 20}]
+     :connectorStyle {:strokeStyle :green :lineWidth 2 :outlineColor "transparent" :outlineWidth 4}}))
 
 ;-----------------------------------------------------------------------
 ; Definitions governing failure endpoints
 ; Lines are red and broken indicating failed job link.
 ;-----------------------------------------------------------------------
-(def failure-endpoint-options
-  {:anchor :Continuous
-   :connector [:StateMachine {:curviness 20}]
-   :connectorStyle {:strokeStyle :red :lineWidth 2 :dashstyle "2 2" :outlineColor "transparent" :outlineWidth 4}})
+(def ^:private failure-endpoint-options
+  (clj->js 
+    {:anchor :Continuous
+     :connector [:StateMachine {:curviness 20}]
+     :connectorStyle {:strokeStyle :red :lineWidth 2 :dashstyle "2 2" :outlineColor "transparent" :outlineWidth 4}}))
 
 (defn import-defaults [jsp]
   (let [data {:ConnectionOverlays [[:Arrow {:location 1 :id :arrow :length 14 :width 9 :foldback 0.7}]]
@@ -175,15 +177,13 @@
 ;;   (-> js-plumb (.makeSource ($ :.ep-fail) (clj->js failure-endpoint-options))))
 
 (defn- make-source [selector options]
-  (-> js-plumb (.makeSource ($ selector) (clj->js options))))
+  (-> js-plumb (.makeSource ($ selector) options)))
 
 (defn make-failure-source [selector]
   (make-source selector failure-endpoint-options))
-  ;(-> js-plumb (.makeSource ($ :.ep-fail) (clj->js failure-endpoint-options))))
 
 (defn make-success-source [selector]
   (make-source selector success-endpoint-options))
-  ;(-> js-plumb (.makeSource ($ selector) (clj->js success-endpoint-options))))
 
 
  ; doesn't seem to work

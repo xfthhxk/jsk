@@ -102,15 +102,17 @@
      :rm-directory {:label "Delete Directory" :action #(rm-directory dir-id) :separator_before true}}))
 
 (defn- job-context-menu [node]
-  (def job-menu-node node)
+  ;(def job-menu-node node)
   (let [job-id (-> (get node "id") util/explorer-element-id->id)]
-    {:rm-job {:label "Delete Job" :action #(rfn/rm-node job-id)}}))
+    {:trigger-job {:label "Trigger Now" :action #(rfn/trigger-job-now job-id)}
+     :rm-job {:label "Delete Job" :action #(rfn/rm-node job-id)}}))
   
 
 (defn- workflow-context-menu [node]
-  (def wf-menu-node node)
+  ;(def wf-menu-node node)
   (let [wf-id (-> (get node "id") util/explorer-element-id->id)]
-    {:rm-workflow {:label "Delete Workflow" :action #(rfn/rm-node wf-id)}}))
+    {:trigger-workflow {:label "Trigger Now" :action #(rfn/trigger-workflow-now wf-id)}
+     :rm-workflow {:label "Delete Workflow" :action #(rfn/rm-node wf-id)}}))
 
 (defn- alert-context-menu [node]
   (let [alert-id (-> (get node "id") util/explorer-element-id->id)]
@@ -182,12 +184,13 @@
    dropped on top of target-sel.  dnd-data is jstree dnd data object graph.
    target-sel is a selector string ie '#div-id'"
   [dnd-data target-sel]
-  (let [{:keys [client-x client-y]} (tree/dnd-event-coordinates dnd-data)
-        element-at-point (-> js/document (.elementFromPoint client-x client-y))
-        element-at-point-id (-> element-at-point .-id)
-        element-distance (-> element-at-point $ (.closest target-sel) .-length)]
-    ;;(util/log (str "client-x " client-x " client-y " client-y " element-at-point-id " element-at-point-id " element-distance " element-distance))
-    (pos? element-distance)))
+  (let [{:keys [client-x client-y] :as event-coords} (tree/dnd-event-coordinates dnd-data)
+        element-at-point (-> js/document (.elementFromPoint client-x client-y))]
+    ;(util/log (str "event coords " event-coords ", element-at-point " element-at-point))
+    (when element-at-point
+      (let [element-at-point-id (-> element-at-point .-id)
+           element-distance (-> element-at-point $ (.closest target-sel) .-length)]
+        (pos? element-distance)))))
 
 
 (defn- when-jstree-node-dropped [e data]
@@ -216,9 +219,20 @@
 ;;
 ;; schedules can only be moved to the schedule-association-area
 ;; alerts can only be moved to the alert-association-area
+(def ^:private element-ids->allowed-node-types
+  {workflow/designer-area #{:job :workflow}
+   jsk.node/node-schedules-tab-sel #{:schedule}
+   jsk.node/node-alerts-tab-sel #{:alert}})
+
 (defn- when-jstree-node-moved [e data]
   (let [[node-type node-id element-id] (dnd-node-info data)
-        dnd-valid? (above-target? data workflow/designer-area)]
+        above-tree? (above-target? data jstree-id)
+        test-fn (fn [[element-sel allowed-node-types]]
+                  (and (node-type allowed-node-types)
+                       (above-target? data element-sel)))
+        dnd-valid? (->> element-ids->allowed-node-types
+                        (map test-fn)
+                        (some true?))]
     (tree/show-dnd-drag-status data dnd-valid?)))
 
 
@@ -227,7 +241,7 @@
 (defn init []
   (tree/init make-context-menu draggable?)
   (-> js/document $ (.bind "dnd_move.vakata" when-jstree-node-moved))
-  (-> js/document $ (.bind "dnd_stop.vakata" when-jstree-node-dropped)))
+    (-> js/document $ (.bind "dnd_stop.vakata" when-jstree-node-dropped)))
 
 ;-----------------------------------------------------------------------
 ; End Drag and Drop Stuff
@@ -331,16 +345,33 @@
       :section nil)))
 
 
-(defn when-node-moved [e data]
-  (util/log "when-node-moved called")
-  (let [[_ new-directory-id] (-> data .-parent util/explorer-element-id-dissect)
-        [_ old-directory-id] (-> data .-old_parent util/explorer-element-id-dissect)
-        [element-type element-id] (-> data .-node .-id util/explorer-element-id-dissect)]
-    (util/log (str "when-node-moved node: new-directory-id: " new-directory-id ", old-directory-id: " old-directory-id ", element-type: " element-type ", element-id " element-id))
+(def ^:private movable-types #{:directory :job :workflow})
 
-    (when (not= new-directory-id old-directory-id)
-      (go
-        (<! (rfn/change-directory {:element-id element-id :element-type element-type :new-parent-directory-id new-directory-id}))))))
+(defn when-node-moved [e data]
+  (let [{:keys [parent-id old-parent-id node-id] :as event-data-ids} (tree/move-event-data->ids data)
+        [element-type element-id] (util/explorer-element-id-dissect node-id)]
+
+    (util/log (str "when-node-moved " event-data-ids))
+
+    ;; stuff that shouldn't be moved but was, refresh the old and new
+    ;; parent nodes
+    (when (not (element-type movable-types))
+      (util/log "Not a movable type doing cancel by refreshing nodes from server")
+      (tree/refresh-node jstree-id old-parent-id)
+      (let [[parent-element-type parent-element-id] (util/explorer-element-id-dissect parent-id)]
+        (when (parent-element-type #{:section :directory})
+          (tree/refresh-node jstree-id parent-id))))
+
+    (when (and (element-type movable-types)
+               (not (util/explorer-root-section? parent-id)))
+      (let [[_ new-directory-id] (-> data .-parent util/explorer-element-id-dissect)
+            [_ old-directory-id] (-> data .-old_parent util/explorer-element-id-dissect)
+            [element-type element-id] (-> data .-node .-id util/explorer-element-id-dissect)]
+        (util/log (str "when-node-moved node: new-directory-id: " new-directory-id ", old-directory-id: " old-directory-id ", element-type: " element-type ", element-id " element-id))
+        (when (not= new-directory-id old-directory-id)
+          (rfn/change-directory {:element-id element-id :element-type element-type :new-parent-directory-id new-directory-id}))))))
+
+
 
 
 (def ^:private tree-sections

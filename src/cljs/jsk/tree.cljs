@@ -70,6 +70,12 @@
 (defn node-type [node]
   (-> node .-type keyword))
 
+(defn move-event-data->ids [event-data]
+  {:parent-id (-> event-data .-parent)
+   :old-parent-id (-> event-data .-old_parent)
+   :node-id (-> event-data .-node .-id)})
+
+
 (defn node-text [tree-id node-id]
   (-> (get-node tree-id node-id) .-text))
 

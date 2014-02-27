@@ -5,15 +5,15 @@
     <!-- Job details -->
     <div id="job-info">
       <ul class="nav nav-tabs">
-        <li class="active"><a href="#job-details" data-toggle="tab">Details</a></li>
+        <li class="active"><a href="#job-definition" data-toggle="tab">Definition</a></li>
         <li><a href="#node-schedules" data-toggle="tab">Schedules</a></li>
         <li><a href="#node-alerts" data-toggle="tab">Alerts</a></li>
       </ul>
 
       <div class="tab-content">
 
-        <!-- ########################### Job Details Tab ##########################  -->
-        <div class="tab-pane active" id="job-details">
+        <!-- ########################### Job Definition Tab ##########################  -->
+        <div class="tab-pane active" id="job-definition">
           <form id="job-save-form" role="form" class="form-horizontal">
             <fieldset>
               <input type="hidden" name="job-id" id="job-id" value=""/>
@@ -89,8 +89,10 @@
               </div>
 
             </fieldset>
+            <a href="#" role="button" id="save-btn" class="btn btn-default" name="save-btn">Save</a>
+            <div id="job-save-success" class="alert alert-success">Saved!</div>
           </form>
-        </div>  <!-- job-details div -->
+        </div>  <!-- job-definition div -->
 
         <!-- ########################### Job Schedules Tab ##########################  -->
         <div class="tab-pane" id="node-schedules">

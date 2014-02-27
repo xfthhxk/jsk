@@ -2,49 +2,77 @@
     <head></head>
     <body>
 
+      <!--
+      NB.
+      The Designer tab is made active first because then
+      jsPlumb can properly connect the source to target nodes.
+      Otherwise you have to have jsplumb repaint everything.
+      See: https://groups.google.com/forum/#!starred/jsplumb/effy8IMkfvs 
+      -->
       <div id="workflow-visualizer">
+        <ul class="nav nav-tabs">
+          <li class="active"><a href="#workflow-visualization-area" data-toggle="tab">Designer</a></li>
+          <li><a href="#workflow-definition" data-toggle="tab">Definition</a></li>
+          <li><a href="#node-schedules" data-toggle="tab">Schedules</a></li>
+          <li><a href="#node-alerts" data-toggle="tab">Alerts</a></li>
+        </ul>
 
-          <form id="workflow-save-form" role="form" class="form-inline">
-            <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
-            <input type="hidden" name="node-directory-id" id="node-directory-id" value="-1" />
+        <div class="tab-content">
+          <!-- ########################### WF Schedules Tab ##########################  -->
+          <div class="tab-pane active" id="workflow-visualization-area">
+          </div> 
 
-            <div class="form-group">
-              <label for="workflow-name" class="control-label col-sm-2">Name:</label>
-              <div class="col-sm-4">
-                <input id="workflow-name" name="workflow-name" type="text" placeholder="Workflow Name" class="input-sm"/>
-              </div>
-            </div>
+          <div class="tab-pane" id="workflow-definition">
+            <form id="workflow-save-form" role="form" class="form-horizontal">
+              <input type="hidden" name="workflow-id" id="workflow-id" value="-1" />
+              <input type="hidden" name="node-directory-id" id="node-directory-id" value="-1" />
 
-            <div class="form-group">
-              <label for="workflow-desc" class="control-label col-sm-2">Desc:</label>
-              <div class="col-sm-4">
-                <input id="workflow-desc" name="workflow-desc" type="text" placeholder="Description" class="input-sm"/>
-              </div>
-            </div>
-
-            <label "checkbox-inline">
-                <input type="checkbox" id="workflow-is-enabled" name="is-enabled"> Enabled
-            </label>
-
-            <a href="#" role="button" id="workflow-save-action" class="btn btn-default" name="workflow-save-btn">Save</a>
-            <a href="#" role="button" id="view-assoc-schedules" class="btn btn-default">View Schedules</a>
-            <div id="workflow-save-success" class="alert alert-success">Saved!</div>
-          </form>
-
-
-        <div id="workflow-schedule-associations">
-        </div>
-
-          <div class="row">
-            <div id="workflow-visualization-area" class="col-md-9">
-                  <!--
-                      workflow visual area
-                      workflow-node elements will exist here
-                    -->
+              <div class="form-group">
+                <label for="wf-id-lbl" class="col-lg-2 control-label">ID</label>
+                <div class="col-lg-10">
+                  <label class="control-label text-left" id="wf-id-lbl">34</label>
                 </div>
+              </div>
+  
+              <div class="form-group">
+                <label for="workflow-name" class="control-label col-lg-2">Name:</label>
+                <div class="col-lg-10">
+                  <input id="workflow-name" name="workflow-name" type="text" class="form-control"/>
+                </div>
+              </div>
+  
+              <div class="form-group">
+                <label for="workflow-desc" class="control-label col-lg-2">Description:</label>
+                <div class="col-lg-10">
+                  <textarea class="form-control" rows="2" name="workflow-desc" id="workflow-desc"></textarea>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="col-lg-offset-2 col-lg-10">
+                  <div class="checkbox">
+                    <label "checkbox-inline">
+                        <input type="checkbox" id="workflow-is-enabled" name="is-enabled"> Enabled
+                    </label>
+                  </div>
+                </div>
+              </div>
+  
+              <a href="#" role="button" id="workflow-save-action" class="btn btn-default" name="workflow-save-btn">Save</a>
+              <div id="workflow-save-success" class="alert alert-success">Saved!</div>
+            </form>
+          </div> <!-- workflow-definition -->
+
+
+          <!-- ########################### WF Schedules Tab ##########################  -->
+          <div class="tab-pane" id="node-schedules">
           </div>
 
-        </div>
+          <!-- ########################### WF Alerts Tab ##########################  -->
+          <div class="tab-pane" id="node-alerts">
+          </div>
+        </div> <!-- tab content -->
+      </div> <!-- workflow visualizer -->
 
 
         <!-- workflow node -->
@@ -59,38 +87,6 @@
         </div>
       </div>
 
-
-        <!-- workflow list -->
-      <div id="workflow-list">
-        <table class="table table-condensed table-hover table-striped">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Enabled</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr data-workflow-id="1" class="workflow-row">
-              <td class="workflow-id">ID for workflow 1</td>
-              <td class="workflow-name">Workflow Name 1</td>
-              <td class="workflow-is-enabled">true</td>
-              <td class="workflow-trigger-now">
-                <button type="button" class="btn btn-default btn-sm">Trigger</button>
-              </td>
-            </tr>
-            <tr data-workflow-id="2" class="workflow-row">
-              <td class="workflow-id">ID for workflow 2</td>
-              <td class="workflow-name">Workflow Name 2</td>
-              <td class="workflow-is-enabled">true</td>
-              <td class="workflow-trigger-now">
-                <button type="button" class="btn btn-default btn-sm">Trigger</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-    </div>
 
 
 <!-- For indicating the status of nodes on the execution visualizer -->

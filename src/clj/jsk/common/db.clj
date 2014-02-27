@@ -1489,7 +1489,7 @@ select n.node_name
   "Answers with a list of node names referencing alert-id."
   [alert-id]
   (let [q (string/replace node-ref-alert-sql #"<id>" (str alert-id))]
-    (exec-raw [q []] :results)))
+    (map :node-name (exec-raw [q []] :results))))
 
 (def ^:private node-ref-schedule-sql "
 select n.node_name
@@ -1503,7 +1503,7 @@ select n.node_name
   "Answers with a list of node names referencing schedule-id."
   [schedule-id]
   (let [q (string/replace node-ref-schedule-sql #"<id>" (str schedule-id))]
-    (exec-raw [q []] :results)))
+    (map :node-name (exec-raw [q []] :results))))
 
 (def ^:private job-ref-agent-sql "
 select n.node_name

@@ -89,7 +89,7 @@
   (save-schedule! {:schedule-id -1
                    :schedule-name (str "Schedule " (util/now-ms))
                    :schedule-desc ""
-                   :cron-expression "0 1 1 ? * 1L 1999-2000"}
+                   :cron-expression "1 1 1 1 1 ? 9999"}
                   user-id))
 
 
