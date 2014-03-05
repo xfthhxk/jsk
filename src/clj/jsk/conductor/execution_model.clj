@@ -13,6 +13,7 @@
    :belongs-to-wf 0
    :status 0
    :agent-name nil
+   :alerts #{}
    :on-success #{}
    :on-failure #{}})
 
@@ -148,6 +149,17 @@
   [model v-id agent-name]
   (assert (seq agent-name) "nil agent-name")
   (assoc-in model [:vertices v-id :agent-name] agent-name))
+
+(defn assoc-alerts
+  "Associates the alert ids which should be triggered when vertex v-id finishes.
+   alert-ids is a collection."
+  [model v-id alert-ids]
+  (assoc-in model [:vertices v-id :alerts] (set alert-ids)))
+
+(defn associated-alerts
+  "Retrieves the associated alerts. Returns a set with alert ids or an empty set if no alerts."
+  [model v-id]
+  (get-in model [:vertices v-id :alerts]))
 
 
 ; s (conj (get-in model path) exec-wf
@@ -312,3 +324,8 @@
   "Answers if there are runnable vertices in the model."
   [model]
   (-> model (get-in [:runnable-vertices]) empty? not))
+
+(defn vertex-name
+  "Answers with the name of the vertex ie job/wf name."
+  [model v-id]
+  (-> model (vertex-attrs v-id) :node-nm))

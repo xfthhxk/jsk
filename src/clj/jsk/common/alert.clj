@@ -55,14 +55,28 @@
     (= id (:alert-id a))
     true))
 
+
+(defn- recipients-string->emails
+  "r is a string of recipients something like 'a@b.com;c@d.com'
+   and returns a seq of ['a@b.com' 'c@d.com'] otherwise returns an empty seq"
+  [r]
+  (if r
+    (->> (string/split r #";")
+         (map string/trim)
+         (filter seq))
+     []))
+
 ; NB the first is used to see if bouncer generated any errors
 ; bouncer returns a vector where the first item is a map of errors
-(defn validate-save [{:keys [alert-id] :as a}]
-  (-> a
-    (b/validate
-       :alert-name [v/required [(partial unique-name? alert-id) :message "Alert name must be unique."]])
-    first))
-
+(defn validate-save [{:keys [alert-id recipients] :as a}]
+  (log/info "validate save called: recipients is " recipients)
+  (let [email-addrs (recipients-string->emails recipients)]
+    ; (b/validate :recipients [v/required [(every? v/email email-addrs) :message "Invalid emails."]])
+    (log/info "email-addrs is " email-addrs)
+    (-> a
+        (b/validate
+         :alert-name [v/required [(partial unique-name? alert-id) :message "Alert name must be unique."]])
+        first)))
 
 
 (defn- save-alert* [{:keys [alert-id] :as a} user-id]
@@ -87,8 +101,10 @@
   (save-alert! {:alert-id -1
                 :alert-name (str "Alert " (util/now-ms))
                 :alert-desc ""
+                :recipients "fixme@your.org"
                 :subject ""
-                :body ""}
+                :body ""
+                :is-for-error true}
                user-id))
 
 (defn rm-alert! [alert-id user-id]

@@ -31,6 +31,13 @@
             </div>
 
             <div class="form-group">
+              <label for="recipients" class="col-lg-2 control-label">Recipients</label>
+              <div class="col-lg-10">
+                <input type="text" class="form-control" name="recipients" id="recipients"/>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label for="subject" class="col-lg-2 control-label">Subject</label>
               <div class="col-lg-10">
                 <input type="text" class="form-control" name="subject" id="subject"/>
@@ -44,14 +51,20 @@
               </div>
             </div>
 
-          </fieldset>
-        </form>
+            <div class="form-group">
+              <div class="col-lg-offset-2 col-lg-10">
+                <div class="checkbox">
+                  <label "checkbox-inline">
+                      <input type="checkbox" id="is-for-error" name="is-for-error">For Errors
+                  </label>
+                </div>
+              </div>
+            </div>
 
-        <div class="form-group">
-          <div class="col-lg-offset-2 col-lg-10">
-            <button type="button" class="btn btn-default" name="save-btn" id="save-btn">Save</button>
-          </div>
-        </div>
+          </fieldset>
+
+          <a role="button" id="save-btn" class="btn btn-default" name="save-btn">Save</a>
+        </form>
     </div> <!-- alert-form-div -->
 
   </body>

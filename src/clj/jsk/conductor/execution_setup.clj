@@ -149,17 +149,27 @@
           model
           (exm/job-vertices model)))
 
+(defn- assoc-alerts-to-vertices
+  "vertex-alerts-map is a map of exec-vertex-ids to sets of alert-ids"
+  [model vertex-alerts-map]
+  (reduce (fn [mdl v-id]
+            (exm/assoc-alerts mdl v-id (vertex-alerts-map v-id)))
+          model
+          (keys vertex-alerts-map)))
+
 (defn- workflow-execution-data
   "Fetches a map with keys :execution-id :info. :info is the workflow
    execution data and returns it as a data structure which conforms
    to the IExecutionTable protocol."
   [exec-id initial-run? wf-nm node-cache]
   (let [data (db/get-execution-graph exec-id)
-        model (data->exec-tbl data initial-run?)]
+        model (data->exec-tbl data initial-run?)
+        vertex-alerts-map (db/execution-vertices-with-alerts exec-id)]
     {:execution-id exec-id
      :model
      (-> model
          (assoc-agent-to-vertices node-cache)
+         (assoc-alerts-to-vertices vertex-alerts-map)
          (exm/set-execution-name wf-nm)
          (exm/set-start-time (util/now)))}))
 

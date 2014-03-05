@@ -328,6 +328,26 @@
                           (select-keys data [:execution-id :exec-vertex-id :exec-wf-id])))))
 
 
+;; publish event to notify the UIs
+;; send alerts if any
+(defn- notify-job-finished [{:keys[execution-id exec-vertex-id agent-id exec-wf-id error-msg] :as msg} status-id success? fin-ts]
+  (let [model (state/execution-model @app-state execution-id)
+        data-cache (state/node-schedule-cache @app-state)
+        job-name (exm/vertex-name model exec-vertex-id)
+        all-alert-ids (exm/associated-alerts model exec-vertex-id)
+        alerts (cache/alerts-for-status data-cache all-alert-ids success?)
+        success-text (if success? "SUCCEEDED" "FAILED")]
+
+    (publish-event (-> msg
+                       (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
+                       (merge {:finish-ts fin-ts :status status-id :execution-event :job-finished})))
+
+    (doseq [{:keys [recipients subject body]} alerts
+            :let [subject' (str "JOB " success-text ": " job-name)
+                  body' (str error-msg "\n\nExecution ID: " execution-id ", Instance ID: " exec-vertex-id "\n\n" body)]]
+      (notify/enqueue-mail recipients subject' body'))))
+
+
 ; Make idempotent, so if agent sends this again we don't blow up.
 (defn- when-job-ended
   "Decrements the running job count for the execution id.
@@ -370,10 +390,8 @@
       (let [runnables? (state/runnable-vertices? @app-state execution-id)
             wf-active-count (state/active-jobs-count @app-state execution-id exec-wf-id)
             exec-wf-finished? (and (zero? wf-active-count) (empty? next-nodes))]
-        (publish-event (-> msg
-                           (select-keys [:execution-id :exec-vertex-id :success? :error-msg])
-                           (merge {:finish-ts fin-ts :status status-id :execution-event :job-finished})))
 
+        (notify-job-finished msg status-id success? fin-ts)
 
         (log/debug "after-job-ended: wf-active-count " wf-active-count ", next-nodes" next-nodes ", exec-wf-fail?" exec-wf-fail? ", exec-wf-finished?" exec-wf-finished?)
 
@@ -486,6 +504,12 @@
     (log/debug "node from db is " n)
     (swap! app-state #(state/save-node %1 n))))
 
+
+(defmethod dispatch :alert-save [{:keys [alert-id]}]
+  (log/info "reload alert " alert-id)
+  (let [a (db/get-alert alert-id)]
+    (swap! app-state #(state/save-node %1 a))))
+
 ; TODO: send an ack,
 ; Cron expr could have changed, so update the triggers.
 ; Though you can check to see if they're different before you do.
@@ -556,6 +580,7 @@
   (log/info "trigger-node-execution for " node-id)
   (trigger-node-execution node-id))
 
+
 ;-----------------------------------------------------------------------
 ; This gets called if we don't have a handler setup for a msg type
 ;-----------------------------------------------------------------------
@@ -615,10 +640,11 @@
   []
   (let [c (-> (cache/new-cache)
               (cache/put-agents (db/ls-agents))
+              (cache/put-alerts (db/ls-alerts))
               (cache/put-jobs (db/ls-jobs))
               (cache/put-workflows (db/ls-workflows))
               (cache/put-schedules (db/ls-schedules))
-              (cache/put-assocs (db/ls-node-schedules)))]
+              (cache/put-schedule-assocs (db/ls-node-schedules)))]
     (swap! app-state #(state/set-node-schedule-cache %1 c))))
 
 (defn- populate-quartz-triggers
@@ -636,6 +662,7 @@
   (log/info "Connecting to database.")
   (conf/init-db)
 
+  (notify/init)
 
   (let [host "*"
         bind? true]

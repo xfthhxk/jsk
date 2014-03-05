@@ -116,13 +116,14 @@ create table job_var ( job_var_id       int         auto_increment primary key
 alter table job_var add constraint fk_job_var_job_id foreign key (job_id) references node(node_id);
 
 
-
 /* ---------------------------- Alert ----------------------------------- */
 create table alert( alert_id        int            auto_increment primary key
                   , alert_name      varchar(50)    not null
                   , alert_desc      varchar(100)   not null
+                  , recipients      varchar(255)   not null
                   , subject         varchar(100)   not null
                   , body            varchar(255)   not null
+                  , is_for_error    boolean        not null
                   , create_ts       timestamp      not null default current_timestamp()
                   , creator_id      int            not null
                   , update_ts       timestamp      not null default current_timestamp()

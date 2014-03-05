@@ -128,16 +128,16 @@
 (facts "Node Schedule Associations"
   (fact "Put assoc."
     (-> (cache/new-cache)
-        (cache/put-assoc test-schedule-assoc)) => truthy)
+        (cache/put-schedule-assoc test-schedule-assoc)) => truthy)
 
   (fact "Retrieve assoc."
     (-> (cache/new-cache)
-        (cache/put-assoc test-schedule-assoc)
+        (cache/put-schedule-assoc test-schedule-assoc)
         (cache/schedule-assoc node-schedule-id)) => test-schedule-assoc)
 
   (fact "Remove assoc."
     (let [c (-> (cache/new-cache)
-                (cache/put-assoc test-schedule-assoc))
+                (cache/put-schedule-assoc test-schedule-assoc))
           c' (cache/rm-assoc c node-schedule-id)]
 
       (cache/schedule-assoc c  node-schedule-id) => test-schedule-assoc
@@ -145,11 +145,11 @@
 
   (fact "Put multiple schedule associations."
     (-> (cache/new-cache)
-        (cache/put-assoc test-schedule-assoc)) => truthy)
+        (cache/put-schedule-assoc test-schedule-assoc)) => truthy)
 
   (fact "Retrieve all schedules associations."
     (let [c (-> (cache/new-cache)
-                (cache/put-assocs test-schedule-assocs))]
+                (cache/put-schedule-assocs test-schedule-assocs))]
       (set (cache/schedule-assocs c)) => test-schedule-assocs)))
 
 

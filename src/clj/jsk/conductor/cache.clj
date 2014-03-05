@@ -4,6 +4,7 @@
   (:require [jsk.common.util :as util]))
 
 (defn new-cache [] {:agents {}
+                    :alerts {}
                     :jobs {}
                     :workflows {}
                     :schedules {}
@@ -36,6 +37,34 @@
   "Removes the agent specified by the agent-id."
   [c agent-id]
   (update-in c [:agents] dissoc agent-id))
+
+;-----------------------------------------------------------------------
+; Alerts
+;-----------------------------------------------------------------------
+(defn put-alert
+  "Puts alert in cache c."
+  [c {:keys [alert-id] :as alert}]
+    (assoc-in c [:alerts alert-id] alert))
+
+(defn put-alerts
+  "Puts alerts in the collection nn in cache c."
+  [c nn]
+  (reduce #(put-alert %1 %2) c nn))
+
+(defn alert
+  "Gets the alert for the id. Can return nil if alert-id is unknown."
+  [c alert-id]
+  (get-in c [:alerts alert-id]))
+
+(defn alerts
+  "Gets all alerts in cache c."
+  [c]
+  (-> c :alerts vals))
+
+(defn rm-alert
+  "Removes the alert specified by the alert-id."
+  [c alert-id]
+  (update-in c [:alerts] dissoc alert-id))
 
 ;-----------------------------------------------------------------------
 ; Jobs
@@ -131,15 +160,15 @@
 ;-----------------------------------------------------------------------
 ; Nodes Schedule associations
 ;-----------------------------------------------------------------------
-(defn put-assoc
+(defn put-schedule-assoc
   "Puts the node-sched association in to cache c."
   [c {:keys [node-schedule-id] :as node-sched}]
   (assoc-in c [:node-schedules node-schedule-id] node-sched))
 
-(defn put-assocs
+(defn put-schedule-assocs
   "Puts all associations in node-schedule-associations in to cache c."
   [c node-schedule-associations]
-  (reduce #(put-assoc %1 %2) c node-schedule-associations))
+  (reduce #(put-schedule-assoc %1 %2) c node-schedule-associations))
 
 (defn schedule-assoc
   "Retrieves the node schedule association for the id or nil."
@@ -164,15 +193,15 @@
   [c]
   (->> c schedule-assocs (assoc-cron-expr c)))
 
-(defn rm-assoc
+(defn rm-schedule-assoc
   "Removes the association pointed to by node-schedule-id."
   [c node-schedule-id]
   (update-in c [:node-schedules] dissoc node-schedule-id))
 
-(defn rm-assocs
+(defn rm-schedule-assocs
   "Removes all associations pointed to by node-schedule-ids."
   [c node-schedule-ids]
-  (reduce #(rm-assoc %1 %2) c node-schedule-ids))
+  (reduce #(rm-schedule-assoc %1 %2) c node-schedule-ids))
 
 ;-----------------------------------------------------------------------
 ; Additional query functions
@@ -233,8 +262,8 @@
   [c node-id new-assocs]
   (let [old-ids (schedule-assoc-ids-for-node c node-id)]
     (-> c
-        (rm-assocs old-ids)
-        (put-assocs new-assocs))))
+        (rm-schedule-assocs old-ids)
+        (put-schedule-assocs new-assocs))))
 
 
 
@@ -245,3 +274,12 @@
   (let [{:keys [agent-id]} (job c job-id)]
     (assert agent-id (str "No agent-id for job-id " job-id))
     (-> c (agent agent-id) :agent-name)))
+
+
+(defn alerts-for-status
+  "Answers with a seq of alert instances filtered by alert-ids and success?"
+  [c alert-ids success?]
+  (filter (fn [{:keys [alert-id is-for-error]}]
+            (and (contains? alert-ids alert-id)
+                 (not= success? is-for-error)))
+          (alerts c)))

@@ -206,16 +206,22 @@
   [state s]
   (save-to-cache state cache/put-schedule s))
 
-(defn save-assoc
+(defn save-schedule-assoc
   "Saves the node schedule association."
   [state node-sched]
-  (save-to-cache state cache/put-assoc node-sched))
+  (save-to-cache state cache/put-schedule-assoc node-sched))
+
 
 (defn replace-schedule-assocs
   "Replaces any and all existing schedule associations for node-id
    with node-scheds."
   [state node-id node-scheds]
   (update-in state [:node-schedule-cache] #(cache/replace-schedule-assocs %1 node-id node-scheds)))
+
+(defn save-alert
+  "Saves the alert. a is a map."
+  [state a]
+  (save-to-cache state cache/put-alert a))
 
 
 (defn assert-state [state]

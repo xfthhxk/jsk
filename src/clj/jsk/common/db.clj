@@ -67,7 +67,7 @@
 
 (defentity alert
   (pk :alert-id)
-  (entity-fields :alert-id :alert-name :alert-desc :subject :body))
+  (entity-fields :alert-id :alert-name :alert-desc :recipients :subject :body :is-for-error))
 
 (defentity node-alert
   (pk :node-alert-id)
@@ -1518,3 +1518,26 @@ select n.node_name
   [agent-id]
   (let [q (string/replace job-ref-agent-sql #"<id>" (str agent-id))]
     (exec-raw [q []] :results)))
+
+
+(def ^:private execution-vertex-alert-sql "
+select
+       ev.execution_vertex_id
+     , na.alert_id
+  from execution_vertex ev
+  join node_alert       na
+    on ev.node_id = na.node_id
+ where ev.execution_id = <id>
+")
+
+(defn execution-vertices-with-alerts
+  "Answers with a map of execution-vertex-id => #{alert-ids}"
+  [execution-id]
+  (let [q (string/replace execution-vertex-alert-sql #"<id>" (str execution-id))
+        rs (exec-raw [q []] :results)]
+    (reduce (fn [m {:keys [execution-vertex-id alert-id]}]
+              (if (m execution-vertex-id)
+                (update-in m [execution-vertex-id] conj alert-id)
+                (assoc m execution-vertex-id #{alert-id})))
+            {}
+            rs)))
