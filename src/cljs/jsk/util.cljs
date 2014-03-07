@@ -115,33 +115,33 @@
 
 
 (def container "#container")
-(def dashboard "#executions-accordion")
+(def executions "#executions-accordion")
 
 
-(def visible-element (atom dashboard))
+(def visible-element (atom executions))
 
 (defn- set-visible-element [e]
   (reset! visible-element e))
 
-(defn- dashboard-visible? []
-  (= dashboard @visible-element))
+(defn- executions-visible? []
+  (= executions @visible-element))
 
-(def dashboard-hidden? (complement dashboard-visible?))
+(def executions-hidden? (complement executions-visible?))
 
 (defn- container-visible? []
   (= container @visible-element))
 
 (def container-hidden? (complement container-visible?))
 
-(defn- hide-dashboard []
-  (when (dashboard-visible?)
+(defn- hide-executions []
+  (when (executions-visible?)
     (set-visible-element "")
-    (hide-element dashboard)))
+    (hide-element executions)))
 
-(defn- show-dashboard []
-  (when (dashboard-hidden?)
-    (set-visible-element dashboard)
-    (show-element dashboard)))
+(defn- show-executions []
+  (when (executions-hidden?)
+    (set-visible-element executions)
+    (show-element executions)))
 
 (defn- hide-container []
   (when (container-visible?)
@@ -154,16 +154,16 @@
     (show-element container)))
 
 (defn showcase [view]
-  (hide-dashboard)
+  (hide-executions)
   (show-container)
   (ef/at "#container" (ef/content view)))
 
 (defn show-explorer-node [view]
   (ef/at "#explorer-node-detail" (ef/content view)))
 
-(defn display-dashboard []
+(defn display-executions []
   (hide-container)
-  (show-dashboard))
+  (show-executions))
 
 
 (def ^:private root-parent-dir-id -1)

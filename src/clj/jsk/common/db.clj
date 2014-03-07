@@ -1541,3 +1541,74 @@ select
                 (assoc m execution-vertex-id #{alert-id})))
             {}
             rs)))
+
+
+(def ^:private execution-root-wf "
+select
+       ew.workflow_id
+  from execution_workflow ew
+ where ew.execution_id = <id>
+   and ew.root = true
+")
+
+(defn get-execution-root-wf [execution-id]
+  (let [q (string/replace execution-vertex-alert-sql #"<id>" (str execution-id))
+        rs (exec-raw [q []] :results)]
+    (-> rs first :workflow-id)))
+
+;; gets all jobs and workflows tied to a schedule and the last
+;; execution id status and finish ts if run
+(def ^:private dashboard-nodes-sql "
+   select n.node_id
+        , n.node_name
+        , n.node_type_id
+        , ex.execution_id
+        , ex.status_id
+        , ex.finish_ts
+     from node_schedule ns
+     join node          n
+       on ns.node_id = n.node_id
+     join workflow      wf
+       on n.node_id = wf.workflow_id
+left join ( select
+                   ew.workflow_id
+                 , max(ew.execution_id) as last_execution_id
+              from execution_workflow ew
+             where ew.root = 1
+               and ew.finish_ts is not null
+               and ew.workflow_id != 1
+          group by ew.workflow_id) last_exec
+       on n.node_id = last_exec.workflow_id
+left join execution ex
+       on last_exec.last_execution_id = ex.execution_id
+union all
+   select n.node_id
+        , n.node_name
+        , n.node_type_id
+        , ex.execution_id
+        , ex.status_id
+        , ex.finish_ts
+     from node_schedule ns
+     join node          n
+       on ns.node_id = n.node_id
+     join job           j
+       on n.node_id = j.job_id
+left join ( select
+                   ev.node_id
+                 , max(ew.execution_id) as last_execution_id
+              from execution_workflow ew
+              join execution_vertex   ev
+                on ew.execution_id = ev.execution_id
+             where ew.root = 1
+               and ew.finish_ts is not null
+               and ew.workflow_id = 1
+          group by ew.workflow_id) last_exec
+       on n.node_id = last_exec.node_id
+left join execution ex
+       on last_exec.last_execution_id = ex.execution_id
+")
+
+
+(defn ls-dashboard-elements
+  []
+  (exec-raw [dashboard-nodes-sql []] :results))

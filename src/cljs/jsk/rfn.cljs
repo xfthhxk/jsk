@@ -181,3 +181,9 @@
 
 (defn change-directory [data]
   (rpc/PUT "/explorer/directory-change" data))
+
+;----------------------------------------------------------------------
+; Dashboard functions
+;----------------------------------------------------------------------
+(defn fetch-dashboard-elements []
+  (rpc/GET "/dashboard"))

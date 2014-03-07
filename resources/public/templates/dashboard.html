@@ -1,0 +1,60 @@
+<html>
+  <head></head>
+  <body>
+
+    <!-- BEGIN dashboard div -->
+    <div id="dashboard">
+      <!-- BEGIN OK Panel -->
+      <div id="dashboard-ok-panel" class="panel panel-success pull-left">
+        <div class="panel-heading">
+          <h3 class="panel-title">OK</h3>
+        </div>
+        <div class="panel-body">
+          <ul id="dashboard-ok-list" class="list-group">
+          </ul>
+        </div>
+      </div> <!-- END OK Panel -->
+
+      <!-- BEGIN ERROR Panel -->
+      <div id="dashboard-error-panel" class="panel panel-danger pull-right">
+        <div class="panel-heading">
+          <h3 class="panel-title">ERROR</h3>
+        </div>
+        <div class="panel-body">
+          <ul id="dashboard-error-list" class="list-group">
+          </ul>
+        </div>
+      </div> <!-- END ERROR Panel -->
+
+    </div>
+    <!-- END dashboard div -->
+
+    <li id="dashboard-ok-item" class="list-group-item">
+      <a class="node-name">Workflow Name</a> @ <a class="last-execution-ts">06-Mar-2013 16:39:12</a>
+      <div class="btn-group pull-right">
+        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+          <span class="caret"></span>
+          <span class="sr-only">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu" role="menu">
+          <li><a class="dashboard-trigger-now">Trigger Now</a></li>
+          <li><a class="dashboard-freeze">Freeze</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li id="dashboard-error-item" class="list-group-item">
+      <a class="node-name">Workflow Name</a> @ <a class="last-execution-ts">06-Mar-2013 16:39:12</a>
+      <div class="btn-group pull-right">
+        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+          <span class="caret"></span>
+          <span class="sr-only">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu" role="menu">
+          <li><a class="dashboard-unfreeze">Unfreeze</a></li>
+        </ul>
+      </div>
+    </li>
+
+  </body>
+</html>

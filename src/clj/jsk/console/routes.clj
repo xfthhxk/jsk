@@ -12,6 +12,7 @@
             [jsk.common.workflow :as wf]
             [jsk.console.search :as search]
             [jsk.console.explorer :as explorer]
+            [jsk.console.dashboard :as dashboard]
             [jsk.common.alert :as alert]
             [jsk.common.schedule :as schedule]))
 
@@ -251,6 +252,12 @@
   (DELETE "/explorer/node/:id" [id :as request]
           (->> (uid request) (explorer/rm-node! (util/str->int id)) edn-response)))
 
+;-----------------------------------------------------------------------
+; Routes realted to the dashboard
+;-----------------------------------------------------------------------
+(defroutes dashboard-routes
+  (GET "/dashboard" []
+       (edn-response (dashboard/ls-elements))))
 
 ;-----------------------------------------------------------------------
 ; Collection of all routes.
@@ -263,4 +270,5 @@
                            workflow-routes
                            explorer-routes
                            execution-routes
+                           dashboard-routes
                            app-routes))

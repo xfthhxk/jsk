@@ -6,6 +6,7 @@
               [cljs.core.async :as async :refer [<!]]
               [jsk.plumb :as plumb]
               [jsk.explorer :as explorer]
+              [jsk.dashboard :as dashboard]
               [jsk.rpc :as rpc]
               [jsk.util :as ju]
               [jsk.job :as j]
@@ -42,9 +43,10 @@
 ; Main screen event handling.
 ;-----------------------------------------------------------------------
 (defaction init-events []
-  "#jsk-home-action"         (events/listen :click #(ju/display-dashboard))
+  "#jsk-home-action"         (events/listen :click #(dashboard/show-dashboard))
   "#explorer-action"         (events/listen :click #(explorer/show))
-  "#show-dashboard-action"   (events/listen :click #(ju/display-dashboard))
+  "#show-dashboard-action"   (events/listen :click #(dashboard/show-dashboard))
+  "#execution-list-action"   (events/listen :click #(ju/display-executions))
   "#execution-search-action" (events/listen :click #(search/show-execution-search)))
 
 (defn ws-connect []
@@ -54,6 +56,7 @@
        (ju/log (str "msg-type: " msg-type ", msg: " msg))
        (when (= :message msg-type)
          (when (:execution-event msg)
+           (dashboard/process-event msg)
            (executions/add-execution msg)
            (w/event-received msg))
          (when (:crud-event msg)
@@ -80,7 +83,7 @@
   (ju/log "Begin initializing websocket.")
   (ws-connect)
 
-  (ju/display-dashboard)
+  (dashboard/show-dashboard)
   (ju/log "Initialization complete.")
 
   (repl-connect))

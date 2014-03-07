@@ -21,7 +21,7 @@
           (ef/set-attr :id (gen-executing-row-id (:execution-id e))) ; needs a special id to be able to update later
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
-  "td.execution-name"    (ef/content (:wf-name e))
+  "td.execution-name"    (ef/content (:node-name e))
   "td.execution-start"   (ef/content (str (:start-ts e))))
 
 ;  "a.execution-view-action" (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
@@ -33,7 +33,7 @@
           (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
-  "td.execution-name"    (ef/content (:wf-name e))
+  "td.execution-name"    (ef/content (:node-name e))
   "td.execution-start"   (ef/content (str (:start-ts e)))
   "td.execution-finish"  (ef/content (str (:finish-ts e))))
 
@@ -42,8 +42,8 @@
           (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id"       (ef/content (str (:execution-id e)))
-  "td.execution-name"     (ef/content (:wf-name e))
-  "td.execution-status"   (ef/content (ju/status-id->desc (:status e)))
+  "td.execution-name"     (ef/content (:node-name e))
+  "td.execution-status"   (ef/content (ju/status-id->desc (:status-id e)))
   "td.execution-start"    (ef/content (str (:start-ts e)))
   "td.execution-finish"   (ef/content (str (:finish-ts e))))
 

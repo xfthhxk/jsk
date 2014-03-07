@@ -451,6 +451,14 @@
   (tree/register-move-node-handler jstree-id when-node-moved)
   (tree/register-create-node-handler jstree-id create-explorer-node))
 
+(defn show-node
+  "Shows the explorer and loads the data for node-id which is either workflow or job-id"
+  [node-id node-type-id]
+  (show)
+  (condp = node-type-id
+      util/job-type-id (job/show-job-details node-id)
+      util/workflow-type-id (workflow/show-workflow-node-details node-id)))
+
 
 (defmulti dispatch :crud-event)
 
@@ -622,4 +630,5 @@
 
 (defn handle-event [msg]
   (util/log (str "explorer/handle-event called for " msg))
-  (dispatch msg))
+  (when (util/element-exists? "jstree")
+    (dispatch msg)))

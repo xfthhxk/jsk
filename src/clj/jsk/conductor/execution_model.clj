@@ -20,7 +20,8 @@
 (defn new-execution-table
   "Answers with a new representation of an empty execution table."
   []
-  {:execution-name nil
+  {:triggered-node {}
+   :execution-alerts #{}
    :start-time nil
    :vertices {}
    :graphs {}
@@ -35,15 +36,40 @@
   [success?]
   (if success? :on-success :on-failure))
 
-(defn set-execution-name
-  "Sets the execution name for model"
-  [model nm]
-  (assoc model :execution-name nm))
+(defn set-triggered-node-info
+  "Sets the triggered node associated with this execution.
+   node is a map of job or workflow details."
+  [model node-id node-nm node-type-id]
+  (assoc model :triggered-node {:node-id node-id
+                                :node-nm node-nm
+                                :node-type-id node-type-id}))
 
-(defn execution-name
-  "Answers with the name for this execution"
+(defn triggered-node-name
+  "Answers with the triggered node for this execution"
   [model]
-  (:execution-name model))
+  (get-in model [:triggered-node :node-nm]))
+
+(defn triggered-node-id
+  "Answers with the triggered node for this execution"
+  [model]
+  (get-in model [:triggered-node :node-id]))
+
+(defn triggered-node-type-id
+  "Answers with the triggered node for this execution"
+  [model]
+  (get-in model [:triggered-node :node-type-id]))
+
+
+(defn set-execution-alerts
+  "Sets the execution alert ids for this root workflow"
+  [model alert-ids]
+  (assoc model :execution-alerts alert-ids))
+
+(defn execution-alerts
+  "Gets the execution alert ids for the root workflow"
+  [model]
+  (:execution-alerts model))
+
 
 (defn set-start-time
   "Sets the execution's start."

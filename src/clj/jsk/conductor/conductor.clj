@@ -196,7 +196,9 @@
       (publish-event {:execution-event :execution-started
                       :execution-id execution-id
                       :start-ts (exm/start-time model)
-                      :wf-name wf-name})
+                      :node-id wf-id
+                      :node-name wf-name
+                      :node-type-id data/workflow-type-id})
 
       ; pass in nil for exec-vertex-id since the actual workflow is represented
       ; by the execution and is not a vertex in itself
@@ -233,6 +235,14 @@
 
     (db/workflow-started (exm/root-workflow model) start-ts)
     (put-execution-model! execution-id model)
+
+    (publish-event {:execution-event :execution-started
+                    :execution-id execution-id
+                    :start-ts (exm/start-time model)
+                    :node-id job-id
+                    :node-name job-nm
+                    :node-type-id data/job-type-id})
+
     (run-nodes (exm/vertices model) execution-id)))
 
 ; normalize the run-job as wf thing via as-workflow
@@ -247,9 +257,15 @@
 (defn- execution-finished
   "Marks the execution as finished and removes the execution id from app-state."
   [exec-id success? last-exec-wf-id]
-  (let [model (state/execution-model @app-state exec-id)
+  (let [data-cache (state/node-schedule-cache @app-state)
+        model (state/execution-model @app-state exec-id)
         root-wf-id (exm/root-workflow model)
-        exec-name (exm/execution-name model)
+        triggered-node-name (exm/triggered-node-name model)
+        triggered-node-id (exm/triggered-node-id model)
+        triggered-node-type-id (exm/triggered-node-type-id model)
+        all-alert-ids (exm/execution-alerts model)
+        alerts (cache/alerts-for-status data-cache all-alert-ids success?)
+        success-text (if success? "SUCCEEDED" "FAILED")
         ts (util/now)]
 
     (db/workflow-finished root-wf-id success? ts)
@@ -258,12 +274,19 @@
     (publish-event {:execution-event :execution-finished
                     :execution-id exec-id
                     :success? success?
-                    :status (if success? data/finished-success data/finished-error)
+                    :status-id (if success? data/finished-success data/finished-error)
                     :finish-ts ts
                     :start-ts (exm/start-time model)
-                    :wf-name exec-name})
+                    :node-id triggered-node-id
+                    :node-type-id triggered-node-type-id
+                    :node-name triggered-node-name})
 
-    (rm-execution! exec-id)))
+    (doseq [{:keys [recipients subject body]} alerts
+            :let [subject' (str "Workflow " success-text ": " triggered-node-name)
+                  body' (str "Execution ID: " exec-id "\n\n" body)]]
+      (notify/enqueue-mail recipients subject' body')))
+
+    (rm-execution! exec-id))
 
 (defn- parents-to-upd
   "Parents to update"

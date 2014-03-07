@@ -1,6 +1,7 @@
 (ns jsk.conductor.execution-setup
   (:require [taoensso.timbre :as log]
             [clojure.string :as string]
+            [jsk.common.data :as data]
             [jsk.common.graph :as graph]
             [jsk.common.workflow :as wf]
             [jsk.conductor.execution-model :as exm]
@@ -161,16 +162,18 @@
   "Fetches a map with keys :execution-id :info. :info is the workflow
    execution data and returns it as a data structure which conforms
    to the IExecutionTable protocol."
-  [exec-id initial-run? wf-nm node-cache]
+  [exec-id initial-run? wf-id wf-nm node-cache]
   (let [data (db/get-execution-graph exec-id)
         model (data->exec-tbl data initial-run?)
-        vertex-alerts-map (db/execution-vertices-with-alerts exec-id)]
+        vertex-alerts-map (db/execution-vertices-with-alerts exec-id)
+        root-wf-alert-ids (db/alert-ids-for-node wf-id)]
     {:execution-id exec-id
      :model
      (-> model
          (assoc-agent-to-vertices node-cache)
          (assoc-alerts-to-vertices vertex-alerts-map)
-         (exm/set-execution-name wf-nm)
+         (exm/set-triggered-node-info wf-id wf-nm data/workflow-type-id)
+         (exm/set-execution-alerts root-wf-alert-ids)
          (exm/set-start-time (util/now)))}))
 
 
@@ -179,7 +182,7 @@
      :model
       (-> (exm/new-execution-table)
           (exm/set-start-time (util/now))
-          (exm/set-execution-name job-nm)
+          (exm/set-triggered-node-info job-id job-nm data/job-type-id)
           (exm/add-workflows [exec-wf-id])
           (exm/add-workflow-mapping exec-wf-id wf-id)
           (exm/set-root-workflow exec-wf-id)
@@ -193,13 +196,14 @@
   [exec-id node-cache]
   (if (db/synthetic-workflow-execution? exec-id)
     (populate-synthetic-wf-data (db/synthetic-workflow-resumption exec-id) node-cache)
-    (let [wf-name (db/get-execution-name exec-id)]
-      (workflow-execution-data exec-id false wf-name node-cache))))
+    (let [wf-name (db/get-execution-name exec-id)
+          wf-id (db/get-execution-root-wf exec-id)]
+      (workflow-execution-data exec-id false wf-id wf-name node-cache))))
 
 
 (defn setup-execution [wf-id wf-name node-cache]
   (let [exec-id (db/new-execution! wf-id)
-        {:keys[model] :as ans} (workflow-execution-data exec-id true wf-name node-cache)
+        {:keys[model] :as ans} (workflow-execution-data exec-id true wf-id wf-name node-cache)
         vertex-wf-map (exm/vertex-workflow-to-run-map model)]
     (log/debug "The ans is:\n " (with-out-str (clojure.pprint/pprint ans)))
     (log/debug "vertex-wf-map is " vertex-wf-map)
