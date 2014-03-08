@@ -65,7 +65,7 @@ create table node_directory ( node_directory_id     int         auto_increment p
 
 alter table node_directory add constraint unq_node_directory unique(node_directory_name, parent_directory_id);
 
-insert into node_directory(node_directory_id, node_directory_name, parent_directory_id) values (1, '/', -1);
+insert into node_directory(node_directory_id, node_directory_name, parent_directory_id) values (1, '/', 0);
 
 
 /* ---------------------------- Node ----------------------------------- */
@@ -189,7 +189,7 @@ alter table workflow add constraint fk_workflow_workflow_id foreign key (workflo
 insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, node_directory_id, creator_id, updater_id)
           values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1, 1);
 
-insert into workflow(workflow_id, is_visible_in_dashboard) values (1, false);
+insert into workflow(workflow_id) values (1);
 
 
 create table workflow_vertex ( workflow_vertex_id  int          auto_increment primary key

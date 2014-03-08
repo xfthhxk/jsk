@@ -92,14 +92,20 @@
 (defn- dir-context-menu [node]
   (let [clj-node (js->clj node)
         dir-explorer-id (get clj-node "id")
-        dir-id (util/explorer-element-id->id dir-explorer-id)]
-    {
-     :add-job {:label "Add Job" :action #(add-job dir-id)}
-     :add-workflow {:label "Add Workflow" :action #(add-workflow dir-id)}
-     :refresh-directory {:label "Refresh Directory" :action #(tree/refresh-node jstree-id dir-explorer-id)}
-     :make-directory {:label "Make Directory" :action #(make-directory clj-node) :separator_before true}
-     :rename-directory {:label "Rename Directory" :action #(enable-rename-directory)}
-     :rm-directory {:label "Delete Directory" :action #(rm-directory dir-id) :separator_before true}}))
+        dir-id (util/explorer-element-id->id dir-explorer-id)
+        ;; 1 is the "/" directory created by the system, unfortunately
+        ;; required for now
+        required-dir? (= 1 dir-id)
+        menu {:add-job {:label "Add Job" :action #(add-job dir-id)}
+              :add-workflow {:label "Add Workflow" :action #(add-workflow dir-id)}
+              :refresh-directory {:label "Refresh Directory" :action #(tree/refresh-node jstree-id dir-explorer-id)}
+              :make-directory {:label "Make Directory" :action #(make-directory clj-node) :separator_before true}
+              :rename-directory {:label "Rename Directory" :action #(enable-rename-directory)}
+              :rm-directory {:label "Delete Directory" :action #(rm-directory dir-id) :separator_before true}}]
+
+    (if required-dir?
+      (dissoc menu :rm-directory)
+      menu)))
 
 (defn- job-context-menu [node]
   ;(def job-menu-node node)
@@ -408,7 +414,8 @@
 
     (go
       (when (= :directory element-type)
-        (let [dir-id (if (zero? element-id) -1 element-id)
+        (let [;;dir-id (if (zero? element-id) -1 element-id)
+              dir-id element-id
               clj-children (<! (rfn/fetch-explorer-directory dir-id))
               jstree-children (directory-data->jstree-format clj-children element-id)
               children (clj->js jstree-children)]

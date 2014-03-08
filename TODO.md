@@ -28,21 +28,8 @@ then do broadcast pings every few secs
 
 Top Priority
 -------------
-* make everything draggable in tree
-* view schedules 
-  -- show in explorer tree area
-  -- allow dragging / drop to do the association -- no save button reqd
-      
-* alerts need to be associated with which accounts should get them
-  (hack would be to just put csv email addresses for example)
-* associate alerts to nodes
-* conductor needs to send alerts on job/wf failure/success
-* freeze workflow on failure by default — for top level workflows only 
-* Top level workflow dashboard.
-  Shows top level workflows, last execution time, last execution
-  status.  Updates from server need to check if the execution id's
-  root wf is the top level workflow and update accordingly.
-  
+* Force Success
+* Flush log every n seconds or n bytes.
 
 
 
@@ -61,6 +48,8 @@ Top Priority
 * Search for jobs/wfs by schedule
 * Replace enfocus with om
 * View logs in UI
+* alerts need to be associated with which accounts should get them
+  (right now hacked to just put csv email addresses)
 
 
 ## Bugs
