@@ -532,11 +532,11 @@
 ; TODO: send an ack
 (defmethod dispatch :node-save [{:keys[node-id node-type-id] :as msg}]
   (log/debug "Node save for node: " msg)
-  (let [{:keys [is-enabled] :as n}  (db/get-node-by-id node-id node-type-id)]
+  (let [{:keys [is-enabled] :as n}  (db/get-node-by-id node-id node-type-id)
+        quartz-fn (if is-enabled quartz/resume-job quartz/pause-job)]
     (log/debug "node from db is " n)
     (swap! app-state #(state/save-node %1 n))
-    (when is-enabled
-      (quartz/resume-job node-id))))
+    (quartz-fn node-id)))
 
 
 (defmethod dispatch :alert-save [{:keys [alert-id]}]
@@ -682,7 +682,7 @@
     (swap! app-state #(state/set-node-schedule-cache %1 c))))
 
 (defn- populate-quartz-triggers
-  "Populates quartz triggers by reading from the cache."
+  "Populates quartz triggers by reading from the cache. Only for enabled jobs/workflows."
   []
   (let [nsc (-> @app-state state/node-schedule-cache)]
     (doseq [{:keys[node-schedule-id node-id cron-expression]} (cache/schedule-assocs-with-cron-expr nsc)]

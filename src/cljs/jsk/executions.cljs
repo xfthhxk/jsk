@@ -1,6 +1,6 @@
 (ns jsk.executions
   (:require [jsk.rfn :as rfn]
-            [jsk.util :as ju]
+            [jsk.util :as util]
             [jsk.workflow :as w]
             [cljs.core.async :as async :refer [<!]]
             [enfocus.core :as ef]
@@ -22,7 +22,7 @@
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
   "td.execution-name"    (ef/content (:node-name e))
-  "td.execution-start"   (ef/content (str (:start-ts e))))
+  "td.execution-start"   (ef/content (util/format-ts (:start-ts e))))
 
 ;  "a.execution-view-action" (events/listen :click (fn[event] (w/show-execution-visualizer (:execution-id e))))
 ;  "a.execution-abort-action" (events/listen :click (fn[event] (rfn/abort-execution (:execution-id e)))))
@@ -34,8 +34,8 @@
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id" (ef/content (str (:execution-id e)))
   "td.execution-name"    (ef/content (:node-name e))
-  "td.execution-start"   (ef/content (str (:start-ts e)))
-  "td.execution-finish"  (ef/content (str (:finish-ts e))))
+  "td.execution-start"   (ef/content (util/format-ts (:start-ts e)))
+  "td.execution-finish"  (ef/content (util/format-ts (:finish-ts e))))
 
 (em/defsnippet make-execution-unsuccessful-row :compiled "public/templates/execution.html"  "#execution-unsuccessful-row"  [e]
   "tr" (ef/do->
@@ -43,9 +43,9 @@
           (ef/set-attr :data-execution-id (str (:execution-id e))))
   "td.execution-id"       (ef/content (str (:execution-id e)))
   "td.execution-name"     (ef/content (:node-name e))
-  "td.execution-status"   (ef/content (ju/status-id->desc (:status-id e)))
-  "td.execution-start"    (ef/content (str (:start-ts e)))
-  "td.execution-finish"   (ef/content (str (:finish-ts e))))
+  "td.execution-status"   (ef/content (util/status-id->desc (:status-id e)))
+  "td.execution-start"    (ef/content (util/format-ts (:start-ts e)))
+  "td.execution-finish"   (ef/content (util/format-ts (:finish-ts e))))
 
 ;-----------------------------------------------------------------------
 ; Nodes
@@ -59,7 +59,7 @@
   "td.execution-id" (ef/content (str (:execution-id e)))
   "td.vertex-id"    (ef/content (str (:exec-vertex-id e)))
   "td.node-name"    (ef/content (:node-nm e))
-  "td.node-start"   (ef/content (str (:start-ts e))))
+  "td.node-start"   (ef/content (util/format-ts (:start-ts e))))
 
 (em/defsnippet make-node-successful-row :compiled "public/templates/execution.html"  "#node-successful-row"  [e]
   "tr" (ef/do->
@@ -69,8 +69,8 @@
   "td.execution-id" (ef/content (str (:execution-id e)))
   "td.vertex-id"    (ef/content (str (:exec-vertex-id e)))
   "td.node-name"    (ef/content (:node-nm e))
-  "td.node-start"   (ef/content (str (:start-ts e)))
-  "td.node-finish"  (ef/content (str (:finish-ts e))))
+  "td.node-start"   (ef/content (util/format-ts (:start-ts e)))
+  "td.node-finish"  (ef/content (util/format-ts (:finish-ts e))))
 
 (em/defsnippet make-node-unsuccessful-row :compiled "public/templates/execution.html"  "#node-unsuccessful-row"  [e]
   "tr" (ef/do->
@@ -80,8 +80,8 @@
   "td.execution-id"       (ef/content (str (:execution-id e)))
   "td.vertex-id"          (ef/content (str (:exec-vertex-id e)))
   "td.node-name"          (ef/content (:node-nm e))
-  "td.node-start"         (ef/content (str (:start-ts e)))
-  "td.node-finish"        (ef/content (str (:finish-ts e)))
+  "td.node-start"         (ef/content (util/format-ts (:start-ts e)))
+  "td.node-finish"        (ef/content (util/format-ts (:finish-ts e)))
   "td.node-error-message" (ef/content (str (:error e))))
 
 (defn- execution-started [e]

@@ -206,9 +206,31 @@
 (defn node-type-id->keyword [node-type-id]
   (get node-type-kw-map node-type-id))
 
+(defn pad-zero [i]
+  (if (< i 10)
+    (str "0" i)
+    (str i)))
 
-(defn format-date-generic
-  "Format a date using either the built-in goog.i18n.DateTimeFormat.Format enum
-or a formatting string like \"dd MMMM yyyy\""
-  [date-format dt]
-  (.format (goog.i18n.DateTimeFormat. date-format) dt))
+(def ^:private month->english
+  {0 "Jan"
+   1 "Feb"
+   2 "Mar"
+   3 "Apr"
+   4 "May"
+   5 "Jun"
+   6 "Jul"
+   7 "Aug"
+   8 "Sep"
+   9 "Oct"
+   10 "Nov"
+   11 "Dec"})
+
+(defn format-ts
+  [ts]
+  (let [day (-> ts .getDate pad-zero)
+        mnth (->> ts .getMonth (get month->english))
+        yr (.getFullYear ts)
+        hr (-> ts .getHours pad-zero)
+        min (-> ts .getMinutes pad-zero)
+        ss (-> ts .getSeconds pad-zero)]
+    (str day "-" mnth "-" yr " " hr ":" min ":" ss)))

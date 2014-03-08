@@ -108,6 +108,24 @@
       (save-graph (assoc w :workflow-id workflow-id*) layout)
       workflow-id*)))
 
+
+(defn- notify [{:keys [workflow-id workflow-name node-directory-id is-enabled]}]
+  (let [schedule-count (-> workflow-id db/schedules-for-node count)
+        info-msg {:msg :node-save
+                  :node-id workflow-id
+                  :node-type-id data/workflow-type-id}
+        event-msg {:crud-event :node-save
+                   :node-id workflow-id
+                   :node-type-id data/workflow-type-id
+                   :node-name workflow-name 
+                   :enabled? is-enabled
+                   :scheduled? (> schedule-count 0)
+                   :node-directory-id node-directory-id}]
+    ;; to notify conductor
+    (put! @out-chan info-msg)
+    ;; to notify ui
+    (put! @ui-chan event-msg)))
+
 (defn save-workflow!
   "Saves the workflow to the database and the scheduler."
   [{:keys [layout workflow]} user-id]
@@ -116,16 +134,16 @@
   (log/debug "wf: " workflow)
   (if-let [errors (validate-save workflow)]
     (util/make-error-response errors)
-    (let [wf-id (save-workflow* workflow layout user-id)
-          info-msg {:msg :node-save :node-id wf-id :node-type-id data/workflow-type-id}
-          event-msg {:crud-event :node-save
-                     :node-id wf-id
-                     :node-type-id data/workflow-type-id
-                     :node-name (:workflow-name workflow)
-                     :node-directory-id (:node-directory-id workflow)}]
-      (put! @out-chan info-msg) ; to notify conductor
-      (put! @ui-chan event-msg) ; to notify ui
+    (let [wf-id (save-workflow* workflow layout user-id)]
+      (notify (merge workflow {:workflow-id wf-id}))
       {:success? true :workflow-id wf-id})))
+
+(defn update-enabled-status
+  "Updates the is-enabled status for the job to be enabled?"
+  [wf-id enabled? user-id]
+  (db/set-node-enabled wf-id enabled?)
+  (let [w (get-workflow wf-id)]
+    (notify w)))
 
 ;-----------------------------------------------------------------------
 ; TODO: Move this handles both jobs and workflows and yet we have

@@ -187,3 +187,9 @@
 ;----------------------------------------------------------------------
 (defn fetch-dashboard-elements []
   (rpc/GET "/dashboard"))
+
+(defn enable-node [node-id]
+  (rpc/PUT (str "/dashboard/" node-id "/enable") ""))
+
+(defn disable-node [node-id]
+  (rpc/PUT (str "/dashboard/" node-id "/disable") ""))

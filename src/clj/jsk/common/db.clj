@@ -1562,6 +1562,7 @@ select
    select n.node_id
         , n.node_name
         , n.node_type_id
+        , n.is_enabled
         , ex.execution_id
         , ex.status_id
         , ex.finish_ts
@@ -1585,6 +1586,7 @@ union all
    select n.node_id
         , n.node_name
         , n.node_type_id
+        , n.is_enabled
         , ex.execution_id
         , ex.status_id
         , ex.finish_ts
@@ -1599,7 +1601,7 @@ left join ( select
                 on ew.execution_id = ev.execution_id
              where ew.root = 1
                and ew.workflow_id = 1
-          group by ew.workflow_id) last_exec
+          group by ev.node_id) last_exec
        on n.node_id = last_exec.node_id
 left join execution ex
        on last_exec.last_execution_id = ex.execution_id

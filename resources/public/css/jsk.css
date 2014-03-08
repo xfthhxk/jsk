@@ -60,3 +60,5 @@ div.visible {
 
 #dashboard-ok-panel { height: 100%; width: 50%; }
 #dashboard-error-panel { height: 100%; width: 50%; }
+
+.bg-warning { background: #fcf8e3}

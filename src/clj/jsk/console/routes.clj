@@ -257,7 +257,13 @@
 ;-----------------------------------------------------------------------
 (defroutes dashboard-routes
   (GET "/dashboard" []
-       (edn-response (dashboard/ls-elements))))
+       (edn-response (dashboard/ls-elements)))
+
+  (PUT "/dashboard/:node-id/enable" [node-id :as request]
+       (->> (uid request) (dashboard/enable node-id) edn-response))
+
+  (PUT "/dashboard/:node-id/disable" [node-id :as request]
+       (->> (uid request) (dashboard/disable node-id) edn-response)))
 
 ;-----------------------------------------------------------------------
 ; Collection of all routes.

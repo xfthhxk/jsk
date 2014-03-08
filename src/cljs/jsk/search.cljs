@@ -1,6 +1,6 @@
 (ns jsk.search
   (:require [jsk.rfn :as rfn]
-            [jsk.util :as ju]
+            [jsk.util :as util]
             [jsk.workflow :as w]
             [cljs.core.async :as async :refer [<!]]
             [jayq.core :as jq]
@@ -18,8 +18,8 @@
             :format "Y-m-d H:i"}))
 
 (defn- update-execution-id [f]
-  (let [id (-> f :execution-id ju/str->int)
-        ans (if (ju/nan? id)
+  (let [id (-> f :execution-id util/str->int)
+        ans (if (util/nan? id)
               nil
               id)]
     (assoc f :execution-id ans)))
@@ -27,16 +27,16 @@
 (defn- update-status-ids [f]
   (let [ids (-> f :status-ids)
         ans (if ids
-              (ju/ensure-coll ids)
+              (util/ensure-coll ids)
               nil)]
-    (assoc f :status-ids (map ju/str->int ans))))
+    (assoc f :status-ids (map util/str->int ans))))
 
 (defn- update-ts [f sel kw default]
   (let [sv (kw f)
         ans' (if sv
                (.parse js/Date sv)
                default)
-        ans (if (ju/nan? ans') default ans')]
+        ans (if (util/nan? ans') default ans')]
     (println "form is: " f)
     (println "sv is:" sv)
     (println "default is:" default)
@@ -57,24 +57,24 @@
 ;-----------------------------------------------------------------------
 (em/defsnippet make-search-form :compiled "public/templates/search.html"  "#executions-search-div"  [statuses]
   "label.checkbox-inline" (em/clone-for [[id nm] statuses]
-                               "input" #(ef/at (ju/parent-node %) (ef/append nm))
+                               "input" #(ef/at (util/parent-node %) (ef/append nm))
                                "input" (ef/set-attr :value (str id)))
   "#do-search" (events/listen :click #(do-search (parse-form))))
 
 (em/defsnippet show-executions :compiled "public/templates/search.html" "#executions-table" [ee]
   "tbody > :not(tr:first-child)" (ef/remove-node)
   "tbody > tr" (em/clone-for [{:keys[execution-id execution-name start-ts finish-ts status-id]} ee]
-                 "td.execution-id" #(ef/at (ju/parent-node %1)
+                 "td.execution-id" #(ef/at (util/parent-node %1)
                                            (events/listen :click (fn[e](w/show-execution-visualizer execution-id))))
                  "td.execution-id" (ef/content (str execution-id))
                  "td.execution-name" (ef/content execution-name)
-                 "td.execution-status" (ef/content (ju/status-id->desc status-id))
-                 "td.execution-start" (ef/content (str start-ts))
-                 "td.execution-finish" (ef/content (str finish-ts))))
+                 "td.execution-status" (ef/content (util/status-id->desc status-id))
+                 "td.execution-start" (ef/content (util/format-ts start-ts))
+                 "td.execution-finish" (ef/content (util/format-ts finish-ts))))
 
 (defn- show-search-msg [msg]
   (ef/at "#search-info-div" (ef/content msg))
-  (ju/show-element "#search-info-div"))
+  (util/show-element "#search-info-div"))
 
 (defn- do-search [data]
   (clear-results)
@@ -86,7 +86,7 @@
 
 
 (defn show-execution-search []
-  (ju/showcase (make-search-form ju/status-id-desc-map))
+  (util/showcase (make-search-form util/status-id-desc-map))
   (clear-results)
   (-> "#start-ts" $ (.datetimepicker datetime-ui-config))
   (-> "#finish-ts" $ (.datetimepicker datetime-ui-config)))

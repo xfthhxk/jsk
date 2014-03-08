@@ -315,8 +315,8 @@
   "#execution-id" (ef/content (str execution-id))
   "#workflow-name" (ef/content workflow-name)
   "#execution-status" (ef/content (util/status-id->desc status-id))
-  "#start-ts" (ef/content (str start-ts))
-  "#finish-ts" (ef/content (str finish-ts))
+  "#start-ts" (ef/content (util/format-ts start-ts))
+  "#finish-ts" (ef/content (util/format-ts finish-ts))
   "#execution-abort-action" (if (util/executing-status? status-id)
                               (events/listen :click (fn[event] (rfn/abort-execution execution-id)))
                               (ef/remove-node)))
@@ -375,10 +375,10 @@
                                                 (ef/content (util/status-id->desc status )))
                  "td.execution-vertex-start" (ef/do->
                                                (ef/set-attr :id (execution-vertex-start-td-id execution-vertex-id))
-                                               (ef/content (str start-ts)))
+                                               (ef/content (util/format-ts start-ts)))
                  "td.execution-vertex-finish" (ef/do->
                                                 (ef/set-attr :id (execution-vertex-finish-td-id execution-vertex-id))
-                                                (ef/content (str finish-ts)))
+                                                (ef/content (util/format-ts finish-ts)))
 
                  "td > a.execution-abort-action" (events/listen :click
                                                             (fn[e]
@@ -534,7 +534,7 @@
         status-sel (str "#" status-td-id)
         start-sel (str "#" start-td-id)]
     (ef/at status-sel (ef/content (util/status-id->desc status)))
-    (ef/at start-sel (ef/content (str start-ts)))
+    (ef/at start-sel (ef/content (util/format-ts start-ts)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
 (defn- update-ui-exec-vertex-finish [exec-vertex-id finish-ts status]
@@ -546,7 +546,7 @@
         glyph-sel (str "#" glyph-id)
         class-text (str "glyphicon " (status-id->glyph status)) ]
     (ef/at status-sel (ef/content (util/status-id->desc status)))
-    (ef/at finish-sel (ef/content (str finish-ts)))
+    (ef/at finish-sel (ef/content (util/format-ts finish-ts)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
 
@@ -570,7 +570,7 @@
 
 (defmethod dispatch :execution-finished [{:keys[status finish-ts]}]
   (ef/at "#execution-status" (ef/content (util/status-id->desc status)))
-  (ef/at "#finish-ts" (ef/content (str finish-ts)))
+  (ef/at "#finish-ts" (ef/content (util/format-ts finish-ts)))
   (ef/at "#execution-abort-action" (ef/remove-node)))
 
 ; notify the workflow/execution-visualizer that job is started

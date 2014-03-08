@@ -188,10 +188,28 @@
                              (select-keys [:cron-expression]))))
          node-sched-assocs))
 
-(defn schedule-assocs-with-cron-expr
-  "Retrieves all node schedule association with the associated :cron-expression. "
+(defn enabled-node-ids
+  "Answers with a set of node ids (job/workflow-ids) of nodes which are enabled."
   [c]
-  (->> c schedule-assocs (assoc-cron-expr c)))
+  (let [filter-fn (fn [{:keys [is-enabled]}]
+                    is-enabled)
+        id-fn (fn [node-fn node-id-kw]
+                (->> c node-fn (filter filter-fn) (map node-id-kw)))
+        job-ids (id-fn jobs :job-id)
+        wf-ids (id-fn workflows :wf-id)]
+    (set (concat job-ids wf-ids))))
+
+
+(defn schedule-assocs-with-cron-expr
+  "Retrieves all node schedule association with the associated :cron-expression.
+   For enabled jobs/workflows only."
+  [c]
+  (let [enabled-node-ids (enabled-node-ids c)
+        node-schedules (filter (fn [{:keys [node-id]}]
+                                 (contains? enabled-node-ids node-id))
+                               (schedule-assocs c))]
+    (assoc-cron-expr c node-schedules)))
+
 
 (defn rm-schedule-assoc
   "Removes the association pointed to by node-schedule-id."

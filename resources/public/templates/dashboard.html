@@ -30,7 +30,7 @@
     <!-- END dashboard div -->
 
     <li id="dashboard-ok-item" class="list-group-item">
-      <a class="node-name">Workflow Name</a> @ <a class="last-execution-ts">06-Mar-2013 16:39:12</a> <img class="executing" src="/images/executing-chartreuse.gif" alt="Executing">
+      <img class="executing" src="/images/executing-chartreuse.gif" alt="Executing">&nbsp;&nbsp;<span class="glyphicon glyphicon-info-sign"></span>&nbsp;&nbsp;<a class="node-name">Workflow Name</a> @ <a class="last-execution-ts">06-Mar-2013 16:39:12</a> 
       <div class="btn-group pull-right">
         <button type="button" class="btn btn-link dropdown-toggle" data-toggle="dropdown">
           <span class="caret"></span>
@@ -38,7 +38,8 @@
         </button>
         <ul class="dropdown-menu" role="menu">
           <li><a class="dashboard-trigger-now">Trigger Now</a></li>
-          <li><a class="dashboard-freeze">Freeze</a></li>
+          <li><a class="dashboard-enable">Enable</a></li>
+          <li><a class="dashboard-disable">Disable</a></li>
         </ul>
       </div>
     </li>
@@ -51,7 +52,7 @@
           <span class="sr-only">Toggle Dropdown</span>
         </button>
         <ul class="dropdown-menu" role="menu">
-          <li><a class="dashboard-unfreeze">Unfreeze</a></li>
+          <li><a class="dashboard-enable">Enable</a></li>
         </ul>
       </div>
     </li>

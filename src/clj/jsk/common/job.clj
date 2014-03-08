@@ -67,6 +67,21 @@
          :job-name [v/required [(partial unique-name? job-id) :message "Job name must be unique."]])
       first))
 
+(defn- notify [{:keys [job-id job-name node-directory-id is-enabled]}]
+  (let [schedule-count (-> job-id db/schedules-for-node count)
+        info-msg {:msg :node-save
+                  :node-id job-id
+                  :node-type-id data/job-type-id}
+        event-msg {:crud-event :node-save
+                   :node-id job-id
+                   :node-type-id data/job-type-id
+                   :node-name job-name
+                   :enabled? is-enabled
+                   :scheduled? (> schedule-count 0)
+                   :node-directory-id node-directory-id}]
+      (put! @out-chan info-msg)
+      (put! @ui-chan event-msg)))
+
 ;-----------------------------------------------------------------------
 ; Saves the job either inserting or updating depending on the
 ; job-id.  If it is negative insert otherwise update.
@@ -74,16 +89,16 @@
 (defn save-job! [{:keys [job-name node-directory-id] :as j} user-id]
   (if-let [errors (validate-save j)]
     (util/make-error-response errors)
-    (let [job-id (db/save-job j user-id)
-          info-msg {:msg :node-save :node-id job-id :node-type-id data/job-type-id}
-          event-msg {:crud-event :node-save
-                     :node-id job-id
-                     :node-type-id data/job-type-id
-                     :node-name job-name
-                     :node-directory-id node-directory-id}]
-      (put! @out-chan info-msg)
-      (put! @ui-chan event-msg) 
+    (let [job-id (db/save-job j user-id)]
+      (notify (merge j {:job-id job-id}))
       {:success? true :job-id job-id})))
+
+(defn update-enabled-status
+  "Updates the is-enabled status for the job to be enabled?"
+  [job-id enabled? user-id]
+  (db/set-node-enabled job-id enabled?)
+  (let [j (get-job job-id)]
+    (notify j)))
 
 (defn new-empty-job!
   "Makes a new job with default values for everything.
