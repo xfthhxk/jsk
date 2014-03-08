@@ -89,7 +89,7 @@
   (save-schedule! {:schedule-id -1
                    :schedule-name (str "Schedule " (util/now-ms))
                    :schedule-desc ""
-                   :cron-expression "1 1 1 1 1 ? 9999"}
+                   :cron-expression "1 1 1 1 1 ? 2100"}
                   user-id))
 
 
@@ -110,11 +110,14 @@
 
   ([node-id schedule-id user-id]
     (let [node-schedule-id (db/insert-node-schedule! node-id schedule-id user-id)
+          {:keys [node-name node-type-id]} (db/get-node-by-id node-id)
           {:keys [schedule-name]} (get-schedule schedule-id)]
       (put! @out-chan {:msg :schedule-assoc :node-id node-id})
       (put! @ui-chan {:crud-event :schedule-assoc-add
                       :node-schedule-id node-schedule-id
                       :node-id node-id
+                      :node-name node-name
+                      :node-type-id node-type-id
                       :schedule-id schedule-id
                       :schedule-name schedule-name}))))
 
@@ -123,10 +126,12 @@
   [node-schedule-id user-id]
   (log/info "User" user-id "is deleting schedule association" node-schedule-id)
 
-  (let [{:keys [node-id schedule-id]} (db/get-node-schedule node-schedule-id)]
+  (let [{:keys [node-id schedule-id]} (db/get-node-schedule node-schedule-id)
+        ns-count (-> node-id db/get-node-schedule-info count)]
     (db/rm-node-schedule! node-schedule-id)
     (put! @out-chan {:msg :schedule-assoc :node-id node-id})
     (put! @ui-chan {:crud-event :schedule-assoc-rm
                     :node-schedule-id node-schedule-id
                     :schedule-id schedule-id
-                    :node-id node-id})))
+                    :node-id node-id
+                    :was-last-assoc? (= 1 ns-count)})))

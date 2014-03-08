@@ -15,7 +15,7 @@
           data (util/update-str->int form :alert-id)
           data1 (merge data {:is-for-error (util/element-checked? "is-for-error")})
           {:keys [success? alert-id errors] :as save-result} (<! (rfn/save-alert data1))]
-      (util/log (str "Result: " save-result))
+      (println "Result: " save-result)
       (when (seq errors)
         (util/display-errors (-> errors vals flatten))))))
 

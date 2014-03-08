@@ -75,12 +75,12 @@
 ; Returns {:success? false :src-node-id 1 :tgt-node-id 2}
 ;----------------------------------------------------------------------
 (defn- parse-connection-info [{:keys [src tgt]}]
-  ;(util/log (str "src: " src ", tgt: " tgt))
+  ;(println "src: " src ", tgt: " tgt
   (let [tt (-> src (string/split #"-"))
         status (second tt)
         src-id (last tt)
         tgt-id (-> tgt (string/split #"-") last)]
-    ;(util/log (str "status: " status ", src-id: " src-id ", tgt-id: " tgt-id))
+    ;(println "status: " status ", src-id: " src-id ", tgt-id: " tgt-id)
     {:success? (= "success" status)
      :src-node-id (util/str->int src-id)
      :tgt-node-id (util/str->int tgt-id)}))
@@ -91,7 +91,7 @@
   (let [form (ef/from "#workflow-save-form" (ef/read-form))
         data (util/update-str->int form :workflow-id)
         data1 (merge data {:is-enabled (util/element-checked? "workflow-is-enabled")})]
-    ;(util/log (str "Form data is: " form))
+    ;(println "Form data is: " form)
     data1))
 
 
@@ -433,7 +433,7 @@
     (if dest-vertex-id
       (let [id-mkr (if success node-id->success-ep-id node-id->fail-ep-id)
             src-ep-id (id-mkr src-vertex-id)]
-        ; (util/log (str "making connection src: " src-ep-id ", to: " dest-div-id))
+        ; (println "making connection src: " src-ep-id ", to: " dest-div-id)
         (plumb/connect src-ep-id dest-div-id)))))
 
 
@@ -485,7 +485,7 @@
 
 
 (defn- show-execution-workflow-details [exec-wf-id]
-  ;(util/log (str"exec-wf-id is:" exec-wf-id))
+  ;(println is:" exec-wf-id)
   (go
    (let [{:keys[wf-info nodes] :as exec-wf-info} (<! (rfn/fetch-execution-workflow-details exec-wf-id))]
 
@@ -504,7 +504,7 @@
 
 (defn show-execution-visualizer
   [execution-id]
-  ;(util/log (str "execution-id is:" execution-id))
+  ;(println "execution-id is:" execution-id)
 
 
   (reset! current-execution-id execution-id)

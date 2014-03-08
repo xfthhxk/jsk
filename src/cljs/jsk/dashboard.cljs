@@ -33,6 +33,9 @@
 (defn- make-dashboard-node-id [node-id]
   (str "dashboard-node-" node-id))
 
+(defn- make-dashboard-node-id-executing [node-id]
+  (str "dashboard-node-executing-" node-id))
+
 (defn- trigger-now [node-id node-type-id]
   (condp = node-type-id
     util/job-type-id (rfn/trigger-job-now node-id)
@@ -58,6 +61,9 @@
                           (ef/content (str (if finish-ts finish-ts start-ts)))
                           (events/listen :click #(workflow/show-execution-visualizer execution-id)))
                          (ef/remove-node))
+  "img.executing" (if (and start-ts (not finish-ts))
+                    (ef/set-attr :id (make-dashboard-node-id-executing node-id))
+                    (ef/remove-node))
   ".dashboard-trigger-now" (events/listen :click #(trigger-now node-id node-type-id))
   ".dashboard-freeze" (events/listen :click #(freeze node-id node-type-id)))
 
@@ -85,11 +91,9 @@
     (ef/at list-id (ef/append (f e)))))
 
 (defn prepend-ok [msg]
-  (util/log (str "prepend-ok got called with " (:success? msg)))
   (ef/at dashboard-ok-list (ef/prepend (ok-element msg))))
 
 (defn prepend-error [msg]
-  (util/log (str "prepend-error got called with " (:success? msg)))
   (ef/at dashboard-error-list (ef/prepend (error-element msg))))
 
 
@@ -105,7 +109,6 @@
 (defmulti dispatch :execution-event)
 
 (defmethod dispatch :execution-started [{:keys [node-id] :as msg}]
-  (util/log (str "dashboard execution-started " msg))
   (let [element-id (make-dashboard-node-id node-id)
         element-sel (str "#" element-id)]
     ;; delete existing node
@@ -116,7 +119,6 @@
       (prepend-ok msg))))
 
 (defmethod dispatch :execution-finished [{:keys [node-id success?] :as msg}]
-  (util/log (str "dashboard execution-finished " msg))
   (let [element-id (make-dashboard-node-id node-id)
         element-sel (str "#" element-id)
         prepend-fn (if success? prepend-ok prepend-error)]
@@ -132,3 +134,29 @@
 
 (defn process-event [msg]
   (dispatch msg))
+
+(defmulti dispatch-crud :crud-event)
+
+(defmethod dispatch-crud :schedule-assoc-add [{:keys [node-id] :as msg}]
+  (let [dom-node-id (make-dashboard-node-id node-id)]
+    ;; if was last assoc and node is present, then remove it from the dashboard
+    (when (-> dom-node-id util/element-exists? not)
+      (append-elements dashboard-ok-list [msg] ok-element))))
+
+
+(defmethod dispatch-crud :schedule-assoc-rm [{:keys [node-id was-last-assoc?]}]
+  (let [dom-node-id (make-dashboard-node-id node-id)
+        dom-node-sel (str "#" dom-node-id)]
+    ;; if was last assoc and node is present, then remove it from the dashboard
+    (when (and was-last-assoc? (util/element-exists? dom-node-id))
+      (ef/at dom-node-sel (ef/remove-node)))))
+
+
+
+(defmethod dispatch-crud :default [msg]
+  ;; empty!
+  )
+
+
+(defn process-crud-event [msg]
+  (dispatch-crud msg))

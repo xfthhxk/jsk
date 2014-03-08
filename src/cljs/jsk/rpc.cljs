@@ -18,7 +18,7 @@
 (def edn-headers (-> {"Content-Type" app-edn} clj->js structs/Map.))
 
 (defn- default-rpc-error-handler [status msg]
-  (ju/log (str "ERROR status: " status ", msg: " msg)))
+  (println "ERROR status: " status ", msg: " msg))
 
 (def error-handler (atom default-rpc-error-handler))
 
@@ -54,7 +54,7 @@
   (let [xhr (.-target e)
         status (.getStatus xhr)
         response (.getResponseText xhr)]
-    (ju/log (str "XHR status: " status ", response: " response))
+    (println "XHR status: " status ", response: " response)
     {:xhr xhr :status status :response (parse-response xhr)}))
 
 (defn- cb-handler [e cb]

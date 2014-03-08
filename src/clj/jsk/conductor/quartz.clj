@@ -51,9 +51,6 @@
   [^TriggerBuilder tb ^JobKey job-key]
   (.forJob tb job-key))
 
-(defn make-job-key [id]
-  (j/key (str id) "jsk-job"))
-
 (defn make-trigger-job-key [id]
   (j/key (str id) "jsk-trigger-job"))
 
@@ -66,6 +63,22 @@
 (defn get-job-triggers [id]
   (.getTriggersOfJob ^Scheduler @qs/*scheduler* (make-trigger-job-key id)))
 
+
+(defn pause-job
+  "This should be safe to call even if there are no associated triggers."
+  [id]
+  (let [jk (make-trigger-job-key id)]
+    (when (exists? jk)
+      (.pauseJob ^Scheduler @qs/*scheduler* jk)
+      (log/info "Quartz job paused. node-id " id))))
+
+(defn resume-job
+  "This should be safe to call even if there are no associated triggers."
+  [id]
+  (let [jk (make-trigger-job-key id)]
+    (when (exists? jk)
+      (.resumeJob ^Scheduler @qs/*scheduler* jk)
+      (log/info "Quartz job resumed. node-id " id))))
 
 (defn init [quartz-ch]
   (reset! quartz-channel quartz-ch)

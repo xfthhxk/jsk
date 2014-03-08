@@ -37,9 +37,9 @@
                (.parse js/Date sv)
                default)
         ans (if (ju/nan? ans') default ans')]
-    (ju/log (str "form is: " f))
-    (ju/log (str "sv is:" sv))
-    (ju/log (str "default is:" default))
+    (println "form is: " f)
+    (println "sv is:" sv)
+    (println "default is:" default)
     (assoc f kw ans)))
 
 (defn- parse-form []
@@ -80,7 +80,7 @@
   (clear-results)
   (go
    (let [results (<! (rfn/search-executions data))]
-     (ju/log (str results))
+     (println results)
      (show-search-msg (str "Found: " (count results) " executions."))
      (ef/at "#executions-search-results-div" (ef/content (show-executions results))))))
 

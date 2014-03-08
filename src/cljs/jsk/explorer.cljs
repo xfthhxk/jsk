@@ -40,7 +40,7 @@
   (let [parent-id (get node "id")
         parent-dir-id (util/explorer-element-id->id parent-id)
         sel (tree/selected-node jstree-id)]
-    (util/log (str "parent id: " parent-id ", parent-dir-id: " parent-dir-id))
+    (println "parent id: " parent-id ", parent-dir-id: " parent-dir-id)
     (when sel
       (go
        (let [text (str "Directory " (util/now-ts)) ; need a unique name for creation renamed later
@@ -48,7 +48,7 @@
              (<! (rfn/save-directory dir-data)))))))
 
 (defn- rm-directory [dir-id]
-  (util/log (str "remove directory with id " dir-id))
+  (println "remove directory with id " dir-id)
   (go
    (<! (rfn/rm-directory dir-id))))
 
@@ -143,7 +143,6 @@
 
 
 (defn- pick-context-menu-fn [type]
-  ; (util/log (str "type is " type))
   (condp = type
     :directory dir-context-menu
     :job job-context-menu
@@ -157,7 +156,7 @@
   (let [clj-node (js->clj node)
         type (keyword (get clj-node "type"))
         ctx-menu-fn (pick-context-menu-fn type)]
-    ; (util/log (str "make-context-menu node is " clj-node))
+    ; (println "make-context-menu node is " clj-node)
     (-> clj-node ctx-menu-fn clj->js cb)))
 
 ;-----------------------------------------------------------------------
@@ -186,7 +185,7 @@
   [dnd-data target-sel]
   (let [{:keys [client-x client-y] :as event-coords} (tree/dnd-event-coordinates dnd-data)
         element-at-point (-> js/document (.elementFromPoint client-x client-y))]
-    ;(util/log (str "event coords " event-coords ", element-at-point " element-at-point))
+    ;(println "event coords " event-coords ", element-at-point " element-at-point)
     (when element-at-point
       (let [element-at-point-id (-> element-at-point .-id)
            element-distance (-> element-at-point $ (.closest target-sel) .-length)]
@@ -202,7 +201,7 @@
         above-node-alert-list? (above-target? data jsk.node/node-alerts-tab-sel)
         {:keys [offset-x offset-y]} (tree/dnd-event-coordinates data)]
 
-    ; (util/log (str "node dropped " element-id ", node-id: " node-id ", node-type: " node-type "offset-x " offset-x ", offset-y" offset-y))
+    ; (println "node dropped " element-id ", node-id: " node-id ", node-type: " node-type "offset-x " offset-x ", offset-y" offset-y)
     (when (and above-workflow-designer? (node-type #{:job :workflow})
       (let [layout-info (workflow/xy->css-layout offset-x offset-y)]
         (workflow/design-visualizer-add-node node-id node-name layout-info))))
@@ -259,14 +258,14 @@
   (let [{:strs [id text parent type]} (-> data .-node js->clj)
         id-int (util/explorer-element-id->id id)
         parent-id-int (util/explorer-element-id->id parent)]
-    ;(util/log (str "in rename-node id: " id ", text: " text ", parent: " parent ", type: " type))
+    ;(println "in rename-node id: " id ", text: " text ", parent: " parent ", type: " type)
     (if (= "directory" type)
       (rename-directory id-int text parent-id-int))))
     
 
 (defn- create-explorer-node [e data]
   (let [{:strs [id text parent]} (-> data .-node js->clj)]
-    (util/log (str "in create-node id: " id ", text: " text ", parent: " parent))))
+    (println "in create-node id: " id ", text: " text ", parent: " parent)))
 
 (defn- schedule-data->jstree-format [ss]
   (map (fn [{:keys [schedule-id schedule-name]}]
@@ -327,13 +326,13 @@
 
 
 (defn when-node-activated [event sel-node]
-  (util/log "when-node-activated called")
+  (println "when-node-activated called")
   (let [node (-> sel-node .-node)
         node-type (tree/node-type node)
         element-id (-> node .-id util/explorer-element-id->id)]
 
-    (def activated-node sel-node)
-    (util/log (str "node-type: " node-type ", element-id: " element-id))
+    ; (def activated-node sel-node)
+    (println "node-type: " node-type ", element-id: " element-id)
 
     (condp = node-type
       :directory nil
@@ -351,12 +350,12 @@
   (let [{:keys [parent-id old-parent-id node-id] :as event-data-ids} (tree/move-event-data->ids data)
         [element-type element-id] (util/explorer-element-id-dissect node-id)]
 
-    (util/log (str "when-node-moved " event-data-ids))
+    (println (str "when-node-moved " event-data-ids))
 
     ;; stuff that shouldn't be moved but was, refresh the old and new
     ;; parent nodes
     (when (not (element-type movable-types))
-      (util/log "Not a movable type doing cancel by refreshing nodes from server")
+      (println "Not a movable type doing cancel by refreshing nodes from server")
       (tree/refresh-node jstree-id old-parent-id)
       (let [[parent-element-type parent-element-id] (util/explorer-element-id-dissect parent-id)]
         (when (parent-element-type #{:section :directory})
@@ -367,7 +366,7 @@
       (let [[_ new-directory-id] (-> data .-parent util/explorer-element-id-dissect)
             [_ old-directory-id] (-> data .-old_parent util/explorer-element-id-dissect)
             [element-type element-id] (-> data .-node .-id util/explorer-element-id-dissect)]
-        (util/log (str "when-node-moved node: new-directory-id: " new-directory-id ", old-directory-id: " old-directory-id ", element-type: " element-type ", element-id " element-id))
+        (println (str "when-node-moved node: new-directory-id: " new-directory-id ", old-directory-id: " old-directory-id ", element-type: " element-type ", element-id " element-id))
         (when (not= new-directory-id old-directory-id)
           (rfn/change-directory {:element-id element-id :element-type element-type :new-parent-directory-id new-directory-id}))))))
 
@@ -398,7 +397,7 @@
 
 (defn- ls-elements
   [node cb]
-  (util/log (str "node is: " (js->clj node)))
+  (println (str "node is: " (js->clj node)))
   (let [id-str (-> node .-id)
         tree-node-type (-> node .-type)
         [element-type element-id] (util/explorer-element-id-dissect id-str)]
@@ -443,7 +442,7 @@
                                  :plugins [:contextmenu :dnd :types :sort :unique]})
 
 (defn show []
-  (util/log "in show")
+  (println "in show")
   (util/showcase (explorer-tree))
   (tree/init-tree jstree-id init-data)
   (tree/register-activate-node-handler jstree-id when-node-activated)
@@ -470,8 +469,8 @@
 ;; if the node does not exist, but the parent-directory does, then add it
 
 (defn- handle-node [{:keys [node-id node-type-id node-name node-directory-id] :as msg}]
-  (util/log (str "handle-node called for " msg))
-  (util/log (str "the node-type is " (util/node-type-id->keyword node-type-id)))
+  (println (str "handle-node called for " msg))
+  (println (str "the node-type is " (util/node-type-id->keyword node-type-id)))
 
   (let [node-type (util/node-type-id->keyword node-type-id)
         node-explorer-id (util/->explorer-element-id node-id node-type)
@@ -488,14 +487,14 @@
     (when-not node
       (let [parent-node-element-id (util/->explorer-element-id node-directory-id :directory)
             node-params {:id node-explorer-id :type node-type :text node-name :parent parent-node-element-id :children false}]
-        (util/log (str "create node with " node-params))
+        (println (str "create node with " node-params))
         (when (tree/node-exists? jstree-id parent-node-element-id)
           (tree/make-node jstree-id parent-node-element-id node-params))))))
 
 ;; if the directory exists in the tree, rename it if reqd
 ;; if the parent-directory-id is different, move the directory
 (defn- handle-directory [{:keys [directory-id directory-name parent-directory-id] :as msg}]
-  (util/log (str "handle-directory called for " msg))
+  (println (str "handle-directory called for " msg))
   (let [node-explorer-id (util/->explorer-element-id directory-id :directory)
         node (tree/get-node jstree-id node-explorer-id)]
     (when node
@@ -510,14 +509,14 @@
     (when-not node
       (let [parent-node-element-id (util/->explorer-element-id parent-directory-id :directory)
             node-params {:id node-explorer-id :type :directory :text directory-name :parent parent-node-element-id :children false}]
-        (util/log (str "create directory with " node-params))
+        (println (str "create directory with " node-params))
         (when (tree/node-exists? jstree-id parent-node-element-id)
           (tree/make-node jstree-id parent-node-element-id node-params))))))
 
 
 ;; if the element-id exists in the tree and the new-parent-directory-id exists
 (defn- handle-directory-change [{:keys [element-id element-name element-type new-parent-directory-id] :as msg}]
-  (util/log (str "handle-directory-change for " msg))
+  (println (str "handle-directory-change for " msg))
   (let [explorer-dir-id (util/->explorer-element-id new-parent-directory-id :directory)
         element-exp-id (util/->explorer-element-id element-id element-type)
         target-dir? (tree/node-exists? jstree-id explorer-dir-id)
@@ -599,14 +598,14 @@
       (handle-directory-change msg))))
 
 (defmethod dispatch :element-rm [{:keys [element-id element-type] :as msg}]
-  (util/log (str "explorer directory-rm " msg))
+  (println (str "explorer directory-rm " msg))
   (let [tree-element-id (util/->explorer-element-id element-id element-type)]
     (when (tree/node-exists? jstree-id tree-element-id)
       (tree/rm-node jstree-id tree-element-id))))
 
 
 (defmethod dispatch :schedule-assoc-add [{:keys [node-id schedule-id node-schedule-id schedule-name]}]
-  (util/log (str "schedule-assoc " node-schedule-id " added for node " node-id))
+  (println (str "schedule-assoc " node-schedule-id " added for node " node-id))
   (jsk.node/append-schedule-assoc node-id node-schedule-id schedule-name))
 
 (defmethod dispatch :schedule-assoc-rm [{:keys [node-id schedule-id node-schedule-id]}]
@@ -616,7 +615,7 @@
       (ef/at sel (ef/remove-node)))))
 
 (defmethod dispatch :alert-assoc-add [{:keys [node-id alert-id node-alert-id alert-name]}]
-  (util/log (str "alert-assoc " node-alert-id " added for node " node-id))
+  (println "alert-assoc " node-alert-id " added for node " node-id)
   (jsk.node/append-alert-assoc node-id node-alert-id alert-name))
 
 (defmethod dispatch :alert-assoc-rm [{:keys [node-id alert-id node-alert-id]}]
@@ -626,9 +625,9 @@
       (ef/at sel (ef/remove-node)))))
 
 (defmethod dispatch :default [msg]
-  (util/log (str "explorer unexpected crud-event " msg)))
+  (println "explorer unexpected crud-event " msg))
 
 (defn handle-event [msg]
-  (util/log (str "explorer/handle-event called for " msg))
+  (println "explorer/handle-event called for " msg)
   (when (util/element-exists? "jstree")
     (dispatch msg)))

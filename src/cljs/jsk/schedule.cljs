@@ -15,7 +15,7 @@
     (let [form (ef/from "#schedule-save-form" (ef/read-form))
           data (util/update-str->int form :schedule-id)
           {:keys [success? schedule-id errors] :as save-result} (<! (rfn/save-schedule data))]
-      (util/log (str "Result: " save-result))
+      (println "Result: " save-result)
       (when (seq errors) 
         (util/display-errors (-> errors vals flatten))))))
 

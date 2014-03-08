@@ -35,14 +35,14 @@
                                   "button.close" (events/listen :click #(rfn/rm-schedule-assoc node-schedule-id))))
 
 (defn populate-schedule-assoc-list [node-id schedule-assocs]
-  (util/log (str "populate-schedule-assoc-list for " node-id " with " schedule-assocs))
+  (println (str "populate-schedule-assoc-list for " node-id " with " schedule-assocs))
   (ef/at node-schedules-tab-sel (ef/content (list-node-schedule-assocs node-id schedule-assocs))))
 
 (defn append-schedule-assoc [node-id node-schedule-id schedule-name]
   (when-let [current-node-id (current-node-id "node-schedules-list")]
-    (util/log (str "current-node id is " current-node-id ", and node-id is " node-id))
+    (println (str "current-node id is " current-node-id ", and node-id is " node-id))
     (when (= node-id current-node-id)
-      (util/log "adding new node-schedule assoc to current ui")
+      (println "adding new node-schedule assoc to current ui")
       (ef/at node-schedules-list-sel (ef/append (one-node-schedule-assoc node-schedule-id schedule-name))))))
 
 
@@ -73,17 +73,17 @@
                                   "button.close" (events/listen :click #(rfn/rm-alert-assoc node-alert-id))))
 
 (defn populate-alert-assoc-list [node-id alert-assocs]
-  (util/log (str "populate-alert-assoc-list for " node-id " with " alert-assocs))
+  (println "populate-alert-assoc-list for " node-id " with " alert-assocs)
   (ef/at node-alerts-tab-sel (ef/content (list-node-alert-assocs node-id alert-assocs))))
 
 (defn append-alert-assoc [node-id node-alert-id alert-name]
   (when-let [e (util/element-by-id "node-alerts-list")]
-    (util/log "node-alerts-list is in the dom")
+    (println "node-alerts-list is in the dom")
     (let [current-node-id (-> e $ (.data "node-id") util/str->int)]
-      (util/log (str "current-node id is " current-node-id ", and node-id is " node-id))
+      (println "current-node id is " current-node-id ", and node-id is " node-id)
 
       (when (= node-id current-node-id)
-        (util/log "adding new node-alert assoc to current ui")
+        (println "adding new node-alert assoc to current ui")
         (ef/at node-alerts-list-sel (ef/append (one-node-alert-assoc node-alert-id alert-name)))))))
 
 

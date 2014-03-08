@@ -23,9 +23,6 @@
 (defn executing-status? [id]
   (= started-status id))
 
-(defn log [x]
-  (.log js/console (str x)))
-
 (defn now-ts []
   (js/Date.now))
 
@@ -89,12 +86,11 @@
 
 ; errors is a seq of msgs
 (defn display-errors [errors]
-  (log (str "errors received: " errors))
+  (println"errors received: " errors)
   (ef/at "#error-div" (ef/content (error-display-template errors))))
 
 (defn clear-error []
   (ef/at "#error-div" (ef/content "")))
-
 
 (defn nav-to-login-page []
   (set! (-> js/window .-location .-href) "login.html"))
@@ -169,7 +165,6 @@
 (def ^:private root-parent-dir-id -1)
 
 (defn- ->explorer-element-id [id node-type]
-  ;(log (str "id=" id ", node-type " node-type))
   (if (= root-parent-dir-id id)
     "#"
    (str "exp-" (name node-type) "-" id)))
@@ -211,3 +206,9 @@
 (defn node-type-id->keyword [node-type-id]
   (get node-type-kw-map node-type-id))
 
+
+(defn format-date-generic
+  "Format a date using either the built-in goog.i18n.DateTimeFormat.Format enum
+or a formatting string like \"dd MMMM yyyy\""
+  [date-format dt]
+  (.format (goog.i18n.DateTimeFormat. date-format) dt))

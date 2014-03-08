@@ -1565,9 +1565,7 @@ select
         , ex.execution_id
         , ex.status_id
         , ex.finish_ts
-     from node_schedule ns
-     join node          n
-       on ns.node_id = n.node_id
+     from node          n
      join workflow      wf
        on n.node_id = wf.workflow_id
 left join ( select
@@ -1575,12 +1573,14 @@ left join ( select
                  , max(ew.execution_id) as last_execution_id
               from execution_workflow ew
              where ew.root = 1
-               and ew.finish_ts is not null
                and ew.workflow_id != 1
           group by ew.workflow_id) last_exec
        on n.node_id = last_exec.workflow_id
 left join execution ex
        on last_exec.last_execution_id = ex.execution_id
+    where exists (select 1
+                    from node_schedule ns
+                   where n.node_id = ns.node_id)
 union all
    select n.node_id
         , n.node_name
@@ -1588,9 +1588,7 @@ union all
         , ex.execution_id
         , ex.status_id
         , ex.finish_ts
-     from node_schedule ns
-     join node          n
-       on ns.node_id = n.node_id
+     from node          n
      join job           j
        on n.node_id = j.job_id
 left join ( select
@@ -1600,15 +1598,24 @@ left join ( select
               join execution_vertex   ev
                 on ew.execution_id = ev.execution_id
              where ew.root = 1
-               and ew.finish_ts is not null
                and ew.workflow_id = 1
           group by ew.workflow_id) last_exec
        on n.node_id = last_exec.node_id
 left join execution ex
        on last_exec.last_execution_id = ex.execution_id
+    where exists (select 1
+                    from node_schedule ns
+                   where n.node_id = ns.node_id)
 ")
 
 
 (defn ls-dashboard-elements
   []
   (exec-raw [dashboard-nodes-sql []] :results))
+
+
+(defn set-node-enabled
+  "Marks the node as enabled or disabled."
+  [node-id enabled?]
+  (update node (set-fields {:is-enabled enabled? :update-ts (util/now)})
+          (where {:node-id node-id})))

@@ -271,6 +271,15 @@
     (db/workflow-finished root-wf-id success? ts)
     (db/execution-finished exec-id success? ts)
 
+    ;; pause job 
+    (when (not success?)
+      ;; pause in quartz
+      (quartz/pause-job triggered-node-id)
+      ;; send notification to console & UIs that this is now paused
+      ;; disable job right now in the database, just in case this
+      ;; crashes and console is not avail
+      (db/set-node-enabled triggered-node-id false))
+
     (publish-event {:execution-event :execution-finished
                     :execution-id exec-id
                     :success? success?
@@ -523,9 +532,11 @@
 ; TODO: send an ack
 (defmethod dispatch :node-save [{:keys[node-id node-type-id] :as msg}]
   (log/debug "Node save for node: " msg)
-  (let [n (db/get-node-by-id node-id node-type-id)]
+  (let [{:keys [is-enabled] :as n}  (db/get-node-by-id node-id node-type-id)]
     (log/debug "node from db is " n)
-    (swap! app-state #(state/save-node %1 n))))
+    (swap! app-state #(state/save-node %1 n))
+    (when is-enabled
+      (quartz/resume-job node-id))))
 
 
 (defmethod dispatch :alert-save [{:keys [alert-id]}]
@@ -562,7 +573,7 @@
 
     (quartz/rm-triggers! orig-assoc-ids)
 
-    (doseq [{:keys[node-schedule-id cron-expression]} (cache/schedule-assocs-with-cron-expr-for-node node-id)]
+    (doseq [{:keys[node-schedule-id cron-expression]} (cache/schedule-assocs-with-cron-expr-for-node c node-id)]
       (quartz/schedule-cron-job! node-schedule-id node-id cron-expression))))
 
 ;-----------------------------------------------------------------------

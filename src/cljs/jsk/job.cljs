@@ -31,9 +31,9 @@
           data2 (merge data1 {:max-concurrent 1 :max-retries 1 :agent-id agent-id})
           job-id (<! (rfn/save-job data2))]
       (show-save-success)
-      (util/log (str "Form is:__>" form))
-      (util/log (str "agent-id is " agent-id))
-      (util/log (str "Job saved with id " job-id)))))
+      (println "Form is:__>" form)
+      (println "agent-id is " agent-id)
+      (println "Job saved with id " job-id))))
 
 (defn- gen-agent-options [agents selected-agent-id]
   (->> agents

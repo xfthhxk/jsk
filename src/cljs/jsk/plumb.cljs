@@ -31,7 +31,7 @@
   (let [data {:ConnectionOverlays [[:Arrow {:location 1 :id :arrow :length 14 :width 9 :foldback 0.7}]]
               :Endpoint           [:Dot {:radius 2}]
               :HoverPaintStyle    {:strokeStyle "#1e8151" :lineWidth 2}}]
-    (ju/log "defaults: " (clj->js data))
+    (println "defaults: " data)
     (-> jsp (.importDefaults (clj->js data)))))
 
 
@@ -169,7 +169,6 @@
 ;  (-> js-plumb (.addEndpoint (->selector id) (clj->js endpoint-options))))
 
 ;(defn make-source [id]
-;  (ju/log "make-source, js-plumb is: " js-plumb)
 ;  (-> js-plumb (.makeSource ($ id) (clj->js endpoint-options))))
 
 ;; (defn make-source-alt []
