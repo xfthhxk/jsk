@@ -186,6 +186,12 @@
        (-> id util/str->int (wf/abort-execution (uid request)) edn-response))
 
   ; id is the execution id, vid the vertex id
+  (GET "/executions/force-success/:id/:vid" [id vid :as request]
+       (let [execution-id (util/str->int id)
+             vertex-id (util/str->int vid)]
+         (edn-response (wf/force-success execution-id vertex-id (uid request)))))
+
+  ; id is the execution id, vid the vertex id
   (GET "/executions/abort/:id/:vid" [id vid :as request]
        (let [execution-id (util/str->int id)
              vertex-id (util/str->int vid)]

@@ -122,6 +122,9 @@
 (defn resume-execution [exec-id vertex-id]
   (rpc/GET (str "/executions/resume/" exec-id "/" vertex-id)))
 
+(defn force-success [execution-id exec-vertex-id]
+  (rpc/GET (str "/executions/force-success/" execution-id "/" exec-vertex-id)))
+
 (defn search-executions [data]
   (rpc/POST "/executions/search/q" data))
 

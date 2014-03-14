@@ -109,7 +109,7 @@
                           (ef/content (util/format-ts finish-ts))
                           (events/listen :click #(workflow/show-execution-visualizer execution-id)))
                          (ef/remove-node))
-  ".dashboard-enable" (events/listen :click #(rfn/enable node-id)))
+  ".dashboard-enable" (events/listen :click #(rfn/enable-node node-id)))
 
 
 

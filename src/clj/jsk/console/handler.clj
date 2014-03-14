@@ -135,7 +135,7 @@
   (log/info "Initializing publication to conductor.")
   (msg/relay-writes-to-topic conductor-write-chan conductor-host req-port false "/jsk")
 
-  (log/info "JSK web app init finished."))
+  (log/info "JSK web console init finished."))
 
 ;-----------------------------------------------------------------------
 ; App shutdown procedure.

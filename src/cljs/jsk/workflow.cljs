@@ -165,6 +165,7 @@
     5 "glyphicon-minus-sign"        ; aborted
     6 "glyphicon-question-sign"     ; unknown
     7 "glyphicon-time"              ; pending
+    8 "glyphicon-ok-circle"         ; forced success
     ))   ; unknown-status
 
 ;----------------------------------------------------------------------
@@ -380,13 +381,15 @@
                                                 (ef/set-attr :id (execution-vertex-finish-td-id execution-vertex-id))
                                                 (ef/content (util/format-ts finish-ts)))
 
-                 "td > a.execution-abort-action" (events/listen :click
-                                                            (fn[e]
-                                                              (rfn/abort-job @current-execution-id execution-vertex-id)))
-                 "td > a.execution-resume-action" (events/listen :click
-                                                            (fn[e]
-                                                              (rfn/resume-execution @current-execution-id execution-vertex-id)))))
-
+                 "td > a.execution-abort-action" (if (util/executing-status? status)
+                                                   (events/listen :click #(rfn/abort-job @current-execution-id execution-vertex-id))
+                                                   (ef/remove-node))
+                 "td > a.execution-resume-action" (if (util/resumable-execution-status? status)
+                                                    (events/listen :click #(rfn/resume-execution @current-execution-id execution-vertex-id))
+                                                    (ef/remove-node))
+                 "td > a.execution-force-success-action" (if (util/success-forcable-status? status)
+                                                           (events/listen :click #(rfn/force-success @current-execution-id execution-vertex-id))
+                                                           (ef/remove-node))))
 
 
 ;----------------------------------------------------------------------
@@ -556,7 +559,7 @@
 ; Message dispatching.
 ; Maybe execution visualizer should be in a separate ns
 ;-----------------------------------------------------------------------
-(defmulti dispatch :event)
+(defmulti dispatch :execution-event)
 
 
 (defmethod dispatch :wf-started [{:keys[exec-vertex-id start-ts]}]

@@ -155,6 +155,14 @@
   (put! @out-chan {:msg :trigger-node
                    :node-id node-id}))
 
+(defn force-success
+  "Places a force success message to the conductor."
+  [execution-id exec-vertex-id user-id]
+  (log/info "user " user-id "requests force success for execution " execution-id " and exec-vertex-id " exec-vertex-id)
+  (put! @out-chan {:msg :request-force-success
+                   :execution-id execution-id
+                   :exec-vertex-id exec-vertex-id}))
+
 (defn abort-execution
   "Puts a message on the conductor channel to abort the execution."
   [execution-id user-id]

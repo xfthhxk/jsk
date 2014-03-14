@@ -6,14 +6,20 @@
 (def started-status 2)
 (def success-status 3)
 (def error-status 4)
+(def aborted-status 5)
 (def unknown-status 6)
+(def forced-success-status 8)
+
+(def ^:private resumable-statuses #{error-status aborted-status})
 
 (def status-id-desc-map {1 "Not Started"
                          2 "Started"
                          3 "Successful"
                          4 "Errored"
                          5 "Aborted"
-                         6 "Unknown"})
+                         6 "Unknown"
+                         7 "Pending"
+                         8 "Forced Success"})
 
 (defn status-id->desc
   "Translates id to string description"
@@ -22,6 +28,12 @@
 
 (defn executing-status? [id]
   (= started-status id))
+
+(defn resumable-execution-status? [id]
+  (contains? resumable-statuses id))
+
+(defn success-forcable-status? [id]
+  (resumable-execution-status? id))
 
 (defn now-ts []
   (js/Date.now))
@@ -227,10 +239,12 @@
 
 (defn format-ts
   [ts]
-  (let [day (-> ts .getDate pad-zero)
-        mnth (->> ts .getMonth (get month->english))
-        yr (.getFullYear ts)
-        hr (-> ts .getHours pad-zero)
-        min (-> ts .getMinutes pad-zero)
-        ss (-> ts .getSeconds pad-zero)]
-    (str day "-" mnth "-" yr " " hr ":" min ":" ss)))
+  (if ts
+    (let [day (-> ts .getDate pad-zero)
+          mnth (->> ts .getMonth (get month->english))
+          yr (.getFullYear ts)
+          hr (-> ts .getHours pad-zero)
+          min (-> ts .getMinutes pad-zero)
+          ss (-> ts .getSeconds pad-zero)]
+      (str day "-" mnth "-" yr " " hr ":" min ":" ss))
+    ""))

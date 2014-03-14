@@ -355,3 +355,8 @@
   "Answers with the name of the vertex ie job/wf name."
   [model v-id]
   (-> model (vertex-attrs v-id) :node-nm))
+
+(defn owning-execution-workflow-id 
+  "Answers with the id of the execution workflow which v-id belongs to."
+  [model v-id]
+  (-> model (vertex-attrs v-id) :belongs-to-wf))

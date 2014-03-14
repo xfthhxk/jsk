@@ -201,6 +201,11 @@ span.glyphicon-ok {
   color: green;
 }
 
+span.glyphicon-ok-circle {
+  font-size: 1.5em;
+  color: green;
+}
+
 span.glyphicon-exclamation-sign {
   font-size: 1.5em;
   color: red;

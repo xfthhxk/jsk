@@ -223,12 +223,14 @@ create table execution_status (  execution_status_id int         auto_increment 
 alter table execution_status add constraint unq_execution_status_code unique(status_code);
 
 insert into execution_status (execution_status_id, status_code, status_desc)
-                      values (1, 'pending', 'Not yet started')
+                      values (1, 'unexecuted', 'Unexecuted')
                            , (2, 'started', 'Started')
                            , (3, 'finished-success', 'Finished successfully')
                            , (4, 'finished-errored', 'Finished with errors')
                            , (5, 'aborted', 'Aborted')
-                           , (6, 'unknown', 'Unknown');
+                           , (6, 'unknown', 'Unknown')
+                           , (7, 'pending', 'Pending')
+                           , (8, 'forced-success', 'Forced Success');
 
 
 /* ---------------------------- Execution ----------------------------------- */

@@ -14,10 +14,13 @@
   (let [rs (map (fn [{:keys [is-enabled] :as m}]
                   (assoc m :enabled? (= 1 is-enabled)))
                 (db/ls-dashboard-elements))
-        ok? #(or (nil? %1) (= %1 data/finished-success))
-        {:keys [ok error]} (group-by (fn [{:keys [status-id]}]
-                                       (if (ok? status-id) :ok :error))
-                                     rs)]
+        status-ok? (fnil #(= %1 data/finished-success) data/finished-success) ;; treat as ok if never run
+        group-fn (fn [{:keys [enabled? status-id]}]
+                   (cond
+                    (true? enabled?) :ok
+                    (status-ok? status-id) :ok
+                    :default :error))
+        {:keys [ok error]} (group-by group-fn rs)]
         {:ok (sort-by :node-name ok)
          :error (sort-by :node-name error)}))
 

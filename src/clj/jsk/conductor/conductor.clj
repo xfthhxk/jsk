@@ -111,6 +111,14 @@
   ;(log/debug "After mark-exec-wf-failed!" (state/execution-model @app-state execution-id))
   (assert-state))
 
+(defn- ensure-execution-available
+  [execution-id]
+  (when-not (state/execution-exists? @app-state execution-id)
+    (log/info "Loading into memory execution with id" execution-id)
+    (let [node-cache (state/node-schedule-cache @app-state)
+          {:keys [model]} (exs/resume-workflow-execution-data execution-id node-cache)]
+      (put-execution-model! execution-id model))))
+
 (defn- exec-wf-success?
   "Answers if the exec-wf failed"
   [exec-id exec-wf-id]
@@ -386,7 +394,8 @@
    Determines next set of jobs to run.
    Determines if the workflow is finished and/or errored.
    Sends job-finished-ack to agent.
-   publish for distribution."
+   publish for distribution.
+   Set msg-ack-kw if there is no agent to inform. if msg-ack-kw is nil agent won't be sent an ack."
   [{:keys[execution-id exec-vertex-id agent-id exec-wf-id error-msg] :as msg} msg-ack-kw status-id success?]
   (log/debug "job-ended: " msg)
 
@@ -396,7 +405,8 @@
     (db/execution-vertex-finished exec-vertex-id status-id fin-ts)
 
     ; update status memory and ack the agent so it can clear it's memory
-    (publish-to-agent agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg msg-ack-kw)))
+    (when msg-ack-kw
+      (publish-to-agent agent-id (-> msg (select-keys [:execution-id :exec-vertex-id]) (assoc :msg msg-ack-kw))))
 
     (let [; execution-active-count (state/active-jobs-count @app-state execution-id)
           next-nodes (state/successor-nodes @app-state execution-id exec-vertex-id success?)
@@ -466,17 +476,21 @@
 (defn- when-resume-job-requested
   "Resume job"
   [execution-id exec-vertex-id]
-
-  ; load execution if not already loaded
-  (when-not (state/execution-exists? @app-state execution-id)
-    (log/info "Loading into memory execution with id" execution-id)
-    (let [node-cache (state/node-schedule-cache @app-state)
-          {:keys [model]} (exs/resume-workflow-execution-data execution-id node-cache)]
-      (put-execution-model! execution-id model)))
-
+  (ensure-execution-available execution-id)
   (run-nodes [exec-vertex-id] execution-id))
 
   
+(defn- when-force-success
+  "Force success on an execution vertex for a non-success node"
+  [execution-id exec-vertex-id]
+  (log/info "Force success exec-vertex-id " exec-vertex-id " for execution " execution-id)
+  (ensure-execution-available execution-id)
+  (let [model (state/execution-model @app-state execution-id)
+        exec-wf-id (exm/owning-execution-workflow-id model exec-vertex-id)]
+  (when-job-ended {:execution-id execution-id :exec-vertex-id exec-vertex-id :exec-wf-id exec-wf-id}
+                  nil ;; this is the msg-ack-kw, nil to not send agent an ack
+                  data/forced-success
+                  true)))
 
 
 ;-----------------------------------------------------------------------
@@ -605,6 +619,13 @@
 (defmethod dispatch :request-job-resume [{:keys [execution-id exec-vertex-id]}]
   (log/info "Resume job" exec-vertex-id "in execution" execution-id)
   (when-resume-job-requested execution-id exec-vertex-id))
+
+;-----------------------------------------------------------------------
+; Force success job
+;-----------------------------------------------------------------------
+(defmethod dispatch :request-force-success [{:keys [execution-id exec-vertex-id]}]
+  (log/info "Force success" exec-vertex-id "in execution" execution-id)
+  (when-force-success execution-id exec-vertex-id))
 
 
 (defmethod dispatch :ping [{:keys[reply-to] :as data}]

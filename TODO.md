@@ -28,7 +28,8 @@ then do broadcast pings every few secs
 
 Top Priority
 -------------
-* Force Success
+* workflow/update-ui-exec-vertex-finish needs to remove/add proper
+  links in action column
 * Flush log every n seconds or n bytes.
 
 

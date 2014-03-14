@@ -99,7 +99,7 @@
   (jetty/run-jetty #'console/app {:configurator console/ws-configurator
                                   :port web-port
                                   :join? false})
-  (log/info "JSK web-app started successfully."))
+  (log/info "JSK web console started successfully."))
 
 (defn run-as-conductor
   "Runs the process as the conductor."
