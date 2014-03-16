@@ -24,6 +24,8 @@
 (def ^:private agent-icon "glyphicon glyphicon-cloud")
 (def ^:private section-icon "glyphicon glyphicon-home")
 
+(def ^:private root-dir-id 1)
+
 (defn- enable-rename-directory
   ([]
     (let [tree (tree/instance-for-id jstree-id)
@@ -36,16 +38,19 @@
 
              ;; node-opts (clj->js {:type :directory :text text :parent parent-id :id (util/->explorer-element-id dir-id :dir)})
              ;; new-node (.create_node tree sel node-opts)
+
+(defn- make-directory-under-parent [parent-dir-id]
+  (let [text (str "Directory " (util/now-ts)) ; need a unique name for creation renamed later
+        dir-data {:directory-name text :directory-id -1 :parent-directory-id parent-dir-id}]
+       (rfn/save-directory dir-data)))
+
 (defn- make-directory [node]
   (let [parent-id (get node "id")
         parent-dir-id (util/explorer-element-id->id parent-id)
         sel (tree/selected-node jstree-id)]
     (println "parent id: " parent-id ", parent-dir-id: " parent-dir-id)
     (when sel
-      (go
-       (let [text (str "Directory " (util/now-ts)) ; need a unique name for creation renamed later
-             dir-data {:directory-name text :directory-id -1 :parent-directory-id parent-dir-id}]
-             (<! (rfn/save-directory dir-data)))))))
+      (make-directory-under-parent parent-dir-id))))
 
 (defn- rm-directory [dir-id]
   (println "remove directory with id " dir-id)
@@ -92,20 +97,15 @@
 (defn- dir-context-menu [node]
   (let [clj-node (js->clj node)
         dir-explorer-id (get clj-node "id")
-        dir-id (util/explorer-element-id->id dir-explorer-id)
+        dir-id (util/explorer-element-id->id dir-explorer-id)]
         ;; 1 is the "/" directory created by the system, unfortunately
         ;; required for now
-        required-dir? (= 1 dir-id)
-        menu {:add-job {:label "Add Job" :action #(add-job dir-id)}
-              :add-workflow {:label "Add Workflow" :action #(add-workflow dir-id)}
-              :refresh-directory {:label "Refresh Directory" :action #(tree/refresh-node jstree-id dir-explorer-id)}
-              :make-directory {:label "Make Directory" :action #(make-directory clj-node) :separator_before true}
-              :rename-directory {:label "Rename Directory" :action #(enable-rename-directory)}
-              :rm-directory {:label "Delete Directory" :action #(rm-directory dir-id) :separator_before true}}]
-
-    (if required-dir?
-      (dissoc menu :rm-directory)
-      menu)))
+    {:add-job {:label "Add Job" :action #(add-job dir-id)}
+     :add-workflow {:label "Add Workflow" :action #(add-workflow dir-id)}
+     :refresh-directory {:label "Refresh Directory" :action #(tree/refresh-node jstree-id dir-explorer-id)}
+     :make-directory {:label "Make Directory" :action #(make-directory clj-node) :separator_before true}
+     :rename-directory {:label "Rename Directory" :action #(enable-rename-directory)}
+     :rm-directory {:label "Delete Directory" :action #(rm-directory dir-id) :separator_before true}}))
 
 (defn- job-context-menu [node]
   ;(def job-menu-node node)
@@ -145,7 +145,10 @@
       :agent {:make-agent {:label "Add Agent" :action #(add-agent)}
               :refresh-agents {:label "Refresh Agents" :action #(tree/refresh-node jstree-id (util/explorer-root-section-id :agent))}}
 
-      :directory {:refresh-directory {:label "Refresh Executables" :action #(tree/refresh-node jstree-id (util/explorer-root-section-id :directory))}})))
+      :directory {:add-job {:label "Add Job" :action #(add-job root-dir-id)}
+                  :add-workflow {:label "Add Workflow" :action #(add-workflow root-dir-id)}
+                  :make-directory {:label "Add Directory" :action #(make-directory-under-parent root-dir-id)}
+                  :refresh-directory {:label "Refresh Executables" :action #(tree/refresh-node jstree-id (util/explorer-executable-section-id :directory))}})))
 
 
 (defn- pick-context-menu-fn [type]
@@ -380,7 +383,7 @@
 
 
 (def ^:private tree-sections
-    [{:id (util/explorer-root-section-id :directory)
+    [{:id (util/explorer-executable-section-id :directory)
       :parent "#"
       :text "Executables"
       :type :section

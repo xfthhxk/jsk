@@ -366,6 +366,20 @@
 (defn- execution-vertex-glyphicon-span-id [id]
   (str "execution-vertex-glyph-span-id-" id))
 
+(defn- execution-vertex-actions-td-id [id]
+  (str "execution-vertex-actions-" id))
+
+(em/defsnippet execution-vertex-actions :compiled "public/templates/workflow.html" "#execution-vertex-actions-list" [execution-id execution-vertex-id status-id]
+    "a.execution-abort-action" (if (util/executing-status? status-id)
+                                 (events/listen :click #(rfn/abort-job execution-id execution-vertex-id))
+                                 (ef/remove-node))
+    "a.execution-resume-action" (if (util/resumable-execution-status? status-id)
+                                  (events/listen :click #(rfn/resume-execution execution-id execution-vertex-id))
+                                  (ef/remove-node))
+    "a.execution-force-success-action" (if (util/success-forcable-status? status-id)
+                                         (events/listen :click #(rfn/force-success execution-id execution-vertex-id))
+                                         (ef/remove-node)))
+
 (em/defsnippet execution-vertices :compiled "public/templates/workflow.html" "#execution-vertices-table" [vv]
   "tbody > :not(tr:first-child)" (ef/remove-node)
   "tbody > tr" (em/clone-for [{:keys[execution-vertex-id node-nm start-ts status finish-ts]} vv]
@@ -381,15 +395,10 @@
                                                 (ef/set-attr :id (execution-vertex-finish-td-id execution-vertex-id))
                                                 (ef/content (util/format-ts finish-ts)))
 
-                 "td > a.execution-abort-action" (if (util/executing-status? status)
-                                                   (events/listen :click #(rfn/abort-job @current-execution-id execution-vertex-id))
-                                                   (ef/remove-node))
-                 "td > a.execution-resume-action" (if (util/resumable-execution-status? status)
-                                                    (events/listen :click #(rfn/resume-execution @current-execution-id execution-vertex-id))
-                                                    (ef/remove-node))
-                 "td > a.execution-force-success-action" (if (util/success-forcable-status? status)
-                                                           (events/listen :click #(rfn/force-success @current-execution-id execution-vertex-id))
-                                                           (ef/remove-node))))
+                 "td.execution-vertex-actions" (ef/do->
+                                                (ef/set-attr :id (execution-vertex-actions-td-id execution-vertex-id))
+                                                (ef/content (execution-vertex-actions @current-execution-id execution-vertex-id status)))))
+
 
 
 ;----------------------------------------------------------------------
@@ -532,24 +541,28 @@
   (let [status-td-id (execution-vertex-status-td-id exec-vertex-id)
         start-td-id (execution-vertex-start-td-id exec-vertex-id)
         glyph-id (execution-vertex-glyphicon-span-id exec-vertex-id)
+        actions-td-sel (str "#" (execution-vertex-actions-td-id exec-vertex-id))
         glyph-sel (str "#" glyph-id)
         class-text (str "glyphicon " (status-id->glyph status))
         status-sel (str "#" status-td-id)
         start-sel (str "#" start-td-id)]
     (ef/at status-sel (ef/content (util/status-id->desc status)))
     (ef/at start-sel (ef/content (util/format-ts start-ts)))
+    (ef/at actions-td-sel (ef/content (execution-vertex-actions @current-execution-id exec-vertex-id status)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
 (defn- update-ui-exec-vertex-finish [exec-vertex-id finish-ts status]
   (let [status-td-id (execution-vertex-status-td-id exec-vertex-id)
         finish-td-id (execution-vertex-finish-td-id exec-vertex-id)
         glyph-id (execution-vertex-glyphicon-span-id exec-vertex-id)
+        actions-td-sel (str "#" (execution-vertex-actions-td-id exec-vertex-id))
         status-sel (str "#" status-td-id)
         finish-sel (str "#" finish-td-id)
         glyph-sel (str "#" glyph-id)
-        class-text (str "glyphicon " (status-id->glyph status)) ]
+        class-text (str "glyphicon " (status-id->glyph status))]
     (ef/at status-sel (ef/content (util/status-id->desc status)))
     (ef/at finish-sel (ef/content (util/format-ts finish-ts)))
+    (ef/at actions-td-sel (ef/content (execution-vertex-actions @current-execution-id exec-vertex-id status)))
     (ef/at glyph-sel (ef/set-attr :class class-text))))
 
 

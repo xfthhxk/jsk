@@ -329,12 +329,13 @@
     (log/info "Marking finished for execution-id:" execution-id ", Vertices:" vertices ", wfs:" wfs)
 
     (when (seq vertices)
-      (db/workflows-and-vertices-finished vertices wfs success? ts)
-      (publish-event {:execution-event :wf-finished
-                      :execution-id execution-id
-                      :execution-vertices vertices
-                      :finish-ts ts
-                      :success? success?}))))
+      (db/workflows-and-vertices-finished vertices wfs success? ts))
+
+    (publish-event {:execution-event :wf-finished
+                    :execution-id execution-id
+                    :execution-vertices (conj vertices exec-vertex-id)
+                    :finish-ts ts
+                    :success? success?})))
 
 
 (defn- when-wf-finished [execution-id exec-wf-id exec-vertex-id]

@@ -199,6 +199,9 @@
 (defn explorer-root-section-id [element-type]
   (->explorer-element-id 0 element-type))
 
+(defn explorer-executable-section-id [element-type]
+  (->explorer-element-id 1 element-type))
+
 (defn explorer-root-section? [element-id-str]
   (let [[element-type element-id] (explorer-element-id-dissect element-id-str)]
     (zero? element-id)))

@@ -37,13 +37,14 @@ Top Priority
 ## TODO
 * Variables
 * Timeout feature
+* Number of retries when a job fails
+* Max concurrent
 * Handle Vertex with 2 or more inbound edges. For simplicity, assume all have to have executed successfully
   What about a workflow with 3 starting nodes that must finish before going on?
   ie job 1, 2, 3 can be run in parallel, when all 3 finish do job 4.
   SystemNode? It's like a Countdown lock.
 * Looping
 * File/Directory monitor jobs
-* Number of retries when a job fails
 * Allow multiple instances of a job to run concurrently or not.
 * We're snapshotting the dependencies but not the actual job definition.
 * Search for jobs/wfs by schedule
