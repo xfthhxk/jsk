@@ -35,7 +35,7 @@ tail -f log/jsk.log
 # To run the conductor
 lein run --mode conductor --hostname localhost --cmd-port 9000 --status-port 9001 --nrepl-port 7001
 
-# To run the web app
+# To run the web console
 lein run --mode console --hostname localhost --cmd-port 9000 --status-port 9001 --web-app-port 8080 --nrepl-port 7002
 
 # To run the agent
