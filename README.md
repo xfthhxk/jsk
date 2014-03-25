@@ -43,6 +43,23 @@ lein run --mode agent --hostname localhost --cmd-port 9000 --status-port 9001 --
 lein run --mode agent --hostname localhost --cmd-port 9000 --status-port 9001 --nrepl-port 7004 --agent-name second-agent
 ```
 
+# Deployment
+sudo apt-get install gcc
+sudo apt-get install make
+sudo apt-get install openjdk-7-jdk
+
+curl -O http://download.nanomsg.org/nanomsg-0.3-beta.tar.gz
+gunzip nanomsg-0.3-beta.tar.gz
+tar -xf nanomsg-0.3-beta.tar
+cd nanomsg-0.3-beta
+./configure
+make
+make check
+sudo make install
+
+git clone git@github.com:xfthhxk/jsk.git
+
+
 ## License
 
 Copyright © 2013 Amar Mehta

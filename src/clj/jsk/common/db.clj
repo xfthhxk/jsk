@@ -209,7 +209,9 @@
 ; Insert a schedule
 ;-----------------------------------------------------------------------
 (defn insert-schedule! [m user-id]
-  (let [merged-map (merge (dissoc m :schedule-id) {:creator-id user-id :updater-id user-id})]
+  (let [ts (util/now)
+        merged-map (merge (dissoc m :schedule-id) {:creator-id user-id :updater-id user-id
+                                                   :create-ts ts :update-ts ts})]
     (log/info "Creating new schedule: " merged-map)
     (-> (insert schedule (values merged-map))
          extract-identity)))
@@ -278,7 +280,9 @@
 ; Alert fns
 ;-----------------------------------------------------------------------
 (defn insert-alert! [m user-id]
-  (let [merged-map (merge (dissoc m :alert-id) {:creator-id user-id :updater-id user-id})]
+  (let [ts (util/now)
+        merged-map (merge (dissoc m :alert-id) {:creator-id user-id :updater-id user-id
+                                                :create-ts ts :update-ts ts})]
     (log/info "Creating new alert: " merged-map)
     (-> (insert alert (values merged-map))
          extract-identity)))
@@ -400,7 +404,7 @@
 
   ([node-id alert-ids user-id]
     (let [alert-id-set (set alert-ids)
-          data {:node-id node-id :creator-id user-id}
+          data {:node-id node-id :creator-id user-id :create-ts (util/now)}
           insert-maps (map #(assoc %1 :alert-id %2) (repeat data) alert-id-set)]
       (if (not (empty? insert-maps))
         (insert node-alert (values insert-maps))))))
@@ -409,7 +413,8 @@
 (defn insert-node-alert! [node-id alert-id user-id]
   (let [data {:node-id node-id
               :alert-id alert-id
-              :creator-id user-id}]
+              :creator-id user-id
+              :create-ts (util/now)}]
 
     (-> (insert node-alert (values data))
         extract-identity)))
@@ -441,14 +446,17 @@ select
 ; Insert a node. Answer with the inserted node's row id
 ;-----------------------------------------------------------------------
 (defn- insert-node! [type-id node-nm node-desc enabled? dir-id user-id]
-  (let [data {:node-name node-nm
+  (let [ts (util/now)
+        data {:node-name node-nm
               :node-desc node-desc
               :node-type-id type-id
               :is-enabled   enabled?
               :is-system false           ; system nodes should just be added via sql
               :node-directory-id dir-id
               :creator-id user-id
-              :updater-id user-id}]
+              :updater-id user-id
+              :create-ts ts
+              :update-ts ts}]
     (-> (insert node (values data))
         extract-identity)))
 
@@ -594,7 +602,8 @@ select
 (defn insert-node-schedule! [node-id schedule-id user-id]
   (let [data {:node-id node-id
               :schedule-id schedule-id
-              :creator-id user-id}]
+              :creator-id user-id
+              :create-ts (util/now)}]
 
     (-> (insert node-schedule (values data))
         extract-identity)))
@@ -615,7 +624,7 @@ select
 
   ([node-id schedule-ids user-id]
     (let [schedule-id-set (set schedule-ids)
-          data {:node-id node-id :creator-id user-id}
+          data {:node-id node-id :creator-id user-id :create-ts (util/now)}
           insert-maps (map #(assoc %1 :schedule-id %2) (repeat data) schedule-id-set)]
       (if (not (empty? insert-maps))
         (insert node-schedule (values insert-maps))))))
@@ -1269,7 +1278,9 @@ select w.workflow_id
 ; Agent 
 ;-----------------------------------------------------------------------
 (defn insert-agent! [m user-id]
-  (let [merged-map (merge (dissoc m :agent-id) {:creator-id user-id :updater-id user-id})]
+  (let [ts (util/now)
+        merged-map (merge (dissoc m :agent-id) {:creator-id user-id :updater-id user-id
+                                                :create-ts ts :update-ts ts})]
     (log/info "Creating new agent: " merged-map)
     (-> (insert agent (values merged-map))
          extract-identity)))

@@ -23,29 +23,29 @@ create table app_user ( app_user_id int         auto_increment primary key
                       , first_name  varchar(50) not null
                       , last_name   varchar(50) not null
                       , email       varchar(50) not null
-                      , create_ts   timestamp   not null default current_timestamp()
-                      , update_ts   timestamp   not null default current_timestamp());
+                      , create_ts   timestamp   not null
+                      , update_ts   timestamp   not null);
 
 alter table app_user add constraint unq_app_user_email unique(email);
 
-insert into app_user (app_user_id, first_name, last_name, email)
-              values (1, 'JSK_System', 'JSK_System', '')
-                   , (2, 'Amar','Mehta','xfthhxk@gmail.com');
+insert into app_user (app_user_id, first_name, last_name, email, create_ts, update_ts)
+              values (1, 'JSK_System', 'JSK_System', '', now(), now())
+                   , (2, 'Amar','Mehta','xfthhxk@gmail.com', now(), now());
 
 
 /* ---------------------------- Agent --------------------------- */
 create table agent ( agent_id         int          auto_increment primary key
                    , agent_name       varchar(50)  not null
                    , creator_id       int          not null
-                   , create_ts        timestamp    not null default current_timestamp()
+                   , create_ts        timestamp    not null
                    , updater_id       int          not null 
-                   , update_ts        timestamp    not null default current_timestamp());
+                   , update_ts        timestamp    not null);
 
 alter table agent add constraint unq_agent_name unique(agent_name);
 alter table agent add constraint fk_agent_creator_id foreign key (creator_id) references app_user(app_user_id);
 alter table agent add constraint fk_agent_updater_id foreign key (updater_id) references app_user(app_user_id);
 
-insert into agent (agent_id, agent_name, creator_id, updater_id) values (1, 'agent-1', 2, 2);
+insert into agent (agent_id, agent_name, creator_id, create_ts, updater_id, update_ts) values (1, 'agent-1', 2, now(), 2, now());
 
 
 /* ---------------------------- Node Type  --------------------------- */
@@ -78,9 +78,9 @@ create table node ( node_id                 int           auto_increment primary
                   , is_enabled              boolean       not null
                   , is_system               boolean       not null
                   , node_directory_id       int           not null
-                  , create_ts               timestamp     not null default current_timestamp()
+                  , create_ts               timestamp     not null
                   , creator_id              int           not null
-                  , update_ts               timestamp     not null default current_timestamp()
+                  , update_ts               timestamp     not null
                   , updater_id              int           not null);
 
 alter table node add constraint unq_node_name unique(node_name);
@@ -124,9 +124,9 @@ create table alert( alert_id        int            auto_increment primary key
                   , subject         varchar(100)   not null
                   , body            varchar(255)   not null
                   , is_for_error    boolean        not null
-                  , create_ts       timestamp      not null default current_timestamp()
+                  , create_ts       timestamp      not null
                   , creator_id      int            not null
-                  , update_ts       timestamp      not null default current_timestamp()
+                  , update_ts       timestamp      not null
                   , updater_id      int            not null);
 
 alter table alert add constraint unq_alert_alert_name unique(alert_name);
@@ -138,7 +138,7 @@ alter table alert add constraint fk_alert_updater_id foreign key (updater_id) re
 create table node_alert( node_alert_id  int       auto_increment primary key
                        , node_id        int       not null
                        , alert_id       int       not null
-                       , create_ts      timestamp not null default current_timestamp()
+                       , create_ts      timestamp not null
                        , creator_id     int       not null);
 
 alter table node_alert add constraint fk_node_alert_node_id foreign key (node_id) references node(node_id);
@@ -152,9 +152,9 @@ create table schedule( schedule_id     int            auto_increment primary key
                      , schedule_name   varchar(50)    not null
                      , schedule_desc   varchar(255)   not null
                      , cron_expression varchar(50)    not null
-                     , create_ts       timestamp      not null default current_timestamp()
+                     , create_ts       timestamp      not null
                      , creator_id      int            not null
-                     , update_ts       timestamp      not null default current_timestamp()
+                     , update_ts       timestamp      not null
                      , updater_id      int            not null);
 
 alter table schedule add constraint unq_schedule_schedule_name unique(schedule_name);
@@ -167,7 +167,7 @@ alter table schedule add constraint fk_schedule_updater_id foreign key (updater_
 create table node_schedule ( node_schedule_id int         auto_increment primary key
                            , node_id          int         not null
                            , schedule_id      int         not null
-                           , create_ts        timestamp   not null default current_timestamp()
+                           , create_ts        timestamp   not null
                            , creator_id       int         not null);
 
 alter table node_schedule add constraint fk_node_schedule_node_id foreign key (node_id) references node(node_id);
@@ -186,8 +186,8 @@ alter table workflow add constraint fk_workflow_workflow_id foreign key (workflo
    Jobs that are not part of a workflow need a workflow id to save to executions table.
    -------------------------------------------------------------------------------------- */
 
-insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, node_directory_id, creator_id, updater_id)
-          values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1, 1);
+insert into node(node_id, node_name, node_type_id, node_desc, is_enabled, is_system, node_directory_id, creator_id, create_ts, updater_id, update_ts)
+          values(1, '_JSK_Synthetic_Workflow_', 2, 'Synthetic workflow', true, true, 1, 1, now(), 1, now());
 
 insert into workflow(workflow_id) values (1);
 
@@ -236,8 +236,8 @@ insert into execution_status (execution_status_id, status_code, status_desc)
 /* ---------------------------- Execution ----------------------------------- */
 create table execution ( execution_id        int       auto_increment primary key
                        , status_id           int       not null
-                       , start_ts          timestamp not null default current_timestamp()
-                       , finish_ts         timestamp );
+                       , start_ts            timestamp not null 
+                       , finish_ts           timestamp );
 
 
 create table execution_workflow ( execution_workflow_id   int       auto_increment primary key
