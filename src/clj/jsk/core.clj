@@ -68,8 +68,19 @@
 ;-----------------------------------------------------------------------
 (defn- init-logging [mode]
   "Setup logging options"
-  (log/set-config! [:appenders :spit :enabled?] true)
-  (log/set-config! [:shared-appender-config :spit-filename] (str "./log/jsk-" mode ".log")))
+  (log/set-config! [:appenders :standard-out :enabled?] false)
+
+  (log/set-config! [:appenders :rotor]
+                     {:min-level :info
+                      :enabled? true
+                      :async? false                  ; should always be false for rotor
+                      :max-message-per-msecs nil
+                      :fn rotor/append})
+
+  (log/set-config! [:shared-appender-config :rotor]
+                    {:path (str "./log/jsk-" mode ".log")
+                     :max-size (* 512 1024)
+                     :backlog 5}))
 
 
 (defn- common-init
