@@ -66,19 +66,11 @@
 ;-----------------------------------------------------------------------
 ; Logging initalizer.
 ;-----------------------------------------------------------------------
-(defn- init-logging []
+(defn- init-logging [mode]
   "Setup logging options"
-  (log/set-config! [:appenders :rotor]
-                     {:min-level :info
-                      :enabled? true
-                      :async? false                  ; should always be false for rotor
-                      :max-message-per-msecs nil
-                      :fn rotor/append})
+  (log/set-config! [:appenders :spit :enabled?] true)
+  (log/set-config! [:shared-appender-config :spit-filename] (str "./log/jsk-" mode ".log")))
 
-  (log/set-config! [:shared-appender-config :rotor]
-                    {:path "./log/jsk.log"
-                     :max-size (* 512 1024)
-                     :backlog 5}))
 
 (defn- common-init
   "Common initialization regardless of the mode."
@@ -114,9 +106,9 @@
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args cli-options)
-        {:keys [hostname status-port cmd-port web-app-port nrepl-port agent-name]} options]
+        {:keys [hostname status-port cmd-port web-app-port nrepl-port agent-name mode]} options]
 
-    (init-logging)
+    (init-logging mode)
     (log/info "JSK started with: " options)
 
     ;; Handle help and error conditions
@@ -130,7 +122,7 @@
 
     (common-init)
 
-    (case (:mode options)
+    (case mode
       "agent" (run-as-agent hostname cmd-port status-port agent-name)
       "conductor" (run-as-conductor cmd-port status-port)
       "console" (run-as-console hostname cmd-port status-port web-app-port)

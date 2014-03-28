@@ -11,9 +11,12 @@
 (defonce ^:private mail-chan (chan))
 
 (defn- mail-config->Properties [mail-map]
+  (log/info "mail-map" mail-map)
   (reduce (fn [p [k v]]
             (.put p k v)
-            p) (Properties.) (seq mail-map)))
+            p)
+          (Properties.)
+          (seq mail-map)))
 
 (defn- make-authenticator [{:keys [user pass]}]
   (proxy [javax.mail.Authenticator] []
@@ -56,7 +59,6 @@
     (mail* to subject body)
     (catch Exception ex
       (log/error ex))))
-
 
 (defn enqueue-mail
   "Sends the mail in a background thread."
