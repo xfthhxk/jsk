@@ -10,15 +10,12 @@
 (defonce ^:private mail-session (atom nil))
 (defonce ^:private mail-chan (chan))
 
-(defn- mail-config->Properties [host port]
-  (doto (Properties.)
-    (.put "mail.smtp.host" host)
-    (.put "mail.smtp.port" (str port))
-    (.put "mail.smtp.auth" "true")
-    (.put "mail.smtp.starttls.enable" "true")))
+(defn- mail-config->Properties [mail-map]
+  (reduce (fn [p [k v]]
+            (.put p k v)
+            p) (Properties.) (seq mail-map)))
 
-
-(defn- make-authenticator [user pass]
+(defn- make-authenticator [{:keys [user pass]}]
   (proxy [javax.mail.Authenticator] []
     (getPasswordAuthentication [] (PasswordAuthentication. user pass))))
 
@@ -47,8 +44,7 @@
        (map email->address)))
 
 (defn- mail* [to subject body]
-  (let [{:keys[user]} (conf/mail-info)
-        mail-from (email->address user)
+  (let [mail-from (email->address (conf/mail-sender))
         mail-recipients (recipients-string->addresses to)
         msg (make-mail-message @mail-session mail-from mail-recipients subject body)]
     (Transport/send msg)))
@@ -60,6 +56,7 @@
     (mail* to subject body)
     (catch Exception ex
       (log/error ex))))
+
 
 (defn enqueue-mail
   "Sends the mail in a background thread."
@@ -93,12 +90,17 @@
     (mail to subject body)
     (recur (<! mail-chan))))
 
+(defn- make-session []
+  (let [mail-map (conf/mail-props)
+        props (mail-config->Properties mail-map)
+        auth-map (conf/mail-auth)
+        auth (if auth-map
+               (make-authenticator auth-map))]
+        ;; auth can be nil
+    (Session/getDefaultInstance props auth)))
+
 (defn init
   "Initializes notifications."
   []
   (setup-mail-chan-processor)
-  (let [{:keys [user pass host port]} (conf/mail-info)
-        props (mail-config->Properties host port)
-        auth (make-authenticator user pass)
-        session (Session/getDefaultInstance props auth)]
-    (reset! mail-session session)))
+  (reset! mail-session (make-session)))

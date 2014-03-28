@@ -19,11 +19,17 @@
     (reset! config new-conf)))
 
 
-(defn mail-info []
-  (@config :email-conf))
+(defn mail-props []
+  (get-in @config [:email :props]))
+
+(defn mail-auth []
+  (get-in @config [:email :auth]))
+
+(defn mail-sender []
+  (get-in @config [:email :sender]))
 
 (defn error-email-to []
-  (@config :error-email-to))
+  (get-in @config [:email :error-mail-to]))
 
 
 (defn heartbeats-dead-after-ms
