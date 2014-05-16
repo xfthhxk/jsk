@@ -153,10 +153,12 @@
 (defn- assoc-alerts-to-vertices
   "vertex-alerts-map is a map of exec-vertex-ids to sets of alert-ids"
   [model vertex-alerts-map]
-  (reduce (fn [mdl v-id]
-            (exm/assoc-alerts mdl v-id (vertex-alerts-map v-id)))
-          model
-          (keys vertex-alerts-map)))
+  (let [ans (reduce (fn [mdl v-id]
+              (exm/assoc-alerts mdl v-id (vertex-alerts-map v-id)))
+              model
+              (keys vertex-alerts-map))]
+    (log/info "assoc-alerts-to-vertices ans: " ans)
+    ans))
 
 (defn- workflow-execution-data
   "Fetches a map with keys :execution-id :info. :info is the workflow
@@ -189,6 +191,7 @@
           (exm/add-vertices [exec-vertex-id])
           (exm/set-vertex-attrs exec-vertex-id job-id job-nm node-type wf-id exec-wf-id)
           (assoc-agent-to-vertices node-cache)
+          (assoc-alerts-to-vertices (db/execution-vertices-with-alerts execution-id))
           (exm/finalize))})
 
 (defn resume-workflow-execution-data

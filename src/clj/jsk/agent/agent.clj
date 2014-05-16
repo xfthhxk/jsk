@@ -105,6 +105,7 @@
      (try
        (let [exit-code (ps/exec1 execution-id exec-vertex-id timeout command-line execution-directory log-file-name)
              success? (zero? exit-code)]
+         (log/info "job exit-code " exit-code " success? " success?)
          (when-job-finished! (assoc base-resp :success? success?) agent-id ch))
        (catch Exception ex
          (log/error ex)
@@ -131,14 +132,14 @@
 ; Ack from conductor for the job FINISHED message we sent it
 ;-----------------------------------------------------------------------
 (defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
-  (log/debug "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (log/info "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
   (events/persist! msg))
 
 ;-----------------------------------------------------------------------
 ; Ack from conductor for the job ABORTED message we sent it
 ;-----------------------------------------------------------------------
 (defmethod dispatch :job-aborted-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
-  (log/debug "job-aborted-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (log/info "job-aborted-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
   (events/persist! msg)
   (swap! aborted-jobs disj exec-vertex-id))
 

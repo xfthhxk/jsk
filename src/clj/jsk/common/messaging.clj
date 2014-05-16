@@ -41,9 +41,13 @@
 (defn publish
   "Publishes data to the socket on the topic specified."
   [socket topic data]
-  (let [msg (str topic "\u0000" (pr-str data))]
-    ;(log/debug "Publishing " msg)
-    (nn/send! socket msg)))
+  (try 
+    (let [msg (str topic "\u0000" (pr-str data))]
+      ;(log/debug "Publishing " msg)
+      (nn/send! socket msg))
+    (catch Throwable t
+      (log/error t))))
+
 
 
 (defn- parse-data-string

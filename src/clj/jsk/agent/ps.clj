@@ -22,6 +22,7 @@
 
   (swap! process-cache assoc-in [execution-id exec-vertex-id] p))
 
+;; FIXME: memory leak, need to remove the mapping if the set is empty
 (defn- rm-from-cache [execution-id exec-vertex-id]
   (swap! process-cache update-in [execution-id] dissoc exec-vertex-id))
 
