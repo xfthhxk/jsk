@@ -22,9 +22,15 @@
 
   (swap! process-cache assoc-in [execution-id exec-vertex-id] p))
 
-;; FIXME: memory leak, need to remove the mapping if the set is empty
-(defn- rm-from-cache [execution-id exec-vertex-id]
-  (swap! process-cache update-in [execution-id] dissoc exec-vertex-id))
+(defn- rm-from-cache
+  "Removes the ps from the cache. Also removes the execution-id mapping if there are no more
+   exec-vertex ids for the execution-id"
+  [execution-id exec-vertex-id]
+  (swap! process-cache (fn [ps-cache]
+                         (let [ps-cache' (update-in ps-cache [execution-id] dissoc exec-vertex-id)]
+                           (if (empty? (ps-cache' execution-id))
+                             (dissoc ps-cache' execution-id)
+                             ps-cache')))))
 
 (defn- all-ps
   "Answers with a map of exec-vertex-ids -> StartedProcess instances belonging to the execution
