@@ -29,4 +29,8 @@
  ; agents are considered dead after not receiving heartbeats after :dead-after-milliseconds
  :heartbeats {:interval-milliseconds 1000
               :dead-after-milliseconds 30000}
+
+ ; how often agents check their log file and purge data for which acks
+ ; have already been received
+ :agents {:msg-log-purge-milliseconds 60000}
  }
