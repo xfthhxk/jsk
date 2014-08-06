@@ -196,7 +196,7 @@
         id-fn (fn [node-fn node-id-kw]
                 (->> c node-fn (filter filter-fn) (map node-id-kw)))
         job-ids (id-fn jobs :job-id)
-        wf-ids (id-fn workflows :wf-id)]
+        wf-ids (id-fn workflows :workflow-id)]
     (set (concat job-ids wf-ids))))
 
 
