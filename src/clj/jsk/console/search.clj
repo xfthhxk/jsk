@@ -29,11 +29,12 @@
   "Searches for executions in the range specified.
   exec-id is an int, exec-name is a string, status-ids a seq of ints.
   start-ts and finish-ts can be longs or dates"
-  ([{:keys[execution-id execution-name start-ts finish-ts status-ids]}]
+  ([{:keys[execution-id execution-name start-ts finish-ts status-ids] :as data-map}]
+     (log/info "data-map: " data-map)
    (executions execution-id execution-name start-ts finish-ts status-ids))
 
   ([exec-id exec-name start-ts finish-ts status-ids]
-     (log/debugf "exec-id: %s exec-name: %s start-ts: %s finish-ts: %s status-ids: %s" exec-id exec-name start-ts finish-ts status-ids)
+     (log/infof "exec-id: %s exec-name: %s start-ts: %s finish-ts: %s status-ids: %s" exec-id exec-name start-ts finish-ts status-ids)
    (let [name* (when (seq exec-name)
                  (string/trim exec-name))
          sts (date->ts start-ts)

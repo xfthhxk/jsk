@@ -31,23 +31,19 @@
               nil)]
     (assoc f :status-ids (map util/str->int ans))))
 
-(defn- update-ts [f sel kw default]
-  (let [sv (kw f)
-        ans' (if sv
-               (.parse js/Date sv)
-               default)
-        ans (if (util/nan? ans') default ans')]
-    (println "form is: " f)
-    (println "sv is:" sv)
-    (println "default is:" default)
-    (assoc f kw ans)))
+(defn- update-ts [form-map kw]
+  (let [ts (kw form-map)
+        ts' (util/parse-date ts)]
+    (println "form-map is " form-map ", ts is " ts ", ts' is " ts')
+         
+  (assoc-in form-map [kw] ts')))
 
 (defn- parse-form []
   (-> (ef/from "#executions-search-form" (ef/read-form))
       update-execution-id
       update-status-ids
-      (update-ts "#start-ts" :start-ts (-> (js/Date.) .getTime))
-      (update-ts "#finish-ts" :finish-ts nil)))
+      (update-ts :start-ts)
+      (update-ts :finish-ts)))
 
 (defn- clear-results []
   (ef/at "#executions-serch-results-div" (ef/content "")))

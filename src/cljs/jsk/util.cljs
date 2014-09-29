@@ -251,3 +251,12 @@
           ss (-> ts .getSeconds pad-zero)]
       (str day "-" mnth "-" yr " " hr ":" min ":" ss))
     ""))
+
+
+(defn parse-date
+  [str]
+  (when (seq str) 
+    (let [[date-part time-part] (string/split str #" ")
+          [year month day] (map str->int (string/split date-part #"-"))
+          [hr min] (map str->int (string/split time-part #":"))]
+      (js/Date. year (dec month) day hr min 0 0))))
