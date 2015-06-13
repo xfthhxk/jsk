@@ -9,8 +9,13 @@
 (def aborted-status 5)
 (def unknown-status 6)
 (def forced-success-status 8)
+(def paused-status 9)
 
-(def ^:private resumable-statuses #{error-status aborted-status})
+(def ^:private restartable-statuses #{error-status aborted-status})
+(def ^:private forcible-success-statuses #{error-status aborted-status})
+(def ^:private abortable-statuses #{started-status paused-status})
+(def ^:private resumable-statuses #{paused-status})
+(def ^:private pausable-statuses #{started-status})
 
 (def status-id-desc-map {1 "Not Started"
                          2 "Started"
@@ -19,7 +24,8 @@
                          5 "Aborted"
                          6 "Unknown"
                          7 "Pending"
-                         8 "Forced Success"})
+                         8 "Forced Success"
+                         9 "Paused"})
 
 (defn status-id->desc
   "Translates id to string description"
@@ -29,11 +35,21 @@
 (defn executing-status? [id]
   (= started-status id))
 
+(defn abortable-status?
+  [id]
+  (contains? abortable-statuses id))
+
+(defn restartable-execution-status? [id]
+  (contains? restartable-statuses id))
+
 (defn resumable-execution-status? [id]
   (contains? resumable-statuses id))
 
-(defn success-forcable-status? [id]
-  (resumable-execution-status? id))
+(defn pausable-execution-status? [id]
+  (contains? pausable-statuses id))
+
+(defn success-forcible-status? [id]
+  (contains? forcible-success-statuses id))
 
 (defn now-ts []
   (js/Date.now))

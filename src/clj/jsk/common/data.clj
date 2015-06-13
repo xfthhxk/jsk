@@ -18,6 +18,7 @@
 (def unknown-status 6)
 (def pending-status 7)
 (def forced-success 8)
+(def paused-status 9)
 
 
 ; root directory for hierarchy of jobs/workflows

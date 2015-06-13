@@ -230,7 +230,8 @@ insert into execution_status (execution_status_id, status_code, status_desc)
                            , (5, 'aborted', 'Aborted')
                            , (6, 'unknown', 'Unknown')
                            , (7, 'pending', 'Pending')
-                           , (8, 'forced-success', 'Forced Success');
+                           , (8, 'forced-success', 'Forced Success')
+                           , (9, 'paused', 'Paused');
 
 
 /* ---------------------------- Execution ----------------------------------- */

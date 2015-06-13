@@ -10,6 +10,7 @@
                  [org.clojure/tools.cli "0.3.1"]     ; command line option processing
                  [clojurewerkz/quartzite "1.2.0"]    ; clojure wrapper around quartz scheduling
                  [org.zeroturnaround/zt-exec "1.7"]  ; process execution
+                 [org.zeroturnaround/zt-process "1.3"] ; process utils
                  [com.taoensso/timbre "3.2.1"]       ; logging
                  [com.postspectacular/rotor "0.1.0"] ; rotating log file appender
                  [org.clojure/tools.nrepl "0.2.3"]

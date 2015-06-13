@@ -170,6 +170,20 @@
   (put! @out-chan {:msg :request-execution-abort
                    :execution-id execution-id}))
 
+(defn pause-execution
+  "Puts a message on the conductor channel to abort the execution."
+  [execution-id user-id]
+  (log/info "user " user-id "requests pausing execution " execution-id)
+  (put! @out-chan {:msg :request-execution-pause
+                   :execution-id execution-id}))
+
+(defn resume-execution
+  "Puts a message on the conductor channel to abort the execution."
+  [execution-id user-id]
+  (log/info "user " user-id "requests resuming execution " execution-id)
+  (put! @out-chan {:msg :request-execution-resume
+                   :execution-id execution-id}))
+
 
 (defn abort-job
   "Puts a message on the conductor channel to abort the execution."
@@ -179,12 +193,28 @@
                    :execution-id execution-id
                    :exec-vertex-id exec-vertex-id}))
 
+(defn pause-job
+  "Puts a message on the conductor channel to abort the execution."
+  [execution-id exec-vertex-id user-id]
+  (log/info "user " user-id "requests pausing job" exec-vertex-id "within execution" execution-id)
+  (put! @out-chan {:msg :request-job-pause
+                   :execution-id execution-id
+                   :exec-vertex-id exec-vertex-id}))
 
-(defn resume-execution
-  "Puts a message on the conductor channel to resume the execution."
+(defn resume-job
+  "Puts a message on the conductor channel to abort the execution."
   [execution-id exec-vertex-id user-id]
   (log/info "user " user-id "requests resuming job" exec-vertex-id "within execution" execution-id)
   (put! @out-chan {:msg :request-job-resume
+                   :execution-id execution-id
+                   :exec-vertex-id exec-vertex-id}))
+
+
+(defn restart-execution
+  "Puts a message on the conductor channel to resume the execution."
+  [execution-id exec-vertex-id user-id]
+  (log/info "user " user-id "requests restart job" exec-vertex-id "within execution" execution-id)
+  (put! @out-chan {:msg :request-job-restart
                    :execution-id execution-id
                    :exec-vertex-id exec-vertex-id}))
 

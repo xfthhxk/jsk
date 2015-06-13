@@ -90,6 +90,12 @@
   (-> state
       (set-status-for-jobs execution-id [vertex-id] data/started-status)))
 
+(defn mark-job-paused
+  "Marks the job as paused.  Called after an agent sends job-paused-ack."
+  [state execution-id vertex-id agent-id ts]
+  (-> state
+      (set-status-for-jobs execution-id [vertex-id] data/paused-status)))
+
 (defn mark-job-finished
   "Marks the job as finished.  Called after an agent sends job-finished."
   [state execution-id vertex-id agent-id status-id ts]

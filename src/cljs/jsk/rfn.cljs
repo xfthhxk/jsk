@@ -116,13 +116,25 @@
 (defn abort-execution [id]
   (rpc/GET (str "/executions/abort/" id)))
 
+(defn pause-execution [id]
+  (rpc/GET (str "/executions/pause/" id)))
+
+(defn resume-execution [id]
+  (rpc/GET (str "/executions/resume/" id)))
+
 (defn abort-job [execution-id exec-vertex-id]
   (rpc/GET (str "/executions/abort/" execution-id "/" exec-vertex-id)))
 
-(defn resume-execution [exec-id vertex-id]
-  (rpc/GET (str "/executions/resume/" exec-id "/" vertex-id)))
+(defn pause-job [execution-id exec-vertex-id]
+  (rpc/GET (str "/executions/pause/" execution-id "/" exec-vertex-id)))
 
-(defn force-success [execution-id exec-vertex-id]
+(defn resume-job [execution-id exec-vertex-id]
+  (rpc/GET (str "/executions/resume/" execution-id "/" exec-vertex-id)))
+
+(defn restart-job [exec-id vertex-id]
+  (rpc/GET (str "/executions/restart/" exec-id "/" vertex-id)))
+
+(defn force-success-job [execution-id exec-vertex-id]
   (rpc/GET (str "/executions/force-success/" execution-id "/" exec-vertex-id)))
 
 (defn search-executions [data]

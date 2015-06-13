@@ -1,15 +1,22 @@
 (ns jsk.agent.ps
   "JSK process handling"
   (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
             [taoensso.timbre :as log])
 
   (:import (org.zeroturnaround.exec ProcessExecutor ProcessResult StartedProcess)
+           (org.zeroturnaround.process PidUtil)
            (java.io FileOutputStream)
            (java.util.concurrent TimeUnit)))
 
 
 
 (def ^:private process-cache (atom {}))
+
+(defn process->os-pid
+  "Gets the process id as an integer for the Process p."
+  [^Process p]
+  (PidUtil/getPid p))
 
 (defn- ids->ps [execution-id exec-vertex-id]
   (get-in @process-cache [execution-id exec-vertex-id]))
@@ -50,6 +57,27 @@
   [execution-id]
   (-> (@process-cache execution-id) nil? not))
 
+
+(defn send-posix-signal
+  "Sends the signal specified to the process p by shelling out and invoking kill"
+  [^String signal ^Process p]
+  ;; get the process id
+  ;; call kill by shelling out
+ (let [pid (-> p process->os-pid str)]
+   (log/infof "Sending signal %s to process pid %s" signal pid)
+   (let [{:keys [exit out err]} (shell/sh "kill" signal pid)]
+     (if (zero? exit)
+       (log/infof "Signal %s successfully sent to process pid %s" signal pid)
+       (do
+         (log/warnf "%s exit-code: %s" pid exit)
+         (log/warnf "%s stdout: %s" pid out)
+         (log/warnf "%s stderr: %s" pid err)
+         (throw (Exception. (format "Signal %s to process pid %s failed. %s" signal pid err))))))))
+
+
+(def send-posix-stop-signal (partial send-posix-signal "-STOP"))
+(def send-posix-cont-signal (partial send-posix-signal "-CONT"))
+
 ;-----------------------------------------------------------------------
 ; Kills all processes belonging to an execution or just the one item
 ; specified in the execution group. Answers with a seq of execution-vertex-ids
@@ -71,6 +99,26 @@
      (-> p .destroy)
      (rm-from-cache execution-id exec-vertex-id)
      (list exec-vertex-id))))
+
+
+(defn pause!
+  ([execution-id]
+   (let [id-ps-map (all-ps execution-id)]
+     (doseq [p (vals id-ps-map)]
+       (send-posix-stop-signal p))))
+
+  ([execution-id exec-vertex-id]
+   (let [p (ids->ps execution-id exec-vertex-id)]
+     (send-posix-stop-signal p))))
+
+(defn resume!
+  ([execution-id]
+   (let [id-ps-map (all-ps execution-id)]
+     (doseq [p (vals id-ps-map)]
+       (send-posix-cont-signal p))))
+  ([execution-id exec-vertex-id]
+   (let [p (ids->ps execution-id exec-vertex-id)]
+     (send-posix-cont-signal p))))
 
 (defn begin-execution-tracking
   "Begins tracking this execution.  Needed so that if an execution is aborted

@@ -185,6 +185,12 @@
   (GET "/executions/abort/:id" [id :as request]
        (-> id util/str->int (wf/abort-execution (uid request)) edn-response))
 
+  (GET "/executions/pause/:id" [id :as request]
+       (-> id util/str->int (wf/pause-execution (uid request)) edn-response))
+
+  (GET "/executions/resume/:id" [id :as request]
+       (-> id util/str->int (wf/resume-execution (uid request)) edn-response))
+
   ; id is the execution id, vid the vertex id
   (GET "/executions/force-success/:id/:vid" [id vid :as request]
        (let [execution-id (util/str->int id)
@@ -197,11 +203,23 @@
              vertex-id (util/str->int vid)]
          (edn-response (wf/abort-job execution-id vertex-id (uid request)))))
 
+  ; id is the execution id, vid the vertex id
+  (GET "/executions/pause/:id/:vid" [id vid :as request]
+       (let [execution-id (util/str->int id)
+             vertex-id (util/str->int vid)]
+         (edn-response (wf/pause-job execution-id vertex-id (uid request)))))
+
+  ; id is the execution id, vid the vertex id
   (GET "/executions/resume/:id/:vid" [id vid :as request]
+       (let [execution-id (util/str->int id)
+             vertex-id (util/str->int vid)]
+         (edn-response (wf/resume-job execution-id vertex-id (uid request)))))
+
+  (GET "/executions/restart/:id/:vid" [id vid :as request]
        (let [execution-id (util/str->int id)
              vertex-id (util/str->int vid)
              user-id (uid request)]
-         (edn-response (wf/resume-execution execution-id vertex-id user-id)))))
+         (edn-response (wf/restart-execution execution-id vertex-id user-id)))))
 
 
 ;-----------------------------------------------------------------------

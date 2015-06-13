@@ -166,6 +166,7 @@
     6 "glyphicon-question-sign"     ; unknown
     7 "glyphicon-time"              ; pending
     8 "glyphicon-ok-circle"         ; forced success
+    9 "glyphicon-pause"             ; paused
     ))   ; unknown-status
 
 ;----------------------------------------------------------------------
@@ -318,9 +319,16 @@
   "#execution-status" (ef/content (util/status-id->desc status-id))
   "#start-ts" (ef/content (util/format-ts start-ts))
   "#finish-ts" (ef/content (util/format-ts finish-ts))
-  "#execution-abort-action" (if (util/executing-status? status-id)
+  "#execution-abort-action" (if (util/abortable-status? status-id)
                               (events/listen :click (fn[event] (rfn/abort-execution execution-id)))
+                              (ef/remove-node))
+  "#execution-pause-action" (if (util/pausable-execution-status? status-id)
+                              (events/listen :click (fn[event] (rfn/pause-execution execution-id)))
+                              (ef/remove-node))
+  "#execution-resume-action" (if (util/resumable-execution-status? status-id)
+                              (events/listen :click (fn[event] (rfn/resume-execution execution-id)))
                               (ef/remove-node)))
+
 
 ;----------------------------------------------------------------------
 ; Adding a new execution node on the visualizer.
@@ -370,15 +378,23 @@
   (str "execution-vertex-actions-" id))
 
 (em/defsnippet execution-vertex-actions :compiled "public/templates/workflow.html" "#execution-vertex-actions-list" [execution-id execution-vertex-id status-id]
-    "a.execution-abort-action" (if (util/executing-status? status-id)
+    "a.execution-abort-action" (if (util/abortable-status? status-id)
                                  (events/listen :click #(rfn/abort-job execution-id execution-vertex-id))
                                  (ef/remove-node))
-    "a.execution-resume-action" (if (util/resumable-execution-status? status-id)
-                                  (events/listen :click #(rfn/resume-execution execution-id execution-vertex-id))
+    "a.execution-restart-action" (if (util/restartable-execution-status? status-id)
+                                  (events/listen :click #(rfn/restart-job execution-id execution-vertex-id))
                                   (ef/remove-node))
-    "a.execution-force-success-action" (if (util/success-forcable-status? status-id)
-                                         (events/listen :click #(rfn/force-success execution-id execution-vertex-id))
-                                         (ef/remove-node)))
+
+    "a.execution-pause-action" (if (util/pausable-execution-status? status-id)
+                                  (events/listen :click #(rfn/pause-job execution-id execution-vertex-id))
+                                  (ef/remove-node))
+    "a.execution-resume-action" (if (util/resumable-execution-status? status-id)
+                                  (events/listen :click #(rfn/resume-job execution-id execution-vertex-id))
+                                  (ef/remove-node))
+    "a.execution-force-success-action" (if (util/success-forcible-status? status-id)
+                                         (events/listen :click #(rfn/force-success-job execution-id execution-vertex-id))
+                                         (ef/remove-node))
+    )
 
 (em/defsnippet execution-vertices :compiled "public/templates/workflow.html" "#execution-vertices-table" [vv]
   "tbody > :not(tr:first-child)" (ef/remove-node)
@@ -507,11 +523,13 @@
 
      ;(construct-execution-ui exec-wf-info)
      (ef/at "#execution-breadcrumb-div" (ef/content (wf-breadcrumb @breadcrumb-wf-stack)))
-     (ef/at "#execution-vertices-info" (ef/content (execution-vertices (collect-execution-details nodes))))
 
-     (plumb/reset) ; clear any state it may have had
-     (plumb/default-container :#execution-visualization-area)
-     (plumb/do-while-suspended  #(construct-execution-ui exec-wf-info)))))
+     (let [exec-details (collect-execution-details nodes)]
+       (ef/at "#execution-vertices-info" (ef/content (execution-vertices exec-details)))
+
+       (plumb/reset) ; clear any state it may have had
+       (plumb/default-container :#execution-visualization-area)
+       (plumb/do-while-suspended  #(construct-execution-ui exec-wf-info))))))
 
 
 (defn show-execution-visualizer
@@ -522,9 +540,12 @@
   (reset! current-execution-id execution-id)
   (reset! breadcrumb-wf-stack [])  ; clear the state
 
+  (println "showing exec visualizer for id " execution-id)
   (go
    (let [{:keys[root-execution-workflow-id] :as exec-info}
          (<! (rfn/fetch-execution-details execution-id))]
+
+     (println "got back the data for execution id " execution-id)
      (util/showcase (execution-visualizer exec-info))
      (show-execution-workflow-details root-execution-workflow-id))))
 
@@ -598,8 +619,15 @@
 (defmethod dispatch :job-finished [{:keys[exec-vertex-id finish-ts status]}]
   (update-ui-exec-vertex-finish exec-vertex-id finish-ts status))
 
+(defmethod dispatch :job-paused [{:keys[exec-vertex-id finish-ts status]}]
+  (update-ui-exec-vertex-finish exec-vertex-id finish-ts status))
 
-(defmethod dispatch :default [msg]) ; no-op since some msgs are handled by executions (need to refactor to execution-visualizer ns)
+(defmethod dispatch :job-resumed [{:keys[exec-vertex-id start-ts status]}]
+  (update-ui-exec-vertex-start exec-vertex-id start-ts status))
+
+(defmethod dispatch :default [msg]
+  (println "[WARN] workflow/dispatch :default case reached for msg " msg)
+  ) ; no-op since some msgs are handled by executions (need to refactor to execution-visualizer ns)
 
 (defn event-received [{:keys[execution-id] :as msg}]
   (when (= execution-id @current-execution-id)

@@ -103,6 +103,10 @@
      (ch-put ch ack-resp)
 
      (try
+
+       ; make sure the log directory exists incase it was deleted
+       (util/ensure-directory (conf/exec-log-dir))
+
        (let [exit-code (ps/exec1 execution-id exec-vertex-id timeout command-line execution-directory log-file-name)
              success? (zero? exit-code)]
          (log/info "job exit-code " exit-code " success? " success?)
@@ -128,11 +132,57 @@
     (swap! aborted-jobs conj exec-vertex-id)
     (ch-put ch abort-msg)))
 
+
+;-----------------------------------------------------------------------
+; Pause job command from conductor
+;-----------------------------------------------------------------------
+(defmethod dispatch :pause-job [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
+  (log/info "pause-job msg rcvd: " msg)
+  (let [reply-msg (merge {:agent-id agent-id} (select-keys msg [:execution-id :exec-vertex-id]))
+        pause-msg (merge reply-msg {:msg :job-paused :success? true})]
+    ; send the ack
+    (ch-put ch (merge reply-msg {:msg :pause-job-ack}))
+
+    (ps/pause! execution-id exec-vertex-id)
+
+    (events/persist! pause-msg)
+    (ch-put ch pause-msg)))
+
+;-----------------------------------------------------------------------
+; Resume job command from conductor
+;-----------------------------------------------------------------------
+(defmethod dispatch :resume-job [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
+  (log/info "resume-job msg rcvd: " msg)
+  (let [reply-msg (merge {:agent-id agent-id} (select-keys msg [:execution-id :exec-vertex-id]))
+        pause-msg (merge reply-msg {:msg :job-resumed :success? true})]
+    ; send the ack
+    (ch-put ch (merge reply-msg {:msg :resume-job-ack}))
+
+    (ps/resume! execution-id exec-vertex-id)
+
+    (events/persist! pause-msg)
+    (ch-put ch pause-msg)))
+
+
 ;-----------------------------------------------------------------------
 ; Ack from conductor for the job FINISHED message we sent it
 ;-----------------------------------------------------------------------
 (defmethod dispatch :job-finished-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
   (log/info "job-finished-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (events/persist! msg))
+
+;-----------------------------------------------------------------------
+; Ack from conductor for the job PAUSED message we sent it
+;-----------------------------------------------------------------------
+(defmethod dispatch :job-paused-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
+  (log/info "job-paused-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
+  (events/persist! msg))
+
+;-----------------------------------------------------------------------
+; Ack from conductor for the job PAUSED message we sent it
+;-----------------------------------------------------------------------
+(defmethod dispatch :job-resumed-ack [{:keys [execution-id exec-vertex-id] :as msg} agent-id ch]
+  (log/info "job-resumed-ack for execution-id:" execution-id ", exec-vertex-id:" exec-vertex-id)
   (events/persist! msg))
 
 ;-----------------------------------------------------------------------

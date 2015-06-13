@@ -84,6 +84,13 @@
   ;(log/debug "After mark-job-started!" (state/execution-model @app-state execution-id))
   (assert-state))
 
+(defn- mark-job-paused!
+  [execution-id vertex-id agent-id ts]
+  (swap! app-state #(state/mark-job-paused %1 execution-id vertex-id agent-id ts))
+  ;(log/debug "After mark-job-started!" (state/execution-model @app-state execution-id))
+  (assert-state))
+
+
 (defn- mark-job-finished!
   [execution-id vertex-id agent-id status-id ts]
   (swap! app-state #(state/mark-job-finished %1 execution-id vertex-id agent-id status-id ts))
@@ -451,6 +458,49 @@
         (when (seq next-nodes)
           (unmark-as-runnable! execution-id next-nodes))))))
 
+(defn- when-job-resumed
+  "For resumed job."
+  [execution-id exec-vertex-id agent-id]
+  (let [ts (util/now)]
+    ;; save the status to the database
+    (db/execution-vertex-finished exec-vertex-id data/started-status ts)
+    (mark-job-started! execution-id exec-vertex-id agent-id ts)
+    (publish-to-agent agent-id {:execution-id execution-id :exec-vertex-id exec-vertex-id :msg :job-resumed-ack})
+    ;; notify the UIs
+    (publish-event {:status data/started-status :execution-event :job-resumed :execution-id execution-id :exec-vertex-id exec-vertex-id :start-ts ts})))
+
+(defn- when-job-paused
+  "For paused job."
+  [execution-id exec-vertex-id agent-id]
+  (let [ts (util/now)]
+    ;; save the status to the database
+    (db/execution-vertex-finished exec-vertex-id data/paused-status ts)
+    (mark-job-paused! execution-id exec-vertex-id agent-id ts)
+    (publish-to-agent agent-id {:execution-id execution-id :exec-vertex-id exec-vertex-id :msg :job-paused-ack})
+    ;; notify the UIs
+    (publish-event {:status data/paused-status :execution-event :job-paused :execution-id execution-id :exec-vertex-id exec-vertex-id :finished-ts ts})))
+
+;-----------------------------------------------------------------------
+; -- when job pause requested
+;-----------------------------------------------------------------------
+(defn- when-pause-job-requested
+  "Sends the agent running the job a pause job message if the execution exists."
+  [execution-id exec-vertex-id]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (let [{:keys [agent-name status]} (exm/vertex-attrs model exec-vertex-id)]
+      (publish-to-agent agent-name {:execution-id execution-id :exec-vertex-id exec-vertex-id :msg :pause-job}))))
+
+;-----------------------------------------------------------------------
+; -- when job resume requested
+;-----------------------------------------------------------------------
+(defn- when-resume-job-requested
+  "Sends the agent running the job a resume job message if the execution exists
+   and the exec-vertex-id is marked as paused."
+  [execution-id exec-vertex-id]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (let [{:keys [agent-name status]} (exm/vertex-attrs model exec-vertex-id)]
+      (when (= data/paused-status status)
+        (publish-to-agent agent-name {:execution-id execution-id :exec-vertex-id exec-vertex-id :msg :resume-job})))))
 
 
 ;-----------------------------------------------------------------------
@@ -465,17 +515,22 @@
       (when (= data/started-status status)
         (publish-to-agent agent-name {:execution-id execution-id :exec-vertex-id exec-vertex-id :msg :abort-job})))))
 
-(defn- when-abort-execution-requested
-  "Sends out an abort job request to any started jobs."
-  [execution-id]
+(defn- when-execution-action-requested
+  "Takes the execution-id and a fn which accepts execution-id and a execution-vertex-id and calls
+   the fn for each vertex within the execution-id."
+  [action-fn execution-id]
   (when-let [model (state/execution-model @app-state execution-id)]
     (doseq [id (exm/job-vertices model)]
-      (when-abort-job-requested execution-id id))))
+      (action-fn execution-id id))))
+
+(def when-abort-execution-requested (partial when-execution-action-requested when-abort-job-requested))
+(def when-pause-execution-requested (partial when-execution-action-requested when-pause-job-requested))
+(def when-resume-execution-requested (partial when-execution-action-requested when-resume-job-requested))
 
 ; If the execution is already loaded, then just do run-nodes,
 ; otherwise load execution and then do run-nodes
-(defn- when-resume-job-requested
-  "Resume job"
+(defn- when-restart-job-requested
+  "restart job"
   [execution-id exec-vertex-id]
   (ensure-execution-available execution-id)
   (run-nodes [exec-vertex-id] execution-id))
@@ -598,11 +653,26 @@
 (defmethod dispatch :abort-job-ack [data]
   (log/info "Abort job ack:" data))
 
+(defmethod dispatch :pause-job-ack [data]
+  (log/info "Pause job ack:" data))
+
+(defmethod dispatch :resume-job-ack [data]
+  (log/info "Resume job ack:" data))
+
 (defmethod dispatch :job-aborted [{:keys [execution-id exec-vertex-id] :as msg}]
   (when-let [model (state/execution-model @app-state execution-id)]
     (let [{:keys [belongs-to-wf]} (exm/vertex-attrs model exec-vertex-id)
           msg' (assoc msg :exec-wf-id belongs-to-wf)]
       (when-job-ended msg' :job-aborted-ack data/aborted-status false))))
+
+
+(defmethod dispatch :job-paused [{:keys [execution-id exec-vertex-id agent-id] :as msg}]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (when-job-paused execution-id exec-vertex-id agent-id)))
+
+(defmethod dispatch :job-resumed [{:keys [execution-id exec-vertex-id agent-id] :as msg}]
+  (when-let [model (state/execution-model @app-state execution-id)]
+    (when-job-resumed execution-id exec-vertex-id agent-id)))
 
 ; Comes from the console via user action for example
 (defmethod dispatch :request-job-abort [{:keys [execution-id exec-vertex-id]}]
@@ -613,6 +683,20 @@
   (log/info "Aborting execution" execution-id)
   (when-abort-execution-requested execution-id))
 
+(defmethod dispatch :request-execution-pause [{:keys [execution-id]}]
+  (log/info "Pausing execution" execution-id)
+  (when-pause-execution-requested execution-id))
+
+(defmethod dispatch :request-execution-resume [{:keys [execution-id]}]
+  (log/info "Resuming execution" execution-id)
+  (when-resume-execution-requested execution-id))
+
+;-----------------------------------------------------------------------
+; Restart job
+;-----------------------------------------------------------------------
+(defmethod dispatch :request-job-restart [{:keys [execution-id exec-vertex-id]}]
+  (log/info "Restart job" exec-vertex-id "in execution" execution-id)
+  (when-restart-job-requested execution-id exec-vertex-id))
 
 ;-----------------------------------------------------------------------
 ; Resume job
@@ -620,6 +704,13 @@
 (defmethod dispatch :request-job-resume [{:keys [execution-id exec-vertex-id]}]
   (log/info "Resume job" exec-vertex-id "in execution" execution-id)
   (when-resume-job-requested execution-id exec-vertex-id))
+
+;-----------------------------------------------------------------------
+; Pause job
+;-----------------------------------------------------------------------
+(defmethod dispatch :request-job-pause [{:keys [execution-id exec-vertex-id]}]
+  (log/info "Pause job" exec-vertex-id "in execution" execution-id)
+  (when-pause-job-requested execution-id exec-vertex-id))
 
 ;-----------------------------------------------------------------------
 ; Force success job

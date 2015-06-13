@@ -58,8 +58,8 @@
    is the actual message sent to the conductor for which no ack was received.
    This method only returns messages for which acks were not received."
   ([]
-    (let [ack-map {:job-aborted-ack :job-aborted :job-finished-ack :job-finished}
-          data {:job-aborted {} :job-finished {}}]
+    (let [ack-map {:job-aborted-ack :job-aborted :job-finished-ack :job-finished :job-paused-ack :job-paused :job-resumed-ack :job-resumed}
+          data {:job-aborted {} :job-finished {} :job-paused {} :job-resumed {}}]
       (with-open [rdr (io/reader log-file-name)]
         (reduce (fn [m {:keys [msg exec-vertex-id] :as data-map}]
                   (cond
