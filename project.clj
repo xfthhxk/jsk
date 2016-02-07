@@ -3,11 +3,11 @@
   :url "http://jsk.io"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/clojurescript "0.0-2268"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [org.clojure/clojurescript "1.7.170"]
                  [org.clojure/core.memoize "0.5.6"]
-                 [org.clojure/core.async "0.1.303.0-886421-alpha"]
-                 [org.clojure/tools.cli "0.3.1"]     ; command line option processing
+                 [org.clojure/core.async "0.2.374"]
+                 [org.clojure/tools.cli "0.3.3"]  ; command line option processing
                  [clojurewerkz/quartzite "1.2.0"]    ; clojure wrapper around quartz scheduling
                  [org.zeroturnaround/zt-exec "1.7"]  ; process execution
                  [org.zeroturnaround/zt-process "1.3"] ; process utils
@@ -26,7 +26,7 @@
                  [javax.mail/mail "1.4.7"
                    :exclusions [javax.activation/activation]]
                  ;; ;[enfocus "2.0.2"]
-                 [enfocus "2.1.0"]
+                 [enfocus "2.1.1"]
                  [jayq "2.5.1"]
                  [clj-time "0.7.0"]
                  [jnanomsg "0.2.0"]         ; messaging lib, updating to 0.3.1 causes compilation prob with clojurescript
@@ -38,7 +38,7 @@
                                   [ring/ring-devel "1.3.0"]]}}
   :plugins [[lein-ring "0.8.7"]
             [lein-typed "0.3.0"]
-            [lein-cljsbuild "1.0.3"]]
+            [lein-cljsbuild "1.1.2"]]
   :ring {:handler jsk.console.handler/app
          :init jsk.console.handler/init
          :destroy jsk.console.handler/destroy
